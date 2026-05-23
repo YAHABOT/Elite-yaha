@@ -662,9 +662,13 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             if (!line.startsWith('data: ')) continue
             try {
               const event = JSON.parse(line.slice(6)) as { type: string; messageId?: string; sessionId?: string; content?: string; actions?: unknown[] }
+              // Capture real session ID as soon as the server emits it (before done)
+              if (event.type === 'session' && event.sessionId) {
+                attachSessionId = event.sessionId
+              }
               if (event.type === 'done' && event.messageId) {
                 attachMessageId = event.messageId
-                attachSessionId = event.sessionId ?? currentSessionId
+                attachSessionId = event.sessionId ?? attachSessionId
                 attachContent = event.content ?? ''
                 attachActions = event.actions ?? []
               }
@@ -698,7 +702,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
       setAttachedFiles([]) // Clear attachments after success
 
-      // Update session state (routine progress etc.)
+      // Update session state (routine progress etc.) — skip if session ID is still "new"
+      if (!attachSessionId || attachSessionId === 'new') return
       const sessRes = await fetch(`/api/chat/sessions/${attachSessionId}`)
       if (sessRes.ok) {
         const nextSession = await sessRes.json()
