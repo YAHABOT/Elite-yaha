@@ -702,29 +702,30 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
       setAttachedFiles([]) // Clear attachments after success
 
-      // Update session state (routine progress etc.) — skip if session ID is still "new"
-      if (!attachSessionId || attachSessionId === 'new') return
-      const sessRes = await fetch(`/api/chat/sessions/${attachSessionId}`)
-      if (sessRes.ok) {
-        const nextSession = await sessRes.json()
-        if (!isMountedRef.current) return
-        setSession(nextSession)
+      // Update session state (routine progress etc.) — skip fetch if session ID is still "new"
+      if (attachSessionId && attachSessionId !== 'new') {
+        const sessRes = await fetch(`/api/chat/sessions/${attachSessionId}`)
+        if (sessRes.ok) {
+          const nextSession = await sessRes.json()
+          if (!isMountedRef.current) return
+          setSession(nextSession)
 
-        if (nextSession.active_routine_id) {
-          const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
-          if (routRes.ok) {
-            if (!isMountedRef.current) return
-            setCurrentRoutine(await routRes.json())
-          }
-        } else {
-          setCurrentRoutine(null)
-          // Routine completed — clear the session storage entry so the next start
-          // of the same routine creates a fresh session rather than redirecting to
-          // this completed one.
-          const routineParam = searchParams.get('routine')
-          if (routineParam) {
-            sessionStorage.removeItem(`yaha_trigger_${routineParam}`)
-            sessionStorage.removeItem(`yaha_trigger_session_${routineParam}`)
+          if (nextSession.active_routine_id) {
+            const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
+            if (routRes.ok) {
+              if (!isMountedRef.current) return
+              setCurrentRoutine(await routRes.json())
+            }
+          } else {
+            setCurrentRoutine(null)
+            // Routine completed — clear the session storage entry so the next start
+            // of the same routine creates a fresh session rather than redirecting to
+            // this completed one.
+            const routineParam = searchParams.get('routine')
+            if (routineParam) {
+              sessionStorage.removeItem(`yaha_trigger_${routineParam}`)
+              sessionStorage.removeItem(`yaha_trigger_session_${routineParam}`)
+            }
           }
         }
       }
