@@ -17,6 +17,7 @@ export type ActionCard = {
   fieldLabels?: Record<string, string>
   fieldUnits?: Record<string, string>
   fieldOrder?: string[]  // Explicit schema order — arrays survive JSONB without key reordering
+  fieldDefinitions?: Record<string, SchemaFieldDef>  // Full schema info for SELECT/MULTI_SELECT rendering
   date: string // ISO date "YYYY-MM-DD"
   source: 'chat' | 'telegram' | 'manual'
   confirmed?: boolean // persisted to DB after user confirms — survives page refresh

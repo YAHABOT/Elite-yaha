@@ -1,0 +1,37 @@
+
+> yaha@0.1.0 dev
+> next dev
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\the--\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\the--\Documents\Projects\yaha\package-lock.json
+
+ ⚠ Port 3000 is in use by process 45952, using available port 3004 instead.
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3004
+   - Network:      http://10.5.0.2:3004
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 5.2s
+[?25h
+mpiling /middleware ...
+ ✓ Compiled /middleware in 841ms (164 modules)
+ ○ Compiling /chat ...
+ ✓ Compiled /chat in 6.2s (962 modules)
+[cleanup] idleCutoff=2026-05-02T17:32:54.442Z withMessagesCutoff=2026-05-01T19:32:54.442Z
+ ✓ Compiled in 5.5s (293 modules)
+ ✓ Compiled in 1869ms (293 modules)
+ ✓ Compiled in 585ms (293 modules)
+ ✓ Compiled in 623ms (293 modules)
+ ✓ Compiled in 1336ms (293 modules)
+ ✓ Compiled in 868ms (293 modules)
+ ✓ Compiled in 448ms (293 modules)
+ ✓ Compiled in 746ms (293 modules)
+ ✓ Compiled in 1303ms (293 modules)
+ ✓ Compiled in 270ms (279 modules)
+ ✓ Compiled in 419ms (293 modules)
+ ✓ Compiled in 880ms (293 modules)

@@ -1,0 +1,159 @@
+QA TEST PLAN ANALYSIS — V27-P0-B End Day Button Persistence
+
+Date: 2026-03-31
+Feature: End Day button persistence after Start Day, surviving midnight
+Status: APPROVED FOR EXECUTION
+
+EXECUTIVE SUMMARY
+
+The QA test plan comprehensively covers the core requirement: End Day button should 
+appear after Start Day and persist until manually clicked, even past midnight. 
+
+The plan includes 5 focused test cases covering:
+- Happy path (button appears)
+- Edge cases (time persistence, midnight crossing)
+- Security (RLS validation)
+
+Coverage Assessment: 100% (5/5 test cases)
+
+All tests are P0/P1 priority and address critical functionality.
+
+
+TEST CASES SUMMARY
+
+TC-V27-B-01: Button Appears After Start Day
+Status: WELL-DESIGNED (✓)
+What: Validates button visibility when dayState exists and is active
+Condition: dayEndRoutine && dayState?.day_started_at && !dayState?.day_ended_at
+Expected: PASS
+
+TC-V27-B-02: Button Persists After Clock Advances
+Status: WELL-DESIGNED (scenario clarification recommended)
+What: Validates NO time-based auto-close logic breaks persistence
+Note: YAHA auto-end triggers on DATE CHANGE, not time threshold
+Recommended rename: "...on same calendar day..."
+Expected: PASS
+
+TC-V27-B-03: Button Persists Across Midnight
+Status: EXCELLENT (most critical edge case)
+What: Validates session locked to start date survives midnight
+Setup: Date 2026-03-30, time 23:30 → Clock to 2026-03-31 00:30
+Expected: Button still visible (getActiveDayState returns session, not null)
+Integration: Validates inverse of V27-P0-A auto-close logic
+Expected: PASS
+
+TC-V27-B-04: Button Click Triggers End Day
+Status: WELL-DESIGNED (✓)
+What: Validates button click (Link navigation) → markDayEnded() call
+Verify: Session day_ended_at updated to NOW()
+Expected: PASS
+
+TC-V27-B-05: Unauthorized User Cannot See Button
+Status: EXCELLENT (security validation)
+What: Validates RLS prevents User B from seeing User A's session
+Query filter: .eq('user_id', user.id)
+DB RLS: auth.uid() = user_id
+Expected: PASS
+
+
+COVERAGE MATRIX
+
+Requirement                              Test       Coverage   Priority
+Button appears after Start Day          TC-01      100%       P0
+Button persists (no time-based close)   TC-02      100%       P1
+Button persists across midnight         TC-03      100%       P0
+Button click ends day                   TC-04      100%       P0
+RLS prevents unauthorized access        TC-05      100%       P0
+OVERALL                                 5/5        100%       All P0/P1
+
+
+CODE READINESS CHECKLIST
+
+✓ DashboardClient.tsx renders RoutineBanner with type="day_end" condition
+✓ RoutineBanner.tsx renders button for day_end type
+✓ getActiveDayState() filters by user_id + checks day_started_at
+✓ markDayEnded() updates day_ended_at in correct row
+✓ Chat route calls markDayEnded() on routine completion
+? Supabase RLS policy verified on user_day_state table (needs confirmation)
+
+
+CRITICAL INTEGRATION NOTE
+
+TC-V27-B-03 and V27-P0-A (Auto-End-Day) work in sequence:
+
+Feature          When                      Result
+V27-P0-B         Clock crosses midnight    Button still visible
+V27-P0-A         User sends message        Session auto-closes
+Integration      Next dashboard reload     Button gone
+
+The two features are complementary. P0-B validates persistence, P0-A validates 
+auto-close. Together they create a seamless user experience.
+
+
+QUALITY ASSESSMENT
+
+Aspect              Rating       Notes
+Coverage            Excellent    5 TCs cover all critical paths
+Clarity             Good         Clear scenarios; TC-02 could be renamed
+Isolation           Good         Unit + integration split appropriate
+Security            Excellent    RLS validation included
+Integration         Partial      Optional cross-feature test recommended
+Overall             APPROVED     Ready for execution
+
+
+RECOMMENDED ADJUSTMENTS (Minor)
+
+1. TC-V27-B-02 Scenario
+   Current: "past 7pm"
+   Recommended: "on same calendar day (no date advance)"
+   Reason: Clarifies actual validation (no time-based logic)
+
+2. TC-V27-B-03 Extension
+   Add: Send message on March 31 while March 30 session active
+   Verify: Auto-close triggers (V27-P0-A), button disappears after reload
+
+3. File Organization
+   Split: Unit tests (TC-01, 04) vs integration (02, 03, 05)
+
+
+TEST EXECUTION PLAN
+
+Recommended file structure:
+  src/__tests__/
+  ├── components/
+  │   └── end-day-button.test.ts (TC-01, TC-04)
+  └── integration/
+      └── day-state-persistence.integration.test.ts (TC-02, TC-03, TC-05)
+
+Execution order:
+1. TC-01 (happy path) — fastest
+2. TC-04 (user interaction)
+3. TC-05 (security)
+4. TC-02 (time persistence)
+5. TC-03 (midnight crossing) — most critical
+
+Verdict criteria:
+- All 5 pass → PASS (✓)
+- 4/5 pass (non-critical) → PASS WITH NOTES (⚠)
+- 3 or fewer → FAIL (fix required)
+
+
+VERDICT: TEST PLAN APPROVED FOR EXECUTION
+
+Status: ✅ READY
+
+Next steps:
+1. Create test files
+2. Implement TC-01 (simplest validation)
+3. Execute TC-04 (action flow)
+4. Run TC-05 (security)
+5. Run TC-02, TC-03 (edge cases)
+6. Optional: Add cross-feature integration validation
+
+Estimated execution time: 2–3 hours (includes debugging + fixes)
+Model: claude-sonnet-4-6
+
+All 5 test cases are implementable with existing codebase.
+Recommended adjustments are minor and non-blocking.
+Ready to execute immediately.
+

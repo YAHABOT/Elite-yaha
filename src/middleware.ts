@@ -54,7 +54,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // Redirect authenticated users away from login page
   if (user && request.nextUrl.pathname === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/chat'
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect authenticated users from "/" to "/chat" (BUG-V32-EX24)
+  if (user && request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/chat'
     return NextResponse.redirect(url)
   }
 

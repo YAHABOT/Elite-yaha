@@ -1,0 +1,438 @@
+
+### smoke.test.ts
+  [PASS] project setup should have vitest configured correctly
+
+### ai/actions.test.ts
+  [PASS] parseActionCards returns empty array when response has no JSON block
+  [PASS] parseActionCards returns empty array for malformed JSON inside code fence
+  [PASS] parseActionCards returns ActionCard array for valid JSON block with array
+  [PASS] parseActionCards handles single object (not array) in JSON block
+  [PASS] parseActionCards handles multiple ActionCards in array
+  [PASS] parseActionCards silently drops invalid cards in a mixed array
+  [PASS] validateActionCard returns null for non-object
+  [PASS] validateActionCard returns null for missing trackerId
+  [PASS] validateActionCard returns null for non-string trackerId
+  [PASS] validateActionCard returns null for missing trackerName
+  [PASS] validateActionCard returns null for missing fields
+  [PASS] validateActionCard returns null for wrong type string
+  [PASS] validateActionCard returns null for missing date
+  [PASS] validateActionCard returns ActionCard for fully valid input
+  [PASS] validateActionCard defaults source to "chat" when AI returns an invalid source value
+  [PASS] validateActionCard preserves valid source values
+  [PASS] sanitizeFields strips unknown fields not present in schema
+  [PASS] sanitizeFields converts string numbers to numbers for number fields
+  [PASS] sanitizeFields returns null for NaN values in number fields
+  [PASS] sanitizeFields converts minutes to hours when unit is hrs and 24 < value <= 1440
+  [PASS] sanitizeFields returns null for duration > 1440 minutes (hallucinated value)
+  [PASS] sanitizeFields does not convert sleep value when it is <= 24
+  [PASS] sanitizeFields returns null for weight > 500
+  [PASS] sanitizeFields keeps weight value when <= 500
+  [PASS] sanitizeFields converts string values to strings for text fields
+  [PASS] sanitizeFields preserves null for text fields with null value
+  [PASS] sanitizeFields handles rating fields the same as number fields
+  [PASS] sanitizeFields skips fields that are undefined in input
+
+### ai/gemini.test.ts
+  [PASS] processHealthMessage returns GeminiResponse shape with text and actions array
+  [PASS] processHealthMessage returns text string from mock response
+  [PASS] processHealthMessage returns empty actions array when response has no JSON block
+  [PASS] processHealthMessage does not throw when attachment is provided in input
+  [PASS] processHealthMessage throws for disallowed attachment MIME type
+  [PASS] processHealthMessage parses action cards from response text when JSON block is present
+  [PASS] streamHealthMessage yields text chunks from the stream
+  [PASS] streamHealthMessage does not throw when iterating the async generator
+  [PASS] extractFromImage returns a string from generateContent response
+  [PASS] extractFromImage does not throw when called with jpeg mime type
+  [PASS] GEMINI_MODEL equals gemini-2.5-flash
+
+### ai/prompt-builder.test.ts
+  [PASS] buildHealthSystemPrompt returns a string containing tracker names
+  [PASS] buildHealthSystemPrompt returns fallback text when no trackers are available
+  [PASS] buildHealthSystemPrompt includes today date in the output
+  [PASS] buildHealthSystemPrompt includes user-requested date when provided
+  [PASS] buildRoutineSystemPrompt returns a string containing the routine name
+  [PASS] buildRoutineSystemPrompt returns a string containing each step tracker name
+  [PASS] buildRoutineSystemPrompt numbers each step sequentially starting at 1
+  [PASS] buildRoutineSystemPrompt lists target fields for each step
+  [PASS] buildRoutineSystemPrompt returns a string (not null or undefined)
+  [PASS] buildRoutineSystemPrompt handles a routine with a single step
+  [PASS] buildRoutineSystemPrompt handles a routine with no steps without throwing
+
+### api/action-card-date.test.ts
+  [PASS] Action Card Date Logging (V27-P0-E) Happy Path: Action card logged with correct date (2026-03-30)
+  [PASS] Action Card Date Logging (V27-P0-E) Date Validation: Invalid formats rejected (03-30-2026)
+  [PASS] Action Card Date Logging (V27-P0-E) Empty/Undefined Date: Empty string rejected by format validation
+  [PASS] Action Card Date Logging (V27-P0-E) Date Consistency: logDateStr validated once, used consistently
+  [PASS] Action Card Date Logging (V27-P0-E) Debug Console Output: Full tracing with date, loggedAt, tracker ID
+  [PASS] Action Card Date Logging (V27-P0-E) Regression: Logged date is NOT March 4 mismatch bug
+  [PASS] Action Card Date Logging (V27-P0-E) Multiple logs same day should be allowed
+
+### api/auto-end-day.test.ts
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-01: Happy Path — Auto-close on date advance triggers markDayEnded when physical date > locked session date
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-01: Happy Path — Auto-close on date advance sets finalActiveDayState to null after auto-close
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-01: Happy Path — Auto-close on date advance uses physical date (today) as loggingDate after auto-close
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-02: Auth Failure — Different user cannot trigger auto-close returns 401 when user is not authenticated
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-02: Auth Failure — Different user cannot trigger auto-close does not auto-close another user's session
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-03: Boundary Condition — Same date (no auto-close) does not auto-close when session date equals physical date
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-03: Boundary Condition — Same date (no auto-close) does not auto-close when physical date is BEFORE session date
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-04: Edge Case — Multi-day gap (user offline) auto-closes correctly when user is offline for multiple days
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-05: Integration — Neutral state entry after auto-close enters neutral state and prompts for date confirmation after auto-close
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance TC-V27-05: Integration — Neutral state entry after auto-close consecutive messages after auto-close use neutral state prompts
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance Auto-End-Day — Logging and debugging logs auto-close action to console for debugging
+  [PASS] Auto-End-Day — Session Auto-Close on Date Advance Auto-End-Day — Logging and debugging catches errors from markDayEnded and logs them without throwing
+
+### api/chat.test.ts
+  [PASS] POST /api/chat — authentication returns 401 when user is not authenticated
+  [PASS] POST /api/chat — input validation returns 400 when message is missing
+  [PASS] POST /api/chat — input validation returns 400 when message is an empty string
+  [PASS] POST /api/chat — input validation returns 400 when message is only whitespace
+  [PASS] POST /api/chat — input validation returns 400 when message exceeds 4000 characters
+  [PASS] POST /api/chat — input validation returns 400 when attachment has a disallowed MIME type
+  [PASS] POST /api/chat — input validation returns 400 when request body is not valid JSON
+  [PASS] POST /api/chat — session management creates a new session when sessionId is not provided
+  [PASS] POST /api/chat — session management uses provided sessionId without creating a new session
+  [PASS] POST /api/chat — session management returns 404 when provided sessionId does not belong to user
+  [PASS] POST /api/chat — message persistence saves user message and model response to DB
+  [PASS] POST /api/chat — message persistence saves model response with parsed actions when present
+  [PASS] POST /api/chat — response shape returns correct ChatResponse shape with sessionId
+  [PASS] POST /api/chat — response shape returns allowed attachment MIME types through to processHealthMessage
+  [PASS] POST /api/chat — error handling returns 500 when processHealthMessage throws
+  [PASS] POST /api/chat — error handling returns 500 when getTrackers throws
+  [PASS] POST /api/chat — error handling returns 500 when addMessage throws
+  [PASS] POST /api/chat — error handling does not expose internal error details in the response
+  [PASS] POST /api/chat — routine trigger detection uses routine system prompt when detectRoutineTrigger returns a routine
+  [PASS] POST /api/chat — routine trigger detection uses default health system prompt when no routine is triggered
+  [PASS] POST /api/chat — routine trigger detection falls back to default system prompt when detectRoutineTrigger throws
+
+### api/start-day-guard.test.ts
+  [PASS] POST /api/chat — Start Day Guard (TC-01) allows Start Day when no active session exists (routineId path)
+  [PASS] POST /api/chat — Start Day Guard (TC-01) allows Start Day when no active session exists (trigger phrase path)
+  [PASS] POST /api/chat — Start Day Guard (TC-02) blocks Start Day when session exists for same date (routineId path)
+  [PASS] POST /api/chat — Start Day Guard (TC-02) blocks Start Day when session exists for same date (trigger phrase path)
+  [PASS] POST /api/chat — Start Day Guard (TC-03) auto-closes stale session before guard evaluates (different date)
+  [PASS] POST /api/chat — Start Day Guard (TC-04) protects dashboard button click path with guard check
+  [PASS] POST /api/chat — Start Day Guard (TC-05) protects chat trigger phrase path with guard check
+  [PASS] POST /api/chat — Start Day Guard (TC-05) verifies user message is persisted when guard blocks (audit trail)
+  [PASS] POST /api/chat — Start Day Guard Logic does not block non-day_start routines even with active session
+  [PASS] POST /api/chat — Start Day Guard Logic guard condition: finalActiveDayState must be non-null and routine.type must be day_start
+
+### auth/auth-actions.test.ts
+  [PASS] Auth Actions signIn returns error when email is missing
+  [PASS] Auth Actions signIn returns error when password is missing
+  [PASS] Auth Actions signIn returns error on invalid credentials
+  [PASS] Auth Actions signIn redirects to dashboard on successful sign in
+  [PASS] Auth Actions signUp returns error when email is missing
+  [PASS] Auth Actions signUp returns error when password is too short
+  [PASS] Auth Actions signUp returns error from Supabase on signup failure
+  [PASS] Auth Actions signUp redirects to dashboard on successful sign up
+  [PASS] Auth Actions signOut signs out and redirects to login
+
+### correlator/correlations-db.test.ts
+  [PASS] getCorrelations throws Unauthorized when no user is authenticated
+  [PASS] getCorrelations calls from("correlations") with correct select columns
+  [PASS] getCorrelations orders results by created_at descending
+  [PASS] getCorrelations returns correlation data on success
+  [PASS] getCorrelations propagates Supabase errors with descriptive message
+  [PASS] getCorrelation throws Unauthorized when no user is authenticated
+  [PASS] getCorrelation filters by id using .eq()
+  [PASS] getCorrelation calls .single() to expect exactly one row
+  [PASS] getCorrelation propagates Supabase errors with descriptive message
+  [PASS] createCorrelation throws Unauthorized when no user is authenticated
+  [PASS] createCorrelation inserts with correct fields including user_id
+  [PASS] createCorrelation returns the created correlation on success
+  [PASS] createCorrelation propagates Supabase errors with descriptive message
+  [PASS] updateCorrelation throws Unauthorized when no user is authenticated
+  [PASS] updateCorrelation throws "No fields to update" when given empty input
+  [PASS] updateCorrelation only includes defined fields in update payload
+  [PASS] updateCorrelation includes user_id filter for defense in depth
+  [PASS] updateCorrelation propagates Supabase errors with descriptive message
+  [PASS] deleteCorrelation throws Unauthorized when no user is authenticated
+  [PASS] deleteCorrelation includes both id and user_id filters for defense in depth
+  [PASS] deleteCorrelation propagates Supabase errors with descriptive message
+  [PASS] deleteCorrelation resolves without error on success
+
+### correlator/formula-engine.test.ts
+  [PASS] evaluateFormula constant node returns the constant value
+  [PASS] evaluateFormula constant node returns zero for a zero constant
+  [PASS] evaluateFormula constant node returns negative constants correctly
+  [PASS] evaluateFormula field node returns the value from the map when present
+  [PASS] evaluateFormula field node returns null when the key is not in the map
+  [PASS] evaluateFormula field node returns null when the value in the map is null
+  [PASS] evaluateFormula op node — addition adds two constants
+  [PASS] evaluateFormula op node — addition adds a field and a constant
+  [PASS] evaluateFormula op node — subtraction subtracts right from left
+  [PASS] evaluateFormula op node — multiplication multiplies two values
+  [PASS] evaluateFormula op node — division divides left by right
+  [PASS] evaluateFormula op node — division returns null when dividing by zero
+  [PASS] evaluateFormula null propagation returns null when left operand is null (missing field)
+  [PASS] evaluateFormula null propagation returns null when right operand is null (missing field)
+  [PASS] evaluateFormula null propagation propagates null through nested operations
+  [PASS] evaluateFormula maximum depth guard returns null when recursion exceeds MAX_DEPTH
+  [PASS] evaluateFormula maximum depth guard evaluates correctly at exactly MAX_DEPTH
+  [PASS] buildFieldValueMap returns an empty map when given no logs
+  [PASS] buildFieldValueMap maps a single numeric field correctly
+  [PASS] buildFieldValueMap sums numeric values across multiple logs for the same tracker and field
+  [PASS] buildFieldValueMap keeps fields from different trackers separate
+  [PASS] buildFieldValueMap skips string field values
+  [PASS] buildFieldValueMap skips null field values
+  [PASS] buildFieldValueMap handles multiple fields per log correctly
+  [PASS] formatResult returns "---" when value is null
+  [PASS] formatResult returns "---" for null even when unit is empty
+  [PASS] formatResult formats a whole number without decimal places
+  [PASS] formatResult formats a decimal to 1 decimal place
+  [PASS] formatResult formats a number that rounds to a whole number
+  [PASS] formatResult appends the unit with a space
+  [PASS] formatResult handles zero value correctly
+  [PASS] formatResult handles negative values
+  [PASS] formatResult preserves one decimal for values like 1850.5
+
+### chat/ActionCard.test.tsx
+  [PASS] ActionCard renders tracker name in the header
+  [PASS] ActionCard renders field values from card.fields
+  [PASS] ActionCard renders the date
+  [PASS] ActionCard shows Confirm and Discard buttons in pending state
+  [PASS] ActionCard calls confirmLogAction on confirm button click
+  [PASS] ActionCard shows Logged state after successful confirmation
+  [PASS] ActionCard shows error message when confirmLogAction returns an error
+  [PASS] ActionCard shows Discarded state after discard button click
+  [PASS] ActionCard buttons are disabled during loading state
+  [PASS] ActionCard calls onConfirm callback after successful confirmation
+  [PASS] ActionCard calls onDiscard callback after discard
+  [PASS] ActionCard shows dash for null field values
+
+### chat/ChatInterface.test.tsx
+  [PASS] ChatInterface renders initial messages
+  [PASS] ChatInterface user messages appear on the right side
+  [PASS] ChatInterface model messages appear on the left side
+  [PASS] ChatInterface renders the message input field
+  [PASS] ChatInterface renders ActionCard when message has actions
+  [PASS] ChatInterface does not render ActionCard when message has no actions
+  [PASS] ChatInterface calls fetch /api/chat on form submit
+  [PASS] ChatInterface adds user message immediately on submit (optimistic update)
+  [PASS] ChatInterface shows empty state placeholder when no messages
+  [PASS] ChatInterface shows error message when fetch fails
+
+### dashboard/dashboard-actions.test.ts
+  [PASS] createWidgetAction returns error when label is empty
+  [PASS] createWidgetAction returns error when label is only whitespace
+  [PASS] createWidgetAction returns error when label exceeds 50 characters
+  [PASS] createWidgetAction returns error when type is invalid
+  [PASS] createWidgetAction calls createWidget and revalidates on valid input
+  [PASS] createWidgetAction clamps days to lower bound (0 → 1)
+  [PASS] createWidgetAction clamps days to upper bound (500 → 365)
+  [PASS] createWidgetAction accepts all valid widget types
+  [PASS] createWidgetAction returns generic error on DAL failure
+  [PASS] createWidgetAction returns generic error for non-Error exceptions
+  [PASS] deleteWidgetAction returns error when id is empty string
+  [PASS] deleteWidgetAction calls deleteWidget and revalidates on success
+  [PASS] deleteWidgetAction returns generic error on DAL failure
+  [PASS] deleteWidgetAction returns generic error for non-Error exceptions
+  [PASS] reorderWidgetsAction returns error for empty array
+  [PASS] reorderWidgetsAction returns error when IDs contain non-string values
+  [PASS] reorderWidgetsAction calls reorderWidgets and revalidates on success
+  [PASS] reorderWidgetsAction returns generic error on DAL failure
+
+### journal/DayView.test.tsx
+  [PASS] DayView renders empty state when no logs for the day
+  [PASS] DayView renders TrackerDayGroup for each tracker that has logs
+  [PASS] DayView does not render groups for trackers with no logs
+  [PASS] DayView renders DateNav with the current date visible
+  [PASS] DayView renders multiple logs for the same tracker in one group
+  [PASS] TrackerDayGroup shows the tracker name
+  [PASS] TrackerDayGroup maps fieldId to label using tracker schema
+  [PASS] TrackerDayGroup shows field values with units
+  [PASS] TrackerDayGroup does not render fields not present in tracker schema
+  [PASS] TrackerDayGroup shows null field values as ---
+  [PASS] TrackerDayGroup shows logged_at time for each log entry
+  [PASS] TrackerDayGroup shows correct entry count label (singular)
+  [PASS] TrackerDayGroup shows correct entry count label (plural)
+  [PASS] TrackerDayGroup shows source badge for each log
+  [PASS] TrackerDayGroup shows the color dot with the tracker color
+
+### db/chat.test.ts
+  [PASS] getSessions throws Unauthorized when no user is authenticated
+  [PASS] getSessions queries chat_sessions and orders by updated_at descending
+  [PASS] getSessions returns sessions on success
+  [PASS] getSessions propagates Supabase errors with descriptive message
+  [PASS] getSession throws Unauthorized when no user is authenticated
+  [PASS] getSession filters by id and user_id for ownership verification
+  [PASS] getSession returns session data on success
+  [PASS] getSession propagates Supabase errors with descriptive message
+  [PASS] createSession throws Unauthorized when no user is authenticated
+  [PASS] createSession creates session with default title "New Chat" when no input provided
+  [PASS] createSession creates session with provided title
+  [PASS] createSession calls .single() to return the created session
+  [PASS] createSession propagates Supabase errors with descriptive message
+  [PASS] updateSession throws Unauthorized when no user is authenticated
+  [PASS] updateSession updates with provided title and touches updated_at
+  [PASS] updateSession filters by id and user_id for ownership verification
+  [PASS] updateSession propagates Supabase errors with descriptive message
+  [PASS] deleteSession throws Unauthorized when no user is authenticated
+  [PASS] deleteSession verifies ownership then calls delete
+  [PASS] deleteSession propagates Supabase errors with descriptive message when ownership check fails
+  [PASS] getMessages throws Unauthorized when no user is authenticated
+  [PASS] getMessages returns messages ordered by created_at ascending on success
+  [PASS] getMessages verifies session ownership before fetching messages
+  [PASS] getMessages propagates ownership check error with descriptive message
+  [PASS] addMessage throws Unauthorized when no user is authenticated
+  [PASS] addMessage inserts message with correct fields
+  [PASS] addMessage passes actions array when provided
+  [PASS] addMessage verifies session ownership before inserting message
+  [PASS] addMessage propagates ownership check error with descriptive message
+  [PASS] getRecentMessagesForAI throws Unauthorized when no user is authenticated
+  [PASS] getRecentMessagesForAI applies default limit of 20
+  [PASS] getRecentMessagesForAI applies custom limit when provided
+  [PASS] getRecentMessagesForAI orders by created_at descending to fetch latest messages
+  [PASS] getRecentMessagesForAI reverses results to restore chronological order for AI context
+  [PASS] getRecentMessagesForAI verifies session ownership before fetching messages
+  [PASS] getRecentMessagesForAI propagates ownership check error with descriptive message
+
+### db/logs.test.ts
+  [PASS] createLog throws Unauthorized when no user is authenticated
+  [PASS] createLog uses default source "manual" when not provided
+  [PASS] createLog uses provided source and logged_at when given
+  [PASS] createLog propagates Supabase errors with descriptive message
+  [PASS] getLogs throws Unauthorized when no user is authenticated
+  [PASS] getLogs applies default pagination (limit 50, offset 0)
+  [PASS] getLogs applies custom pagination when provided
+  [PASS] getLogs applies date range filters when provided
+  [PASS] getLogs does not apply date filters when not provided
+  [PASS] getLogs orders by logged_at descending
+  [PASS] getLogs propagates Supabase errors with descriptive message
+  [PASS] getLogsForDay throws Unauthorized when no user is authenticated
+  [PASS] getLogsForDay filters by date range correctly (start of day to start of next day)
+  [PASS] getLogsForDay propagates Supabase errors with descriptive message
+  [PASS] getLog throws Unauthorized when no user is authenticated
+  [PASS] getLog fetches a single log by id
+  [PASS] getLog propagates Supabase errors with descriptive message
+  [PASS] updateLog throws Unauthorized when no user is authenticated
+  [PASS] updateLog throws "No fields to update" when given empty input
+  [PASS] updateLog only sends defined fields in update payload
+  [PASS] updateLog includes user_id filter for defense in depth
+  [PASS] updateLog propagates Supabase errors with descriptive message
+  [PASS] deleteLog throws Unauthorized when no user is authenticated
+  [PASS] deleteLog includes user_id filter for defense in depth
+  [PASS] deleteLog propagates Supabase errors with descriptive message
+
+### db/trackers.test.ts
+  [PASS] getTrackers throws Unauthorized when no user is authenticated
+  [PASS] getTrackers calls from("trackers") with correct select columns
+  [PASS] getTrackers orders results by created_at descending
+  [PASS] getTrackers propagates Supabase errors with descriptive message
+  [PASS] getTrackers returns tracker data on success
+  [PASS] getTracker throws Unauthorized when no user is authenticated
+  [PASS] getTracker filters by id using .eq()
+  [PASS] getTracker calls .single() to expect exactly one row
+  [PASS] getTracker propagates Supabase errors with descriptive message
+  [PASS] createTracker throws Unauthorized when no user is authenticated
+  [PASS] createTracker uses defaults when optional fields not provided
+  [PASS] createTracker trims whitespace from name
+  [PASS] createTracker throws when name is empty after trimming
+  [PASS] createTracker passes provided optional fields through
+  [PASS] createTracker propagates Supabase errors with descriptive message
+  [PASS] updateTracker throws Unauthorized when no user is authenticated
+  [PASS] updateTracker throws "No fields to update" when given empty input
+  [PASS] updateTracker only includes defined fields in update payload
+  [PASS] updateTracker trims whitespace from name when updating
+  [PASS] updateTracker includes updated_at in the payload
+  [PASS] updateTracker propagates Supabase errors with descriptive message
+  [PASS] deleteTracker throws Unauthorized when no user is authenticated
+  [PASS] deleteTracker includes user_id filter for defense in depth
+  [PASS] deleteTracker propagates Supabase errors with descriptive message
+
+### routines/detector.test.ts
+  [PASS] detectRoutineTrigger returns null when no routines exist
+  [PASS] detectRoutineTrigger returns null when no routines match the message
+  [PASS] detectRoutineTrigger returns the matching routine when message contains trigger phrase
+  [PASS] detectRoutineTrigger matches case-insensitively
+  [PASS] detectRoutineTrigger matches message case-insensitively
+  [PASS] detectRoutineTrigger returns first match when multiple routines could match
+  [PASS] detectRoutineTrigger returns null when message is empty
+  [PASS] detectRoutineTrigger returns null when message is only whitespace
+  [PASS] detectRoutineTrigger calls getRoutines without arguments (auth is internal)
+
+### routines/routine-actions.test.ts
+  [PASS] createRoutineAction returns error when name is empty
+  [PASS] createRoutineAction returns error when name is only whitespace
+  [PASS] createRoutineAction returns error when name exceeds 50 characters
+  [PASS] createRoutineAction returns error when trigger_phrase is empty
+  [PASS] createRoutineAction returns error when trigger_phrase is only whitespace
+  [PASS] createRoutineAction returns error when trigger_phrase exceeds 100 characters
+  [PASS] createRoutineAction calls createRoutine and revalidates on success
+  [PASS] createRoutineAction returns generic error for caught exceptions
+  [PASS] createRoutineAction returns generic error for non-Error exceptions
+  [PASS] updateRoutineAction returns error when name is empty string
+  [PASS] updateRoutineAction returns error when name exceeds 50 characters
+  [PASS] updateRoutineAction returns error when trigger_phrase is empty string
+  [PASS] updateRoutineAction returns error when trigger_phrase exceeds 100 characters
+  [PASS] updateRoutineAction calls updateRoutine and revalidates on success
+  [PASS] updateRoutineAction skips name validation when name is not provided
+  [PASS] updateRoutineAction returns generic error for caught exceptions
+  [PASS] deleteRoutineAction calls deleteRoutine and revalidates on success
+  [PASS] deleteRoutineAction returns generic error for caught exceptions
+  [PASS] deleteRoutineAction returns fallback error for non-Error exceptions
+
+### settings/settings-actions.test.ts
+  [PASS] saveSettingsAction returns success and calls upsertUserProfile on valid input
+  [PASS] saveSettingsAction strips leading @ from telegram_handle
+  [PASS] saveSettingsAction returns error when alias exceeds 50 characters
+  [PASS] saveSettingsAction returns error when telegram_handle exceeds 50 characters after stripping @
+  [PASS] saveSettingsAction returns generic error on DAL failure — never the original message
+  [PASS] saveSettingsAction returns generic error for non-Error thrown values
+  [PASS] saveSettingsAction handles empty form data gracefully — all fields optional
+  [PASS] saveSettingsAction omits out-of-range numeric targets rather than persisting invalid values
+  [PASS] saveSettingsAction exact alias of 50 characters is accepted
+
+### settings/settings-toggle.test.tsx
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 1: Happy Path — Toggle UI renders with correct state 1a. Toggle renders with correct label in Preferences section
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 1: Happy Path — Toggle UI renders with correct state 1b. Toggle aria-checked is true when confirmOnRefresh is true
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 1: Happy Path — Toggle UI renders with correct state 1c. Toggle aria-checked is false when confirmOnRefresh is false
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 1: Happy Path — Toggle UI renders with correct state 1d. Toggle defaults to true when no initial value provided
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 1: Happy Path — Toggle UI renders with correct state 1e. Toggle click invokes the Server Action with toggled value
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 2: Persistence — Toggle state persists to DB and survives page refresh 2a. Toggle ON sends confirmOnRefresh=true to Server Action
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 2: Persistence — Toggle state persists to DB and survives page refresh 2b. Toggle OFF sends confirmOnRefresh=false to Server Action
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 2: Persistence — Toggle state persists to DB and survives page refresh 2c. Server Action success response does not trigger error display
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 2: Persistence — Toggle state persists to DB and survives page refresh 2d. Multiple sequential toggles send each state change to Server Action
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 3: Auth Boundary — Toggle state is user-scoped 3a. Server Action verifies user auth before updating preferences
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 3: Auth Boundary — Toggle state is user-scoped 3b. Toggle state in database is scoped to authenticated user only
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 4: Error Handling — Network failures and retries 4a. Server Action error object triggers error message display
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 4: Error Handling — Network failures and retries 4b. Toggle returns to previous state on Server Action error
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 4: Error Handling — Network failures and retries 4c. User can retry toggle after Server Action error
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 5: Rapid Toggling — No race conditions 5a. Rapid toggles result in final state matching last toggle action
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 5: Rapid Toggling — No race conditions 5b. Server Action calls are made in the exact order of toggle clicks
+  [PASS] Settings Toggle Persistence (V27-P0-D) Scenario 5: Rapid Toggling — No race conditions 5c. Duplicate rapid toggles do not create duplicate Server Action calls
+
+### trackers/LogForm.test.tsx
+  [PASS] LogForm renders correct input types for each schema field type
+  [PASS] LogForm shows empty state when schema is empty
+  [PASS] LogForm shows unit labels when schema fields have units
+  [PASS] LogForm does not show unit label when field has no unit
+  [PASS] LogForm shows the datetime-local input for backdating
+  [PASS] LogForm renders the submit button with correct text
+  [PASS] LogForm shows default rating value of 5
+
+### trackers/tracker-actions.test.ts
+  [PASS] createTrackerAction returns error when name is empty
+  [PASS] createTrackerAction returns error when name is only whitespace
+  [PASS] createTrackerAction returns error when name exceeds 50 characters
+  [PASS] createTrackerAction returns error when schema exceeds 20 fields
+  [PASS] createTrackerAction calls createTracker and revalidates on success
+  [PASS] createTrackerAction returns error message from caught exceptions
+  [PASS] createTrackerAction returns fallback error for non-Error exceptions
+  [PASS] updateTrackerAction returns error when name is empty string
+  [PASS] updateTrackerAction returns error when name exceeds 50 characters
+  [PASS] updateTrackerAction calls updateTracker and revalidates on success
+  [PASS] updateTrackerAction returns error message from caught exceptions
+  [PASS] deleteTrackerAction calls deleteTracker and revalidates on success
+  [PASS] deleteTrackerAction returns error message from caught exceptions
+
+### trackers/TrackerCard.test.tsx
+  [PASS] TrackerCard renders the tracker name
+  [PASS] TrackerCard renders the color dot with the correct color
+  [PASS] TrackerCard renders the type badge
+  [PASS] TrackerCard renders the field count with correct pluralization
+  [PASS] TrackerCard renders singular "field" when there is one field
+  [PASS] TrackerCard has a Log link pointing to the correct URL
+  [PASS] TrackerCard has an Edit Schema link pointing to the correct URL
+  [PASS] TrackerCard handles trackers with zero fields
+  [PASS] TrackerCard renders a different color for non-nutrition trackers

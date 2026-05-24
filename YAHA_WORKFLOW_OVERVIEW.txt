@@ -1,0 +1,72 @@
+================================================================================
+YAHA HEALTH TRACKER — WORKFLOW OVERVIEW
+High-Level Session Process & Agent Involvement
+================================================================================
+
+---
+
+SESSION START
+
+1. Initialize new session
+2. Review any unfinished work from previous session
+3. Load agent configurations
+
+---
+
+WORKFLOW PATH A: Bug Fixes
+
+❌ Previous session left unfinished bugs
+  ↓
+[MAIN] Create task with bug details
+  ↓
+[CODING AGENT] Fix the bugs
+  ↓
+[CODE REVIEWER] Review the fixes
+  ├─ PASS → Continue to Testing
+  └─ FAIL → Return to Coding Agent for revisions (loop)
+  ↓
+[QA AGENT] Test & verify fixes
+  ├─ Bugs found → Return to Coding Agent (loop)
+  └─ All pass → ✓ Complete
+
+---
+
+WORKFLOW PATH B: New Feature
+
+✓ Starting new work
+  ↓
+[RESEARCH AGENT] Investigate requirements & clarify approach
+  ↓
+[MAIN] Review research, create task plan
+  ↓
+[CODING AGENT] Build the feature
+  ↓
+[CODE REVIEWER] Review the code
+  ├─ PASS → Continue to Testing
+  └─ FAIL → Return to Coding Agent for revisions (loop)
+  ↓
+[QA AGENT] Test & verify feature
+  ├─ Bugs found → Return to Coding Agent (loop)
+  └─ All pass → ✓ Complete
+
+---
+
+AGENTS INVOLVED
+
+[MAIN]           Orchestrator — Plans work, routes tasks, makes decisions
+[CODING AGENT]   Builds features, fixes bugs, writes code
+[CODE REVIEWER]  Reviews code quality, finds issues, approves or rejects
+[QA AGENT]       Tests functionality, verifies behavior, documents results
+[RESEARCH AGENT] Investigates requirements, clarifies approach, explores options
+
+---
+
+SESSION END
+
+1. Document all completed work
+2. Mark any incomplete tasks for next session
+3. Wrap up session
+
+================================================================================
+END OVERVIEW
+================================================================================

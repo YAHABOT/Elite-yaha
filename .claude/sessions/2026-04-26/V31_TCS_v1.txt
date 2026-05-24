@@ -1,0 +1,356 @@
+================================================================================
+PHASE 1 TEST CASE SPECIFICATION (TCS_v1)
+Data Model & Core Integrity
+================================================================================
+
+BRIEF OVERVIEW:
+Phase 1 implements three foundational changes:
+1. SELECT field type: Allows users to define yes/no, enum, or multi-choice fields at tracker creation
+2. UPDATE_DATA action type: Enables log updates via SQL UPDATE (prevents duplicate entries)
+3. Message filtering: Isolates chat history by session date + user to prevent cross-day/cross-user data leakage
+
+These changes fix 6 major bugs (11, 9, 23, 28, 6, 13, 22, 21, 26, 29).
+
+================================================================================
+DETAILED TEST CASES
+================================================================================
+
+TEST SET 1: SELECT FIELD TYPE VALIDATION
+=============================================
+
+TEST 1.1: Create Tracker with SELECT Field (Single-Select)
+---
+Objective: Verify SELECT field type can be created at tracker definition time
+Preconditions:
+  - App is open, user logged in
+  - On Tracker creation page
+Steps:
+  1. Click "Create New Tracker"
+  2. Enter tracker name: "Test Tracker"
+  3. Click "Add Field"
+  4. Field name: "Sleep Quality"
+  5. Field type dropdown: Select "SELECT" (not text, number, time, rating)
+  6. In the "Options" field, enter options (one per line):
+     - Good
+     - Fair
+     - Poor
+  7. Toggle "Allow Multiple Selections" to OFF (single-select mode)
+  8. Click "Create Tracker"
+Expected Result:
+  - Tracker created successfully
+  - Sleep Quality field shows as SELECT type
+  - Options displayed: ["Good", "Fair", "Poor"]
+  - Verify in tracker details page that options are saved
+
+TEST 1.2: Create Tracker with SELECT Field (Multi-Select)
+---
+Objective: Verify multi-select option works
+Preconditions:
+  - Tracker creation page
+Steps:
+  1. Create new tracker "Multi Test"
+  2. Add field "Workout Types"
+  3. Field type: SELECT
+  4. Options:
+     - Cardio
+     - Strength
+     - Flexibility
+     - Sports
+  5. Toggle "Allow Multiple Selections" to ON
+  6. Create tracker
+Expected Result:
+  - Tracker created
+  - Field allows selecting multiple options simultaneously
+  - When logging, can choose ["Cardio", "Strength"] together
+
+TEST 1.3: Log Value Matching SELECT Options
+---
+Objective: Verify logging with valid SELECT options works
+Preconditions:
+  - Sleep Quality tracker exists with options [Good, Fair, Poor]
+  - Tracker is open in chat or logging UI
+Steps:
+  1. Start logging to Sleep Quality field
+  2. Select "Good" from the dropdown
+  3. Confirm log entry
+Expected Result:
+  - Entry logged successfully
+  - Tracker shows "Good" as the logged value
+  - No string "Good" appears as text in database (stored as option reference)
+
+TEST 1.4: Reject Value NOT in SELECT Options
+---
+Objective: Verify invalid options are rejected
+Preconditions:
+  - Sleep Quality tracker with [Good, Fair, Poor] exists
+  - Logging interface open
+Steps:
+  1. Attempt to manually type "Excellent" (not in options)
+  2. Try to submit
+Expected Result:
+  - Either:
+    a) Dropdown restricts selection to valid options only, OR
+    b) Validation error: "Excellent is not a valid option for Sleep Quality"
+  - Entry is NOT logged
+
+TEST 1.5: Yes/No Field (Bug 29 Fix)
+---
+Objective: Verify yes/no questions work correctly now
+Preconditions:
+  - Create new tracker "Daily Check"
+  - Add field "Took vitamins?" with type SELECT
+  - Options: ["Yes", "No"]
+  - Single-select mode
+Steps:
+  1. In routine or chat, bot asks: "Did you take vitamins?"
+  2. User responds: "No"
+  3. Bot confirms and logs
+Expected Result:
+  - Field logged correctly (not as literal string "No")
+  - Bot understands "No" = user didn't log the item
+  - Next day, the field is empty (not showing "No" string)
+  - Compare to Bug 29 before fix: was logging literal "No" instead of skipping
+
+TEST 1.6: Case Sensitivity & Whitespace Handling
+---
+Objective: Verify option matching is robust
+Preconditions:
+  - SELECT field with options ["Yes", "No", "Maybe"]
+Steps:
+  1. Log with "yes" (lowercase, should not match "Yes")
+  2. Log with "  Yes  " (extra whitespace)
+  3. Log with "YES" (all caps)
+Expected Result:
+  - Lowercase "yes" is rejected (case-sensitive)
+  - "  Yes  " with whitespace is accepted (trimmed before matching)
+  - "YES" is rejected (case-sensitive)
+
+---
+
+TEST SET 2: UPDATE_DATA ACTION TYPE
+====================================
+
+TEST 2.1: Log Entry and Then Update (Bug 11 Fix)
+---
+Objective: Verify UPDATE_DATA action creates UPDATE not INSERT
+Preconditions:
+  - Nutrition tracker with Calories field exists
+  - User is in active day session
+Steps:
+  1. Log: "100 calories"
+  2. Tracker shows: [Calories: 100 kcal]
+  3. User says in chat: "add another 100 to that"
+  4. Bot responds: "I'll update your log to 200 calories"
+  5. Check tracker
+Expected Result:
+  - Tracker shows: [Calories: 200 kcal] (NOT 300)
+  - Only ONE entry exists (not two entries: 100 + 200)
+  - Daily total is 200 (not 300)
+  - Compare to Bug 11: Before fix was creating duplicate entry = 300 total
+
+TEST 2.2: Partial Field Update
+---
+Objective: Verify UPDATE_DATA preserves other fields
+Preconditions:
+  - Log entry exists: {Calories: 200, Protein: 25g, Time: 12:00pm}
+  - User requests: "update the calories to 250"
+Steps:
+  1. Bot emits UPDATE_DATA action
+  2. Check resulting log entry
+Expected Result:
+  - Calories updated to 250
+  - Protein still shows 25g (not deleted)
+  - Time still shows 12:00pm (not deleted)
+  - Only updated field changed, others preserved
+
+TEST 2.3: Invalid Log ID (Auth Check)
+---
+Objective: Verify UPDATE_DATA enforces RLS
+Preconditions:
+  - Log entry exists owned by User A
+  - Logged in as User B
+Steps:
+  1. Attempt to manually trigger UPDATE_DATA for User A's log
+  2. System processes request
+Expected Result:
+  - Error: "Unauthorized" or "Cannot update log"
+  - Log is NOT updated
+  - RLS protection verified
+
+TEST 2.4: Double Update (Idempotency)
+---
+Objective: Verify updating same log twice works correctly
+Preconditions:
+  - Log entry: {Calories: 100}
+Steps:
+  1. First update: "Change to 150"
+  2. Immediately second update: "Change to 200"
+  3. Check tracker
+Expected Result:
+  - Final value: 200 kcal
+  - Not 150, not 250 (not accumulated)
+  - Single UPDATE executed, second overwrites first
+
+TEST 2.5: LOG_DATA Still Creates New Rows
+---
+Objective: Verify UPDATE_DATA doesn't break existing LOG_DATA behavior
+Preconditions:
+  - One log entry exists
+Steps:
+  1. User logs NEW entry: "200 calories at dinner"
+  2. Bot emits LOG_DATA action (not UPDATE_DATA)
+  3. Check tracker
+Expected Result:
+  - TWO entries now exist
+  - First entry still present
+  - New entry added separately
+  - Total = 100 + 200 = 300 (both logs counted)
+
+---
+
+TEST SET 3: MESSAGE HISTORY FILTERING
+======================================
+
+TEST 3.1: Cross-Day History Isolation
+---
+Objective: Verify messages from yesterday don't pollute today's context
+Preconditions:
+  - Yesterday: 10 logged messages exist in chat history
+  - Today: 5 new messages logged
+  - Both days have same user
+Steps:
+  1. Start new routine today
+  2. Bot processes context
+  3. Ask bot: "What did I log yesterday?" (should NOT have yesterday's messages in context)
+Expected Result:
+  - Bot says: "I don't have access to yesterday's data" (correct response)
+  - Bot doesn't recall yesterday's logs from chat history
+  - Only today's 5 messages are in LLM context
+  - Compare to Bug 6: Before fix, yesterday's messages bled into context
+
+TEST 3.2: Cross-User Data Leakage Prevention
+---
+Objective: Verify User A's history doesn't appear for User B
+Preconditions:
+  - User A logged in from morning, created messages
+  - Logged out, User B logs in
+Steps:
+  1. User B starts routine
+  2. User B asks: "What routines am I doing?"
+Expected Result:
+  - Bot only shows User B's routines
+  - Bot doesn't mention User A's steps/routines
+  - No cross-user contamination
+  - Compare to Bug 6.4: Before fix, User B saw User A's field names
+
+TEST 3.3: Backward Compatibility (No Filter Parameter)
+---
+Objective: Verify old behavior still works
+Preconditions:
+  - getRecentMessagesForAI() called without filterDate parameter
+Steps:
+  1. Call function without date filter
+  2. Observe results
+Expected Result:
+  - Returns last 10 messages (old behavior)
+  - No error or breaking change
+  - Backward compatible
+
+TEST 3.4: Empty Result Handling
+---
+Objective: Verify missing data returns empty array, not null
+Preconditions:
+  - Today's date has no messages
+Steps:
+  1. Call getRecentMessagesForAI() with today's date filter
+  2. Check return value
+Expected Result:
+  - Returns [] (empty array)
+  - NOT null
+  - NOT undefined
+  - Code handles gracefully
+
+TEST 3.5: Timezone Boundary (23:59:59 to 00:00:00)
+---
+Objective: Verify date filtering respects timezone boundaries
+Preconditions:
+  - Message logged at 23:59:59 on April 25
+  - Message logged at 00:00:00 on April 26
+Steps:
+  1. Filter for April 25
+  2. Check results
+Expected Result:
+  - April 25 query includes 23:59:59 message
+  - April 25 query does NOT include 00:00:00 message
+  - Boundary is correct (inclusive start, exclusive end)
+
+TEST 3.6: Routine Without Cross-Session Data
+---
+Objective: Verify routine doesn't pull stale data from previous days
+Preconditions:
+  - Yesterday: Ran morning routine, logged sleep score
+  - Today: Starting morning routine
+Steps:
+  1. Start morning routine today
+  2. Bot asks routine questions
+  3. Observe: Does bot mention yesterday's sleep data?
+Expected Result:
+  - Bot treats as fresh routine
+  - Doesn't ask "Your sleep was 8 hours yesterday, what about today?"
+  - No contamination from previous day
+  - Compare to Bug 26: Before fix, routine asked redundantly
+
+---
+
+TEST SET 4: INTEGRATION TESTS
+==============================
+
+TEST 4.1: Full Routine Flow with SELECT Fields
+---
+Objective: End-to-end routine using new SELECT field type
+Preconditions:
+  - Morning routine with SELECT fields defined:
+    * "Sleep Quality?" [Good, Fair, Poor]
+    * "Mood?" [Great, Good, Okay, Bad]
+  - User is in active day session
+Steps:
+  1. Start routine
+  2. Bot asks: "How was your sleep quality?"
+  3. User selects "Good"
+  4. Bot asks: "What's your mood?"
+  5. User selects ["Good", "Great"] if multi-select enabled
+  6. Bot confirms and logs
+Expected Result:
+  - Both fields logged with selected options
+  - Tracker shows clean values (not strings)
+  - Routine completes without errors
+
+TEST 4.2: Update Within Routine
+---
+Objective: Verify UPDATE_DATA works during routine flow
+Preconditions:
+  - During routine, user logs Calories: 150
+  - Before confirming, user says: "actually 200"
+Steps:
+  1. Bot detects update request
+  2. Emits UPDATE_DATA action
+  3. Tracker updates
+Expected Result:
+  - Calories updated to 200 in real-time
+  - Routine continues smoothly
+  - No duplicate entries created
+
+---
+
+SUMMARY CHECKLIST:
+==================
+Run through all 21 tests above. For each:
+- If PASS: Mark as PASS, continue
+- If FAIL: Screenshot the failure, note what went wrong, save screenshot as SC_Phase1_Test[1.1-4.2]_FAIL.png
+
+EXPECTED OUTCOME:
+All 21 tests should PASS. If any FAIL, note the specific test number and failure mode so we can debug before moving to Phase 3.
+
+================================================================================
+END TCS_v1
+================================================================================

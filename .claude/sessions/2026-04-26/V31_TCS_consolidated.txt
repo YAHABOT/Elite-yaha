@@ -1,0 +1,1161 @@
+================================================================================
+V31 CONSOLIDATED MANUAL TEST CASE SPECIFICATION
+Build 1 (Phase 1) + Build 2 (Phase 2) — Android Chrome
+Date: 2026-04-26
+Branch: claude/trusting-satoshi-b6a06e
+Total: 67 tests across 14 test sets
+================================================================================
+
+INSTRUCTIONS
+------------
+- Test on Android Chrome against the Vercel preview deploy for this branch
+- Mark each test PASS or FAIL
+- If FAIL: screenshot + note what you saw vs what was expected
+- Save screenshots as: SC_[TC_ID]_FAIL.png  e.g. SC_P1_1.1_FAIL.png
+- Complete all areas before reporting results
+
+================================================================================
+PHASE 1 — DATA MODEL & CORE INTEGRITY (21 tests)
+Fixes: Bug 11 (duplicate entries), Bug 9 (cross-day totals), Bug 6 (data leakage),
+       Bugs 23/28 (calculations), Bug 29 (Yes/No as string)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST SET P1-1: SELECT FIELD TYPE (6 tests)
+--------------------------------------------------------------------------------
+
+TC P1-1.1: Create tracker with SELECT field (single-select)
+---
+Steps:
+  1. Navigate to Trackers
+  2. Create a new tracker "Test Tracker"
+  3. Add a field, name it "Sleep Quality"
+  4. Set type to SELECT from the dropdown
+  5. In Options textarea, enter (one per line):
+       Good
+       Fair
+       Poor
+  6. Leave "Allow Multiple Selections" OFF
+  7. Save tracker
+Expected:
+  - Tracker saves successfully
+  - Sleep Quality field shows as SELECT type
+  - Options [Good, Fair, Poor] visible in tracker details
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.1_FAIL.png
+
+
+TC P1-1.2: Create tracker with SELECT field (multi-select)
+---
+Steps:
+  1. Create new tracker "Multi Test"
+  2. Add field "Workout Types", type SELECT
+  3. Options (one per line):
+       Cardio
+       Strength
+       Flexibility
+       Sports
+  4. Enable "Allow Multiple Selections"
+  5. Save tracker
+Expected:
+  - Tracker saves successfully
+  - Multi-select toggle confirmed ON after save
+  - When logging, multiple options can be chosen simultaneously
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.2_FAIL.png
+
+
+TC P1-1.3: Log value matching SELECT options
+---
+Pre: Sleep Quality tracker exists with options [Good, Fair, Poor]
+Steps:
+  1. Start logging to Sleep Quality field
+  2. Select "Good" from the dropdown/card
+  3. Confirm the log entry
+Expected:
+  - Entry logged successfully
+  - Tracker shows "Good" as the logged value (not a raw string error)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.3_FAIL.png
+
+
+TC P1-1.4: Invalid option not in SELECT list is rejected
+---
+Pre: Sleep Quality tracker with [Good, Fair, Poor]
+Steps:
+  1. Attempt to log a value not in the options list
+     (test via AI chat: "log my sleep quality as Excellent")
+Expected:
+  - Either: dropdown restricts to valid options only, OR
+  - Validation error: value not valid for this field
+  - Entry is NOT logged with an invalid option
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.4_FAIL.png
+
+
+TC P1-1.5: Yes/No SELECT field (Bug 29 fix)
+---
+Pre: Create tracker "Daily Check", field "Took vitamins?" type SELECT, options [Yes, No]
+Steps:
+  1. In chat or routine, bot asks: "Did you take vitamins?"
+  2. User responds: "No"
+  3. Confirm the log card
+Expected:
+  - Field logs the value "No" (the SELECT option) correctly
+  - NOT logged as literal string confusion
+  - Entry visible in tracker history as "No"
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.5_FAIL.png
+
+
+TC P1-1.6: Switching away from SELECT clears options
+---
+Steps:
+  1. Add a field, set type to SELECT, enter some options
+  2. Change the field type to "Number"
+Expected:
+  - Options textarea and multi-select checkbox disappear
+  - No stale select options remain on the field when saving as Number
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P1-2: UPDATE_DATA ACTION TYPE (5 tests)
+--------------------------------------------------------------------------------
+
+TC P1-2.1: AI produces UPDATE_DATA card on correction (Bug 11 fix)
+---
+Steps:
+  1. Log: "100 calories" in chat — confirm LOG_DATA card
+  2. Say: "add another 100 to that" or "change that to 200 calories"
+  3. Observe bot response
+Expected:
+  - Bot emits UPDATE_DATA card (BLUE themed, not green LOG_DATA)
+  - Card says "Update Entry" style header
+  - Shows field being updated with new value
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.1_FAIL.png
+
+
+TC P1-2.2: UPDATE_DATA creates no duplicate row
+---
+Pre: Confirmed log entry exists (100 calories)
+Steps:
+  1. Trigger UPDATE_DATA and change to 200 calories
+  2. Confirm the update card
+  3. Navigate to tracker log history
+Expected:
+  - Only ONE entry exists (not two)
+  - The entry shows 200 (not 100 or 300)
+  - No duplicate row was created
+  - Compare to Bug 11: before fix, this created a second INSERT
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.2_FAIL.png
+
+
+TC P1-2.3: Partial field update preserves other fields
+---
+Pre: Log entry exists with Calories: 200, Protein: 25g
+Steps:
+  1. Say: "update the calories to 250"
+  2. Confirm the UPDATE_DATA card
+  3. Check the log entry
+Expected:
+  - Calories updated to 250
+  - Protein still shows 25g (not deleted/zeroed)
+  - Only the changed field was modified
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.3_FAIL.png
+
+
+TC P1-2.4: Double update — second overwrites first
+---
+Pre: Log entry: Calories 100
+Steps:
+  1. Say "change to 150" — confirm update
+  2. Immediately say "change to 200" — confirm update
+  3. Check tracker
+Expected:
+  - Final value: 200 kcal
+  - Not 150, not 350 (not accumulated)
+  - Second update overwrote first
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.4_FAIL.png
+
+
+TC P1-2.5: LOG_DATA still creates new rows (regression check)
+---
+Steps:
+  1. Log first entry: "200 calories at lunch"
+  2. Confirm LOG_DATA card
+  3. Log a DIFFERENT entry: "300 calories at dinner"
+  4. Confirm LOG_DATA card
+  5. Check tracker log history
+Expected:
+  - TWO separate entries exist
+  - First entry (200) still present
+  - Second entry (300) added as new row
+  - UPDATE_DATA changes did not break normal LOG_DATA inserts
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.5_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P1-3: MESSAGE HISTORY FILTERING (6 tests)
+--------------------------------------------------------------------------------
+
+TC P1-3.1: Yesterday's messages don't pollute today's AI context (Bug 6)
+---
+Pre: At least one chat session exists from a previous day
+Steps:
+  1. Start new chat session TODAY
+  2. Ask bot: "What did I log earlier today?"
+  3. Ask bot: "What were we talking about?"
+Expected:
+  - Bot does NOT reference yesterday's chat messages as today's
+  - Bot says it has no prior context for today (if clean session)
+  - Yesterday's conversations are invisible to today's AI context
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.1_FAIL.png
+
+
+TC P1-3.2: AI sees today's messages within same session
+---
+Steps:
+  1. In an active chat session, log "I had 300 calories for breakfast"
+  2. A few messages later, ask: "What did I log today?"
+Expected:
+  - AI references the 300 calorie breakfast from earlier in this session
+  - Correct recall within the same session
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.2_FAIL.png
+
+
+TC P1-3.3: Historical query still works after filtering
+---
+Steps:
+  1. Ask: "What did I log yesterday?" or "Show me my macros from 3 days ago"
+Expected:
+  - AI correctly retrieves historical log data for the requested period
+  - History injection still functions (filter only applies to chat messages, not log data)
+  - Data is presented correctly
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.3_FAIL.png
+
+
+TC P1-3.4: Routine doesn't reference previous day's stale data (Bug 26)
+---
+Pre: Ran morning routine yesterday; starting it again today
+Steps:
+  1. Start morning routine today
+  2. Observe whether bot references yesterday's data unprompted
+Expected:
+  - Bot treats today's routine as fresh start
+  - Does NOT say "Your sleep was X hours yesterday — what about today?"
+  - Routine starts from step 1 without contamination from yesterday
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.4_FAIL.png
+
+
+TC P1-3.5: Cross-user isolation (if testable)
+---
+Pre: Two separate accounts (if accessible)
+Steps:
+  1. Log into Account A, create some chat history
+  2. Log out, log into Account B
+  3. Open chat — check if Account A messages are visible
+Expected:
+  - Account B sees NO data from Account A
+  - Complete user isolation
+  - Skip if only one account available — mark N/A
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.5_FAIL.png
+N/A if single account: ____
+
+
+TC P1-3.6: New chat session starts with clean message context
+---
+Steps:
+  1. Start a brand-new chat session (tap "New Chat")
+  2. Ask: "What did we just talk about?"
+Expected:
+  - AI says this is a new session with no prior context
+  - Does NOT reference messages from other sessions today
+  - No spillover between separate chat sessions
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P1-4: INTEGRATION TESTS (4 tests)
+--------------------------------------------------------------------------------
+
+TC P1-4.1: Full routine flow with SELECT fields
+---
+Pre: Routine has SELECT fields (e.g. Sleep Quality [Good/Fair/Poor], Mood [Great/Good/Okay/Bad])
+Steps:
+  1. Start the routine
+  2. Answer each SELECT question with a valid option
+  3. Confirm cards and complete routine
+Expected:
+  - All SELECT fields log their chosen option correctly
+  - Routine completes without errors
+  - Tracker history shows clean values (not raw strings)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.1_FAIL.png
+
+
+TC P1-4.2: Update within routine
+---
+Pre: During a routine, a LOG_DATA card is shown
+Steps:
+  1. Bot shows card with e.g. Calories: 150
+  2. Before confirming, say "actually 200"
+  3. Bot emits UPDATE_DATA card
+  4. Confirm the update
+Expected:
+  - Value updated to 200 in real time
+  - Routine continues to next step
+  - No duplicate entries
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.2_FAIL.png
+
+
+TC P1-4.3: SELECT options persist across sessions
+---
+Steps:
+  1. Create tracker with SELECT fields and defined options
+  2. Close app / navigate away
+  3. Re-open app, open the tracker
+Expected:
+  - SELECT options are still present exactly as entered
+  - multiSelect toggle retains saved state
+  - No data loss on tracker schema
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.3_FAIL.png
+
+
+TC P1-4.4: UPDATE_DATA and LOG_DATA coexist correctly
+---
+Steps:
+  1. Log a new entry (LOG_DATA) → confirm
+  2. Update the entry (UPDATE_DATA) → confirm
+  3. Log ANOTHER new entry (LOG_DATA) → confirm
+  4. Check tracker history
+Expected:
+  - History shows 2 entries (not 3, not 1)
+  - First entry reflects the update value
+  - Second entry is a new row
+  - Flow is correct end-to-end
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.4_FAIL.png
+
+
+================================================================================
+PHASE 2 — LOGIC FIXES & LLM INTELLIGENCE (46 tests)
+Fixes: Bug 7 (7PM timestamp), Bug 5 (text width), Bug 1 (historical regex),
+       Bug 29 (YES_NO logic), Bug 30 (routing), Bug 14 (persona),
+       Bug 23/28 (field IDs + macros), Bug 24/25 (anti-hallucination)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST SET P2-1: 7:00 PM TIMESTAMP FIX (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-1.1: Normal entry timestamp is NOT 7:00 PM
+---
+Steps:
+  1. Note your current local time (e.g. 10:30 AM)
+  2. Log an entry: "100 calories for breakfast"
+  3. Confirm the card
+  4. Check logged_at in tracker history or Supabase
+Expected:
+  - Timestamp reflects actual time (~10:30 AM)
+  - NOT 7:00 PM (19:00:00)
+  - Within ±2 minutes of when you confirmed
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.1_FAIL.png
+
+
+TC P2-1.2: Backdated entry uses wall-clock time not noon UTC
+---
+Steps:
+  1. Say in chat: "I had 400 calories yesterday"
+  2. Confirm the LOG_DATA card
+  3. Check logged_at in tracker history
+Expected:
+  - Calendar date is yesterday's date ✓
+  - Time component is approximately when you confirmed the card
+  - NOT 12:00:00Z (noon UTC) which would show as 7:00 PM in UTC-7
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.2_FAIL.png
+
+
+TC P2-1.3: Multiple entries same day have sequential timestamps
+---
+Steps:
+  1. Log entry at time T1
+  2. Wait a few minutes, log another entry at time T2
+  3. Log a third at T3
+  4. Check all three timestamps
+Expected:
+  - T1 < T2 < T3 (timestamps increase logically)
+  - None of the three show 7:00 PM (unless it is actually 7 PM)
+  - Timestamps reflect actual logging times
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.3_FAIL.png
+
+
+TC P2-1.4: Entry logged for specific past date
+---
+Steps:
+  1. Say: "log 500 calories for March 15th"
+  2. Confirm the card
+  3. Check logged_at
+Expected:
+  - Date part is March 15
+  - Time part is approximately when you confirmed
+  - NOT 12:00:00Z
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.4_FAIL.png
+
+
+TC P2-1.5: Today's entry timestamp is accurate (not noon)
+---
+Steps:
+  1. Log a normal today entry right now
+  2. Confirm
+  3. Check timestamp
+Expected:
+  - Timestamp within 2 minutes of current time
+  - NOT noon UTC
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.5_FAIL.png
+
+
+TC P2-1.6: Timestamp at legitimate 7:00 PM is preserved
+---
+Steps:
+  1. If possible, test at 7:00 PM local time OR skip and mark N/A
+  2. Log an entry
+  3. Check timestamp
+Expected:
+  - Timestamp correctly shows ~7:00 PM
+  - Legitimate 7 PM entry is NOT altered
+Pass/Fail: ____  N/A if not 7 PM: ____  Screenshot if FAIL: SC_P2_1.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-2: TEXT FIELD WIDTH (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-2.1: Action card SELECT value spans full width
+---
+Steps:
+  1. Log an entry for a tracker with a SELECT field (e.g. Mood: Great)
+  2. Observe the action card before confirming
+Expected:
+  - The SELECT field value ("Great") spans the FULL width of the action card
+  - NOT crammed into a narrow ~150px cell
+  - Compare to before fix: was showing in a tiny box
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.1_FAIL.png
+
+
+TC P2-2.2: Long select option value wraps correctly
+---
+Pre: Create a SELECT field with long option "Extremely well rested and refreshed"
+Steps:
+  1. Log using that long option via chat
+  2. View the action card
+Expected:
+  - Long value wraps inside the full-width cell
+  - Text does NOT overflow outside card boundary
+  - Readable on mobile screen
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.2_FAIL.png
+
+
+TC P2-2.3: Numeric fields still use compact 2-column layout
+---
+Steps:
+  1. Log a nutrition entry with multiple numeric fields
+     (calories, protein, carbs, fat)
+  2. View the action card
+Expected:
+  - Numeric fields display in compact 2-column grid
+  - Layout is NOT all-full-width for every field
+  - Only string values get full width — numbers stay compact
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.3_FAIL.png
+
+
+TC P2-2.4: Text input field in action card expands on mobile
+---
+Steps:
+  1. Create an action card with a Text-type field
+  2. Observe the field width on Android Chrome
+Expected:
+  - Text field spans full available width
+  - No awkward wrapping into 7+ vertical lines
+  - Readable and usable on mobile
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.4_FAIL.png
+
+
+TC P2-2.5: UpdateDataCard also has correct field widths
+---
+Steps:
+  1. Trigger an UPDATE_DATA card with a SELECT field
+  2. View the update card
+Expected:
+  - Same width rules apply as LOG_DATA cards
+  - SELECT values span full width
+  - Numeric fields compact
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.5_FAIL.png
+
+
+TC P2-2.6: Time-format values stay compact
+---
+Steps:
+  1. Log an entry with a Time field (e.g. "10:30" for bedtime)
+  2. View the action card
+Expected:
+  - Time values (HH:MM format) stay compact — NOT expanded to full width
+  - Only non-numeric non-time strings get full width treatment
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-3: HISTORICAL CONTEXT REGEX EXPANSION (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-3.1: "Yesterday" still triggers historical fetch
+---
+Pre: Logs exist from yesterday
+Steps:
+  1. Ask: "Show me yesterday's nutrition"
+Expected:
+  - Bot fetches and displays yesterday's logs
+  - No "I don't have access" error
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.1_FAIL.png
+
+
+TC P2-3.2: "Day before" triggers historical fetch (new pattern)
+---
+Steps:
+  1. Ask: "What did I eat the day before yesterday?"
+Expected:
+  - Bot recognizes "day before" pattern
+  - Fetches data from 2 days ago
+  - Compare to before fix: this query would fail
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.2_FAIL.png
+
+
+TC P2-3.3: "How did I do" triggers historical fetch (new pattern)
+---
+Steps:
+  1. Ask: "How did I do on calories yesterday?"
+Expected:
+  - Bot recognizes "how did i do" pattern
+  - Fetches and responds with yesterday's calorie data
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.3_FAIL.png
+
+
+TC P2-3.4: "Totals for" triggers historical fetch (new pattern)
+---
+Steps:
+  1. Ask: "What are the totals for last Thursday?"
+Expected:
+  - Bot recognizes "totals for" pattern
+  - Fetches and returns Thursday's daily totals
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.4_FAIL.png
+
+
+TC P2-3.5: "What did I" triggers historical fetch (new pattern)
+---
+Steps:
+  1. Ask: "What did I have for lunch yesterday?"
+Expected:
+  - Bot fetches yesterday's lunch entries
+  - Pattern "what did i" recognized as historical trigger
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.5_FAIL.png
+
+
+TC P2-3.6: Today's questions are NOT mistakenly treated as historical
+---
+Steps:
+  1. Ask: "What have I logged today?"
+  2. Ask: "How many calories today?"
+Expected:
+  - Bot uses TODAY's data only — does not trigger historical fetch
+  - Responds with today's entries
+  - Historical regex does not false-fire on current-day queries
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-4: YES_NO FIELD LOGIC (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-4.1: "No" to YES/NO SELECT field logs "No" value
+---
+Pre: Field "Took vitamins?" SELECT with options [Yes, No]
+Steps:
+  1. Bot asks: "Did you take vitamins today?"
+  2. Respond: "No"
+  3. Confirm the log card
+Expected:
+  - Card shows "Took vitamins: No"
+  - The value "No" is logged as the SELECT option
+  - NOT treated as skip intent
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.1_FAIL.png
+
+
+TC P2-4.2: "Yes" to YES/NO SELECT field logs "Yes" value
+---
+Steps:
+  1. Bot asks: "Did you take vitamins?"
+  2. Respond: "Yes"
+Expected:
+  - Card shows "Took vitamins: Yes"
+  - Value logs correctly as SELECT option
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.2_FAIL.png
+
+
+TC P2-4.3: "Skip" advances without logging
+---
+Steps:
+  1. Bot asks: "Did you take vitamins?"
+  2. Respond: "Skip" or "pass"
+Expected:
+  - Routine advances to next step
+  - NO log entry created for this field
+  - "Skip" is the only valid skip trigger (not "no")
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.3_FAIL.png
+
+
+TC P2-4.4: "Nope" / "nah" treated as "No" value
+---
+Steps:
+  1. Bot asks about a YES/NO field
+  2. Respond: "Nope" or "nah"
+Expected:
+  - Bot logs the "No" option (not skips)
+  - Casual negation = NO option, not skip intent
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.4_FAIL.png
+
+
+TC P2-4.5: "Yeah" / "yep" treated as "Yes" value
+---
+Steps:
+  1. Bot asks about a YES/NO field
+  2. Respond: "Yeah" or "yep"
+Expected:
+  - Bot logs the "Yes" option
+  - Casual affirmation = YES option
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.5_FAIL.png
+
+
+TC P2-4.6: Text/notes field: "no" is stored as text, not skipped
+---
+Pre: A Text-type notes field in a routine step
+Steps:
+  1. Bot asks for a text notes field
+  2. Respond: "No" (meaning "no notes today")
+Expected:
+  - Bot treats as SKIP intent for a text field (no notes to log)
+  - Differs from YES/NO SELECT field behavior
+  - Bot advances without logging a text "No"
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-5: ROUTING DEFAULT FIX (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-5.1: Root path (/) redirects to /chat
+---
+Steps:
+  1. Navigate to the root URL of the app (no path)
+  2. Observe which page loads
+Expected:
+  - Redirects to /chat
+  - Chat interface loads
+  - NOT /dashboard
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.1_FAIL.png
+
+
+TC P2-5.2: /dashboard still directly accessible
+---
+Steps:
+  1. Navigate directly to /dashboard
+Expected:
+  - Dashboard loads correctly
+  - Not redirected away
+  - Only the default (/) behavior changed
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.2_FAIL.png
+
+
+TC P2-5.3: Login redirects to /chat (not /dashboard)
+---
+Steps:
+  1. Log out
+  2. Log back in
+  3. Observe post-login redirect
+Expected:
+  - After login, lands on /chat
+  - NOT /dashboard
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.3_FAIL.png
+
+
+TC P2-5.4: Logout clears session and blocks /chat
+---
+Steps:
+  1. Log out from the app
+  2. Attempt to navigate to /chat
+Expected:
+  - Redirected to /login
+  - Cannot access chat without re-authenticating
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.4_FAIL.png
+
+
+TC P2-5.5: All nav items still work after routing change
+---
+Steps:
+  1. From /chat, navigate to /dashboard via sidebar
+  2. Navigate to /trackers
+  3. Navigate to /journal
+  4. Navigate back to /chat
+Expected:
+  - All nav items work correctly
+  - No broken routes
+  - No infinite redirects
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.5_FAIL.png
+
+
+TC P2-5.6: Back button works correctly
+---
+Steps:
+  1. Navigate: /chat → /dashboard → /trackers
+  2. Press Android back button
+  3. Press back again
+Expected:
+  - Back button navigates history correctly
+  - No unexpected redirects to /chat
+  - Standard browser navigation behavior
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-6: LLM PERSONA SEPARATION (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-6.1: Bot responds conversationally AND outputs action card
+---
+Steps:
+  1. Log a meal: "I had chicken breast, brown rice, and broccoli"
+  2. Observe the full bot response
+Expected:
+  - Response has TWO parts:
+    Part 1: Conversational text (e.g. "Great, a balanced meal! I've estimated...")
+    Part 2: JSON action card with fields
+  - NOT just raw JSON
+  - NOT just conversation with no card
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.1_FAIL.png
+
+
+TC P2-6.2: Macro estimates are reasonable (not hallucinated)
+---
+Steps:
+  1. Log: "a slice of pepperoni pizza"
+  2. Observe the macro estimates in the action card
+Expected:
+  - Calories ≈ 250-300 kcal (NOT 1900)
+  - Protein ≈ 10-12g
+  - Carbs ≈ 30-35g
+  - Fat ≈ 10-12g
+  - Compare to Bug 25: before fix, estimates were wildly wrong
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.2_FAIL.png
+
+
+TC P2-6.3: Bot doesn't claim it can't search or estimate
+---
+Steps:
+  1. Ask bot: "How many calories in a Big Mac?"
+Expected:
+  - Bot provides a confident estimate (~550 kcal)
+  - Does NOT say "I don't have internet access"
+  - Does NOT say "I cannot estimate that"
+  - Uses native nutritional knowledge confidently
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.3_FAIL.png
+
+
+TC P2-6.4: Routine prompt doesn't bleed into chat
+---
+Steps:
+  1. Run a routine (if available)
+  2. After completing, open a normal chat session
+  3. Ask a general health question
+Expected:
+  - Bot responds in general health assistant mode
+  - NOT still in "executing routine step X" mode
+  - Separate contexts are maintained
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.4_FAIL.png
+
+
+TC P2-6.5: Bot tone is natural, not robotic
+---
+Steps:
+  1. Log something casual: "just a coffee this morning"
+  2. Log something indulgent: "pizza and ice cream for lunch, no regrets"
+Expected:
+  - Coffee: light, casual acknowledgment
+  - Pizza: non-judgmental, natural response
+  - Tone adapts to context — not generic robot text
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.5_FAIL.png
+
+
+TC P2-6.6: Bot stays under 3 sentences for simple logs
+---
+Steps:
+  1. Log a simple entry: "water, 500ml"
+  2. Count the sentences in the bot's response
+Expected:
+  - Response is 1-3 sentences max
+  - Not a 10-sentence essay for a simple water log
+  - Concise and on point
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-7: FIELD ID DE-OBFUSCATION (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-7.1: Bot references human-readable field names
+---
+Steps:
+  1. Log some nutrition data
+  2. Ask: "What was my protein intake today?"
+Expected:
+  - Bot responds: "Your protein today: 25g"
+  - NOT: "Your fld_protein: 25" or "fld_xyz: 25"
+  - Human-readable names used throughout
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.1_FAIL.png
+
+
+TC P2-7.2: Day summary in chat uses readable names
+---
+Steps:
+  1. Log several entries for different fields
+  2. Ask: "Give me a summary of what I logged today"
+Expected:
+  - Summary shows field names as you defined them
+    e.g. "Calories: 1200 kcal, Protein: 45g, Water: 1.5L"
+  - No raw fld_xxx IDs visible to you or the bot
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.2_FAIL.png
+
+
+TC P2-7.3: Custom tracker fields are also de-obfuscated
+---
+Pre: Create a custom tracker with uniquely named fields
+Steps:
+  1. Log data to the custom tracker
+  2. Ask bot about it
+Expected:
+  - Bot uses the field labels you defined (e.g. "Meditation Minutes")
+  - NOT internal IDs
+  - Works for user-created fields, not just built-in ones
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.3_FAIL.png
+
+
+TC P2-7.4: Historical section also uses readable names
+---
+Steps:
+  1. Ask about historical data: "What did I log last week?"
+Expected:
+  - Historical response uses readable field names
+  - Not raw field IDs in the historical summary
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.4_FAIL.png
+
+
+TC P2-7.5: Bot arithmetic uses correct field values
+---
+Pre: Log: Protein 25g, then 30g, then 15g (three entries)
+Steps:
+  1. Ask: "What's my total protein today?"
+Expected:
+  - Bot calculates: 25 + 30 + 15 = 70g
+  - Correct total (not wrong due to ID confusion)
+  - Compare to Bugs 23/28: before fix, calculations were wrong
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.5_FAIL.png
+
+
+TC P2-7.6: No fld_ IDs visible anywhere in chat UI
+---
+Steps:
+  1. Log some data, interact with bot
+  2. Visually scan all bot messages for raw IDs like fld_xxx
+Expected:
+  - No raw field IDs (fld_protein, fld_kcal, fld_custom_xxx) visible
+  - All field references use human labels
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-8: NATIVE MACRO TOTALING (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-8.1: Daily macro totals are calculated correctly
+---
+Pre: Log multiple entries: Entry 1: Protein 25, Carbs 45, Fat 10
+                            Entry 2: Protein 30, Carbs 35, Fat 12
+                            Entry 3: Protein 15, Carbs 25, Fat 8
+Steps:
+  1. Ask: "What are my daily macro totals?"
+Expected:
+  - Protein: 25 + 30 + 15 = 70g ✓
+  - Carbs: 45 + 35 + 25 = 105g ✓
+  - Fat: 10 + 12 + 8 = 30g ✓
+  - Totals are accurate (not rounded or guessed)
+  - Compare to Bugs 23/28: before fix, these were wrong
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.1_FAIL.png
+
+
+TC P2-8.2: Null/missing fields are skipped in totals
+---
+Pre: Entry with Protein filled but Fat missing
+Steps:
+  1. Ask about daily totals
+Expected:
+  - Missing fields simply not included in total
+  - No NaN, no error, no "undefined" in response
+  - Graceful handling of incomplete entries
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.2_FAIL.png
+
+
+TC P2-8.3: Bot pre-calculated totals match manual math
+---
+Steps:
+  1. Manually add up your logged calories from today
+  2. Ask bot: "How many total calories have I logged today?"
+Expected:
+  - Bot's answer matches your manual calculation exactly
+  - NOT approximate or off by 10-20%
+  - Native JS math is precise
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.3_FAIL.png
+
+
+TC P2-8.4: Macro totals update after a new log
+---
+Steps:
+  1. Ask for totals → note the number
+  2. Log a new entry with more calories/protein
+  3. Ask for totals again
+Expected:
+  - Second total is higher by exactly the amount just logged
+  - Real-time totaling (not cached stale value)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.4_FAIL.png
+
+
+TC P2-8.5: Totals don't bleed between days
+---
+Pre: Yesterday had logged entries
+Steps:
+  1. Ask today: "What are my totals today?"
+Expected:
+  - Only today's logs included in today's totals
+  - Yesterday's data does NOT add to today's total
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.5_FAIL.png
+
+
+TC P2-8.6: Bot references pre-calculated total, not re-calculates
+---
+Steps:
+  1. Ask bot about daily totals multiple times in same session
+Expected:
+  - Consistent answers (not different each time)
+  - Bot is confident about the number (not hedging)
+  - Pre-calculation makes LLM confident, not confused
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-9: ANTI-HALLUCINATION RULES (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-9.1: Bot uses native nutritional knowledge confidently
+---
+Steps:
+  1. Log: "I had a medium slice of pepperoni pizza"
+  2. Observe macro estimates
+Expected:
+  - Calories ≈ 250-350 kcal (not 1900)
+  - Estimates are based on real-world data
+  - Confident, not hedging about unknown data
+  - Compare to Bug 25: before fix, wildly inaccurate
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.1_FAIL.png
+
+
+TC P2-9.2: Bot only logs data to existing trackers
+---
+Steps:
+  1. Say something about a topic with no matching tracker
+     e.g. "I read 3 books this month" (if no Books tracker exists)
+Expected:
+  - Bot does NOT fabricate a LOG_DATA card for a non-existent tracker
+  - Bot says: "You don't have a tracker for that. Want to create one?"
+  - No invented trackerId or fieldId
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.2_FAIL.png
+
+
+TC P2-9.3: Bot doesn't invent food items not mentioned
+---
+Steps:
+  1. Log only: "2 apples"
+  2. Immediately ask: "What did I eat today?"
+Expected:
+  - Bot says "2 apples" (and only that)
+  - Does NOT say "2 apples, a sandwich, and a coffee" (inventing)
+  - Hallucination prevention working
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.3_FAIL.png
+
+
+TC P2-9.4: Bot doesn't double-log a single number
+---
+Steps:
+  1. Say: "77 calories"
+  2. Confirm the action card
+  3. Check the log entry
+Expected:
+  - Calories shows 77, NOT 7777 or 154
+  - Number logged exactly once to one field
+  - The "7777 Guard" (Rule 1) is working
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.4_FAIL.png
+
+
+TC P2-9.5: Bot uses exact tracker UUIDs from tracker list
+---
+Steps:
+  1. Create two trackers (e.g. Food and Hydration)
+  2. Log to Food: "500 calories"
+  3. Check the log — verify it went to the Food tracker, not Hydration
+Expected:
+  - Log appears under the correct tracker
+  - Bot used the exact UUID, not a guess
+  - No cross-tracker assignment errors
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.5_FAIL.png
+
+
+TC P2-9.6: Bot handles ambiguous input gracefully
+---
+Steps:
+  1. Say something that could map to multiple fields: "77"
+     (with no context about what the 77 is)
+Expected:
+  - Bot asks for clarification: "What was 77? Calories, weight, or something else?"
+  - OR: Bot selects most reasonable tracker/field based on context
+  - Does NOT silently log to wrong field
+  - Does NOT log 77 to every field
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-10: INTEGRATION TESTS (4 tests)
+--------------------------------------------------------------------------------
+
+TC P2-10.1: Historical query + persona separation work together
+---
+Steps:
+  1. Ask: "How did I do on my macros yesterday?"
+  2. Observe full response
+Expected:
+  - Bot fetches yesterday's data (historical regex triggered)
+  - Response is conversational with actual numbers
+  - Tone is natural: "Yesterday you logged..." not robotic
+  - Both fixes working together
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.1_FAIL.png
+
+
+TC P2-10.2: Macro totaling + field de-obfuscation work together
+---
+Steps:
+  1. Log multiple nutrition entries
+  2. Ask: "What are my protein and calorie totals?"
+Expected:
+  - Bot responds with totals using readable names ("Protein: 70g, Calories: 1400 kcal")
+  - NOT raw IDs + correct math
+  - Both features working in combination
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.2_FAIL.png
+
+
+TC P2-10.3: Routing + timestamp fix are independent
+---
+Steps:
+  1. Navigate to root path → lands on /chat ✓
+  2. Log a backdated entry → timestamp is NOT noon UTC ✓
+Expected:
+  - Both fixes work without interfering with each other
+  - No side effects between routing and timestamp logic
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.3_FAIL.png
+
+
+TC P2-10.4: SELECT field + YES_NO logic + action card width
+---
+Steps:
+  1. Create a routine with a YES/NO SELECT field
+  2. Run the routine, answer "No" to the YES/NO question
+  3. Confirm the action card
+  4. Observe the card field width for the SELECT value
+Expected:
+  - "No" logs as the SELECT option (not skip) ✓
+  - Card shows "No" in full-width cell (not cramped) ✓
+  - All three features working together
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.4_FAIL.png
+
+
+================================================================================
+SUMMARY SHEET
+================================================================================
+
+--- PHASE 1 ---
+P1-1 SELECT Field Type:
+  1.1:__  1.2:__  1.3:__  1.4:__  1.5:__  1.6:__
+  Result: PASS / FAIL
+
+P1-2 UPDATE_DATA Action:
+  2.1:__  2.2:__  2.3:__  2.4:__  2.5:__
+  Result: PASS / FAIL
+
+P1-3 Message History Filtering:
+  3.1:__  3.2:__  3.3:__  3.4:__  3.5:__  3.6:__
+  Result: PASS / FAIL
+
+P1-4 Integration:
+  4.1:__  4.2:__  4.3:__  4.4:__
+  Result: PASS / FAIL
+
+Phase 1 Overall: PASS / FAIL  (____/21 passed)
+
+--- PHASE 2 ---
+P2-1 Timestamp Fix:
+  1.1:__  1.2:__  1.3:__  1.4:__  1.5:__  1.6:__
+  Result: PASS / FAIL
+
+P2-2 Text Field Width:
+  2.1:__  2.2:__  2.3:__  2.4:__  2.5:__  2.6:__
+  Result: PASS / FAIL
+
+P2-3 Historical Regex:
+  3.1:__  3.2:__  3.3:__  3.4:__  3.5:__  3.6:__
+  Result: PASS / FAIL
+
+P2-4 YES_NO Field Logic:
+  4.1:__  4.2:__  4.3:__  4.4:__  4.5:__  4.6:__
+  Result: PASS / FAIL
+
+P2-5 Routing Default:
+  5.1:__  5.2:__  5.3:__  5.4:__  5.5:__  5.6:__
+  Result: PASS / FAIL
+
+P2-6 LLM Persona Separation:
+  6.1:__  6.2:__  6.3:__  6.4:__  6.5:__  6.6:__
+  Result: PASS / FAIL
+
+P2-7 Field ID De-obfuscation:
+  7.1:__  7.2:__  7.3:__  7.4:__  7.5:__  7.6:__
+  Result: PASS / FAIL
+
+P2-8 Native Macro Totaling:
+  8.1:__  8.2:__  8.3:__  8.4:__  8.5:__  8.6:__
+  Result: PASS / FAIL
+
+P2-9 Anti-Hallucination Rules:
+  9.1:__  9.2:__  9.3:__  9.4:__  9.5:__  9.6:__
+  Result: PASS / FAIL
+
+P2-10 Integration:
+  10.1:__  10.2:__  10.3:__  10.4:__
+  Result: PASS / FAIL
+
+Phase 2 Overall: PASS / FAIL  (____/46 passed)
+
+--------------------------------------------
+OVERALL V31 RESULT: PASS / FAIL
+TOTAL: ____/67 passed
+FAILURES: _______________________________________________
+SCREENSHOTS ATTACHED: ___________________________________
+================================================================================
+END V31_TCS_consolidated.txt
+================================================================================

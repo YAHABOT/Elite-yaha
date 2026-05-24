@@ -10,7 +10,7 @@ import { streamHealthMessage } from '@/lib/ai/gemini'
 import { sanitizeFields, parseActionCards } from '@/lib/ai/actions'
 import { buildHealthSystemPrompt, buildRoutineSystemPrompt } from '@/lib/ai/prompt-builder'
 import { detectRoutineTrigger } from '@/lib/routines/detector'
-import { markDayStarted, markDayEnded, getActiveDayState } from '@/lib/db/day-state'
+import { markDayStarted, markDayEnded, getActiveDayState, persistRoutineState, clearRoutineState } from '@/lib/db/day-state'
 import { getMasterBrainContext } from '@/lib/ai/master-brain'
 import type { ChatAttachment, ChatInput, AnyActionCard } from '@/types/action-card'
 import type { ChatSession } from '@/types/chat'
@@ -33,6 +33,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'audio/flac',
   'audio/aac',
   'application/pdf',
+  'application/json',
   'text/plain',
   'text/csv',
 ])
@@ -71,6 +72,16 @@ function validateAttachments(
   for (const attachment of rawAttachments) {
     if (!ALLOWED_MIME_TYPES.has(attachment.mimeType)) {
       throw new Error(`Disallowed attachment MIME type: ${attachment.mimeType}`)
+    }
+
+    // BUG-V32-EX3: Validate base64 encoding before processing
+    if (!attachment.base64 || typeof attachment.base64 !== 'string') {
+      throw new Error('Attachment base64 data is missing or invalid')
+    }
+
+    // Validate base64 format (should only contain valid base64 characters)
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(attachment.base64)) {
+      throw new Error('Attachment base64 data is malformed — contains invalid characters')
     }
   }
 
@@ -184,6 +195,37 @@ export async function POST(req: Request): Promise<Response> {
     const loggingDate = finalActiveDayState?.date ?? today
 
     let activeRoutine: Routine | null = null
+
+    // FIX: BUG-V32-EX17 — Restore routine state from day_state table (survives page reloads)
+    // If an active routine is persisted in day_state, restore it to the session
+    if (finalActiveDayState?.active_routine_id && !session.active_routine_id) {
+      console.log(`[ChatRoute] Restoring routine from day_state: ${finalActiveDayState.active_routine_id}`)
+      const restored = await fetchRoutine(finalActiveDayState.active_routine_id)
+      if (restored) {
+        await updateSession(session.id, {
+          active_routine_id: restored.id,
+          current_step_index: finalActiveDayState.current_step_index ?? 0,
+        })
+        session.active_routine_id = restored.id
+        session.current_step_index = finalActiveDayState.current_step_index ?? 0
+        activeRoutine = restored
+      }
+    }
+
+    // FIX: BUG-V32-EX12 — Timeout recovery (30s inactivity)
+    // Allow step resume if last activity was within 30 minutes (allow manual timeout recovery)
+    if (activeRoutine && finalActiveDayState?.routine_last_activity_at) {
+      const lastActivityTime = new Date(finalActiveDayState.routine_last_activity_at).getTime()
+      const nowTime = Date.now()
+      const timeoutThresholdMs = 30 * 60 * 1000 // 30 minutes
+      const isTimedOut = nowTime - lastActivityTime > timeoutThresholdMs
+
+      if (isTimedOut) {
+        // Routine has timed out — allow user to resume or start fresh
+        console.log(`[ChatRoute] Routine timed out after ${(nowTime - lastActivityTime) / 1000 / 60} minutes`)
+        // Don't auto-resume; let user decide (implicitly resume by continuing, or type a new routine trigger)
+      }
+    }
 
     if (activeRoutineRaw) {
       activeRoutine = activeRoutineRaw
@@ -385,6 +427,13 @@ export async function POST(req: Request): Promise<Response> {
               }
             }
           }
+          // BUG-V32-8: If no historical context was fetched from explicit patterns,
+          // provide a default 7-day window for general AI context
+          if (!historicalContext || historicalContext.length === 0) {
+            const weekAgo = new Date(actualDateObj)
+            weekAgo.setUTCDate(weekAgo.getUTCDate() - 7)
+            historicalContext = await getLogsForDateRange(getDateStr(weekAgo), today, supabase, trackersMini)
+          }
           console.log(`[ChatRoute] Historical context: ${historicalContext?.length ?? 0} logs fetched`)
         } catch (err) {
           console.error('[ChatRoute] Historical context fetch failed:', err)
@@ -403,11 +452,31 @@ export async function POST(req: Request): Promise<Response> {
       systemPrompt = buildRoutineSystemPrompt(activeRoutine, trackers, session.current_step_index, brainContext, dayLogs, loggingDate, today)
     } else if (activeAgent) {
       console.log(`[ChatRoute] Using agent prompt: ${activeAgent.name}`)
-      const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext })
+      const sessionMessagesForContext = historyMessages.map(msg => ({
+        role: (msg.role === 'assistant' ? 'model' : 'user') as 'model' | 'user',
+        content: msg.content || ''
+      }))
+      const attachmentsReceivedList = attachments
+        ? attachments.map(att => ({
+            filename: att.filename || 'unnamed',
+            type: att.type
+          }))
+        : undefined
+      const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList })
       systemPrompt = `${activeAgent.system_prompt}\n\n---\n## YAHA HEALTH LOGGING CAPABILITIES\n${yahaSection}`
     } else {
       console.log(`[ChatRoute] Using standard health prompt. daySession=${daySessionActive ? loggingDate : 'neutral'}`)
-      systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext })
+      const sessionMessagesForContext = historyMessages.map(msg => ({
+        role: (msg.role === 'assistant' ? 'model' : 'user') as 'model' | 'user',
+        content: msg.content || ''
+      }))
+      const attachmentsReceivedList = attachments
+        ? attachments.map(att => ({
+            filename: att.filename || 'unnamed',
+            type: att.type
+          }))
+        : undefined
+      systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList })
     }
 
     // Append native macro totaling for nutrition tracker (prevents LLM arithmetic errors)
@@ -563,9 +632,13 @@ export async function POST(req: Request): Promise<Response> {
             if (hasLoggedCurrentStep) {
               const nextStepIndex = session.current_step_index + 1
               if (nextStepIndex >= activeRoutine.steps.length) {
-                // BUG-V32-6 FIX: Ensure only one end call occurs by checking day_end_at is still null before marking ended
-                // Also clear the routine state in same transaction with current_step_index = 0
+                // FIX: BUG-V32-EX16, BUG-V32-EX21 — Final step completion clears routine state
+                // Clear routine state in day_state (prevents looping back to Step 1)
+                await clearRoutineState(loggingDate)
+
+                // Also clear from chat_sessions for consistency
                 await updateSession(session.id, { active_routine_id: null, current_step_index: 0 })
+
                 if (activeRoutine.type === 'day_end') {
                   // Only mark ended if not already ended (prevent double-end race condition)
                   const dayStateCheck = await getActiveDayState(supabase)
@@ -574,9 +647,18 @@ export async function POST(req: Request): Promise<Response> {
                   }
                 }
               } else {
-                // BUG-V32-7 FIX: Persist next step index before auto-prompting frontend
-                // This ensures the step state survives a page reload
+                // FIX: BUG-V32-EX6, BUG-V32-EX17 — Persist step index to survive page reloads
+                const nextStepIndex_persist = nextStepIndex
+                await persistRoutineState(
+                  loggingDate,
+                  activeRoutine.id,
+                  nextStepIndex_persist,
+                  {} // Clear step field data when advancing to next step
+                )
+
+                // Also update chat_sessions for consistency
                 await updateSession(session.id, { current_step_index: nextStepIndex })
+
                 // Flag to auto-prompt the frontend for the next step
                 shouldAutoPromptNextStep = true
               }

@@ -41,7 +41,7 @@ function SelectOptionsEditor({ field, onChange }: SelectOptionsEditorProps): Rea
 
         {/* Existing options as removable pills */}
         {(field.selectOptions ?? []).length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="z-50 max-h-48 overflow-y-auto flex flex-wrap gap-2">
             {(field.selectOptions ?? []).map((opt, idx) => (
               <div
                 key={idx}
@@ -173,7 +173,7 @@ export function SchemaFieldRow({
           value={field.label}
           onChange={(e) => handleLabelChange(e.target.value)}
           placeholder="Field label"
-          className="flex-1 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm font-bold text-textPrimary placeholder-textMuted/20 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all"
+          className="w-full sm:w-80 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm font-bold text-textPrimary placeholder-textMuted/20 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all"
           aria-label="Field label"
         />
       </div>
@@ -198,7 +198,7 @@ export function SchemaFieldRow({
           value={field.unit ?? ''}
           onChange={(e) => handleUnitChange(e.target.value)}
           placeholder="Unit"
-          className="h-[46px] w-20 sm:w-24 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs font-bold text-textPrimary placeholder-textMuted/20 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all text-center"
+          className="h-[46px] w-full sm:w-24 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs font-bold text-textPrimary placeholder-textMuted/20 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all text-center"
           aria-label="Field unit"
         />
 

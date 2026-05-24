@@ -27,6 +27,10 @@ type BuildHealthSystemPromptParams = {
   daySessionActive?: boolean
   /** Historical logs fetched for date-range or text-search queries — injected as HISTORICAL DATA section */
   historicalContext?: HistoricalLog[]
+  /** Chat messages from current session (last 20) — injected to maintain intra-session context */
+  sessionMessages?: Array<{ role: 'user' | 'model'; content: string }>
+  /** Attachments received in this session — filename + type */
+  attachmentsReceived?: Array<{ filename: string; type: string }>
 }
 
 function formatTrackerSchema(tracker: Tracker): string {
@@ -88,12 +92,15 @@ function buildHistoricalSection(logs: HistoricalLog[], trackers?: Tracker[]): st
     return '## HISTORICAL DATA\nNo logs found for the requested period.'
   }
 
+  // BUG-V32-8: Limit to last 30 logs (7-day window) instead of 10
+  const recentLogs = logs.slice(-30)
+
   // Build tracker schema map for de-obfuscation
   const trackerMap = new Map((trackers ?? []).map(t => [t.id, t]))
 
   // Group by date
   const byDate = new Map<string, HistoricalLog[]>()
-  for (const log of logs) {
+  for (const log of recentLogs) {
     const date = log.logged_at.split('T')[0]
     const existing = byDate.get(date) ?? []
     existing.push(log)
@@ -146,6 +153,8 @@ NEVER use run-on paragraphs or comma-separated inline lists for multi-field requ
 
 const GLOBAL_ANTI_HALLUCINATION_RULES = `
 ## 🛑 CRITICAL ANTI-HALLUCINATION RULES
+
+### Core Rules (1-10)
 1. **The "7777" Guard**: If the user provides a single number (e.g., "77"), log it exactly ONCE. Never double it (e.g., "7777") and never log the same value to two different fields (e.g., don't log "77" as both Weight and Calories).
 2. **Schema Whitelist**: ONLY log data for fields explicitly defined in the trackers below. If the user's message does not clearly map to any field in any available tracker, do NOT generate a LOG_DATA action.
 3. **Smart Estimates (The Librarian)**: If a user asks for nutritional info on a common item (e.g. "Huda beer", "Blueberries"), provide the data confidently from your training set. You have full access to nutritional databases and general knowledge. Simply provide the best estimate and fill out the log card. NEVER claim you "don't have internet" or "cannot estimate" — you always can.
@@ -160,6 +169,36 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
 8. **Field ID Rule (CRITICAL)**: The \`fields\` object in LOG_DATA MUST use ONLY the exact \`fieldId\` values from the Available Trackers section (e.g. 'fld_calories', 'fld_protein'). NEVER use human-readable labels as field keys (e.g. 'calories' instead of 'fld_calories' is WRONG). NEVER invent field IDs. Every field key MUST match an \`fld_*\` value shown in the Available Trackers. Incorrect field IDs cause data to land in the wrong fields or be rejected. Triple-check each field ID against the Available Trackers section EVERY TIME you create a LOG_DATA action.
 9. **Tracker Creation Flow**: If you help the user CREATE a new tracker in this conversation, do NOT output a LOG_DATA action for that tracker in the same response. The tracker needs to be saved first. After creation, tell the user it's ready and they can now log to it.
 10. **No-Match Protocol**: If you cannot confidently map the user's input to at least one field in one tracker, respond conversationally ONLY — no action card. Tell the user which trackers and fields are available and ask which one to use, OR suggest creating a new tracker if nothing fits. NEVER fabricate a trackerId or fieldId that doesn't appear in the Available Trackers section below. NEVER output LOG_DATA when you are uncertain which tracker to use. (Note: this rule applies to health chat only. During routine execution, the MANDATORY OUTPUT RULE takes precedence — always append a JSON block.)
+
+### V32 Extended Anti-Hallucination Rules (11-15)
+11. **NO HISTORICAL DATA FABRICATION**: NEVER fabricate health data outside the logged dates (≤ yesterday). Do NOT invent sleep hours, meal logs, workout times, or mood entries for dates you have NO DATABASE RECORDS FOR. If the user asks about a past date beyond yesterday and NO HISTORICAL DATA is provided in this prompt:
+    - RESPOND: "I don't see logs for [date] in our history. Would you like to log that now or check a different date?"
+    - DO NOT make up fake data to fill the gap.
+    - NEVER invent historical meal data, sleep hours, or mood entries for any date without explicit database records.
+12. **EXACT NUMERIC EXTRACTION (Vision-Aware)**: When analyzing images (nutrition labels, food photos, sleep screenshots, workout data):
+    - Extract EXACT numeric values FROM THE IMAGE, not estimates.
+    - Show confidence level: e.g., "The label clearly shows 125 kcal", not "approximately 120 kcal".
+    - If a number is unclear, ASK for clarification instead of guessing.
+    - NEVER round "5.2km" to "5km". Never estimate "approximately 8 hours" — require exact values.
+    - Example WRONG: Image shows "88" for sleep score but you log "88.1" — WRONG, use exact "88".
+    - Example RIGHT: Image shows "3.4g carbs" on label → log exactly 3.4, not 3 or 4.
+13. **CALCULATION RULE — SHOW ALL MATH**: Before outputting ANY total, average, or sum:
+    - Show the calculation explicitly in your response.
+    - Example: "500 + 600 + 541 = 1641 calories" (then present the number).
+    - For multi-item logs: "Breakfast (500) + Lunch (600) + Dinner (700) = 1800 calories".
+    - If numbers don't add up visibly, RECOUNT and admit the error.
+    - NEVER present a total without showing the work that led to it.
+14. **ATTACHMENT RECEIPT TRACKING**: This session has received the following attachments:
+    {{ATTACHMENTS_RECEIVED}}
+    - Before responding "I don't have that file" or "I don't have access to that data", CHECK THIS LIST.
+    - If a file is listed here, YOU HAVE ACCESS TO IT. Reference it explicitly in your analysis.
+    - If the user says "I sent you [filename]" and it appears above, acknowledge it: "I can see your [filename]..."
+    - Track all files/images received in this session. Never claim you don't have a file that appears in this list.
+15. **FIELD VALUE ACCURACY**: When logging a value extracted from any source (image, user input, calculation):
+    - Log EXACT field values as provided. Never adjust, round, or "improve" numeric values.
+    - Store exactly what user/image provided.
+    - Exception: If rounding is explicitly stated in the field definition (e.g., "nearest 5min" for time), apply only that rounding.
+    - NEVER fabricate values because fields are blank. Ask the user first.
 `
 
 const VISION_CAPABILITY = `
@@ -236,6 +275,29 @@ Model: "Great, I've filled out the Food card with the estimated macros for 300ml
 \`\`\`
 `
 
+export function buildIntraSessionContext(sessionMessages?: Array<{ role: 'user' | 'model'; content: string }>): string {
+  // Inject last 20 messages from current session for context continuity (fixes BUG-V32-EX32)
+  if (!sessionMessages || sessionMessages.length === 0) return ''
+
+  const recentMessages = sessionMessages.slice(-20)
+  const formattedMessages = recentMessages
+    .map(msg => `[${msg.role.toUpperCase()}] ${msg.content?.substring(0, 200) || '(action card)'}`)
+    .join('\n')
+
+  return `\n## Recent Session Messages (Last 20)\n${formattedMessages}`
+}
+
+export function buildAttachmentContext(attachmentList?: Array<{ filename: string; type: string }>): string {
+  // Track all files/attachments received in this session (fixes BUG-V32-EX26)
+  if (!attachmentList || attachmentList.length === 0) return ''
+
+  const fileList = attachmentList
+    .map(f => `- ${f.filename} (${f.type})`)
+    .join('\n')
+
+  return `\n## Attachments Received This Session\n${fileList}`
+}
+
 export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): string {
   const today = params.date ?? new Date().toISOString().split('T')[0]
   // Physical current date — used for relative date arithmetic ("yesterday", "5 days ago")
@@ -248,6 +310,12 @@ export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): 
   const historicalSection = params.historicalContext !== undefined
     ? buildHistoricalSection(params.historicalContext, params.trackers)
     : ''
+
+  // Intra-session context (fixes BUG-V32-EX32: message context loss after 3+ hours)
+  const intraSessionContext = buildIntraSessionContext(params.sessionMessages)
+
+  // Attachment tracking (fixes BUG-V32-EX26: file receipt tracking)
+  const attachmentContext = buildAttachmentContext(params.attachmentsReceived)
 
   // Neutral-state date instruction: shown when no Start Day has been triggered yet,
   // or after End Day is completed. AI must ask which day to log to.
@@ -262,7 +330,9 @@ If the user HAS explicitly named a date (e.g. "log this for yesterday", "log for
 `
 
   return `${masterBrain}You are YAHA, Armaan's executive health manager. Help Armaan log his life with zero friction.
+
 ${VISION_CAPABILITY}
+
 ${FOOD_LOOKUP_RULE}
 
 ## 🔴 YOU ARE CONNECTED TO THE DATABASE — THIS IS NOT A DEMO
@@ -276,11 +346,13 @@ Your job is to produce a correctly-formed action card. The app writes it to the 
 Active logging date: ${today}
 Actual current date: ${actualToday}
 ${neutralDateRule}
+
 ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL_TODAY}}/g, actualToday)}
 
 ## CURRENT DAY ACTIVITY (${today})
 ${summary}
-${historicalSection ? `\n${historicalSection}\n` : ''}
+${historicalSection ? `\n${historicalSection}\n` : ''}${intraSessionContext}${attachmentContext}
+
 ## Available Trackers
 ${trackerSection}
 
@@ -351,6 +423,21 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
   const currentFields = getFieldsInfo(currentStep)
   const currentUnits = getUnitsMap(currentStep)
 
+  // FIX: BUG-V32-EX20 — Build SELECT field constraints for validation
+  const getSelectConstraints = (step: RoutineStep) => {
+    const tracker = trackers.find(t => t.id === step.trackerId)
+    const constraints: Record<string, string[]> = {}
+    step.targetFields.forEach(fid => {
+      const field = tracker?.schema.find(f => f.fieldId === fid)
+      if (field?.type === 'select' && field?.selectOptions && field.selectOptions.length > 0) {
+        constraints[fid] = field.selectOptions
+      }
+    })
+    return Object.keys(constraints).length > 0 ? JSON.stringify(constraints) : '{}'
+  }
+
+  const currentSelectConstraints = getSelectConstraints(currentStep)
+
   // Build the full sequence summary so the AI cannot hallucinate step identities
   const fullSequence = routine.steps.map((step, i) => {
     const fields = getFieldsInfo(step)
@@ -378,6 +465,23 @@ When the current step has a yes/no or boolean field (SELECT with ["Yes", "No"] o
 - Plain "no" to a SELECT yes/no field = logging the value. "Skip" = advancing without logging.
 `
 
+  const SELECT_FIELD_VALIDATION_RULE = `
+## 🔵 SELECT FIELD VALIDATION — CRITICAL — NO HALLUCINATION
+When producing an action card with SELECT fields, you MUST use ONLY the valid options provided below.
+DO NOT invent, assume, or use values not listed. If the user provides input that doesn't match a valid option, ask them to clarify or pick from the list.
+
+Valid SELECT options for current step:
+\`\`\`json
+${currentSelectConstraints}
+\`\`\`
+
+Examples:
+- If valid options are ["Morning", "Afternoon", "Evening"] and user says "around noon": Ask "Is that Afternoon?" or clarify with the three options.
+- If valid options are ["Red", "Blue", "Green"] and user says "purple": Do NOT use "purple" — explain it's not available and ask which of the three they meant.
+
+ALWAYS include the valid constraint in the action card under "selectOptions" so the app can validate before saving.
+`
+
   // Physical current date — used for relative date arithmetic ("yesterday", "5 days ago")
   // When a day session is active, today (loggingDate) ≠ actualToday (device date)
   const actualToday = actualDate ?? today
@@ -385,8 +489,11 @@ When the current step has a yes/no or boolean field (SELECT with ["Yes", "No"] o
   return `${masterBrain}You are YAHA, executing the "${routine.name}" routine for Armaan.
 Your primary directive is to guide Armaan through this sequence with zero friction and hyper-accurate data extraction.
 
+${VISION_CAPABILITY}
+
 ${DB_ACCESS_BLOCK}
 ${YES_NO_FIELD_RULE}
+${SELECT_FIELD_VALIDATION_RULE}
 
 Today's date: ${today}
 Actual current date: ${actualToday}

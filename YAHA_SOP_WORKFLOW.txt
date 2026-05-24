@@ -1,0 +1,165 @@
+================================================================================
+YAHA HEALTH TRACKER — STANDARD OPERATING PROCEDURE (SOP)
+Workflow Method & Agent Execution Protocol
+================================================================================
+
+---
+
+HOW SESSIONS WORK (OPTIMIZED)
+
+Before ANY agent dispatch:
+✅ Check MEMORY.md for cached agent configs (loaded at session start)
+✅ If configs not in memory yet → SAVE THEM NOW (one-time read)
+✅ Build task in SESSION_LOG (compact format)
+✅ Reference cached config from MEMORY.md, NOT `.claude/agents/[name].md`
+
+Agent dispatch format (COMPRESSED):
+
+## Task: [Brief Title]
+**Ref:** MEMORY.md § Coding Agent | Config cached: ✓
+**What:** [1-2 line description]
+**Files:** src/path/file1.tsx, src/path/file2.ts
+**Validate:** npm run lint && npm run build
+
+---
+
+COMPRESSED AGENT SIGNATURES
+
+Mapping:
+- [CA | time] = Coding Agent
+- [CR | time] = Code Reviewer
+- [QA | time] = QA Agent
+- [RA | time] = Research Agent
+- [SR | time] = Security Reviewer
+
+Format: [AA | HH:MM] Brief note
+
+---
+
+AGENT EXECUTION ORDER (OPTIMIZED WORKFLOW)
+
+[MAIN AGENT] Session Start — Load Agent Config Cache
+  ↓
+  1. Create `.claude/sessions/[DATE]/SESSION_LOG.md`
+  2. Check previous SESSION_LOG for unfinished work
+  3. Read + cache agent configs → MEMORY.md § Agent Config Index
+  4. All agents from now on reference MEMORY.md (NO re-reads)
+  ↓
+IF unfinished bugs:
+  [MAIN AGENT] Create compressed task in SESSION_LOG
+  ↓
+  [CODING AGENT] Fix → create technical_log_v[N]
+  (Reference MEMORY.md for config, no re-read)
+
+ELSE IF new feature:
+  [RESEARCH AGENT] Investigate → sign SESSION_LOG → exit
+  [MAIN AGENT] Consolidate + task
+  [CODING AGENT] Build
+  (All reference cached configs)
+
+ELSE:
+  [CODING AGENT] Build from task
+  ↓
+[CODE REVIEWER] Review in technical_log_v[N]
+  - Verdict: PASS | PASS WITH NOTES | FAIL
+  - Signature: [CR | HH:MM] Finding X
+  ↓
+  IF FAIL:
+    [MAIN AGENT] New task with findings (compressed)
+    [CODING AGENT] Fix → technical_log_v[N+1]
+    → loop
+
+  IF PASS:
+    [QA AGENT] Post test criteria (compressed checklist)
+    [YOU] Test → report + screenshots
+    [QA AGENT] Document results → Verdict
+    ↓
+    IF bugs found:
+      [MAIN AGENT] New task
+      [CODING AGENT] Fix
+      → loop
+    ELSE:
+      ✓ Build Complete
+
+---
+
+KEY WORKFLOW RULES (OPTIMIZED)
+
+1. **Agent configs load ONCE per session** — Save to MEMORY.md immediately
+2. **All agents reference MEMORY.md, never re-read `.claude/agents/*.md`** — Huge token savings
+3. **Compressed signatures** — Use `[CA | HH:MM]` format, not full timestamp
+4. **SESSION_LOG stays minimal** — Only task definitions + agent verdicts, no verbose notes
+5. **Code Reviewer uses Sonnet** — Unless you request security audit (then Security Reviewer + Opus)
+6. **Model switch for output efficiency** — Agents use primary model (Sonnet/Opus) for thinking, downgrade to Haiku when writing findings/logs
+7. **No auto-loops** — Main Agent decides after reviewing technical_log
+8. **Timestamps consistent** — All work includes time, no full signature bloat
+9. **Compressed agent signatures required** — Format: `[AA | HH:MM] Brief note`
+
+---
+
+LOOP-BACK DECISION MATRIX
+
+When to loop back (Main Agent decides):
+
+Situation                          Decision           Action
+────────────────────────────────────────────────────────────────────────────
+Code Reviewer: FAIL                Loop back          Main Agent creates compressed task with findings
+Code Reviewer: PASS WITH NOTES     Continue to QA     Non-blocking items noted for next build
+QA: Test failures                  Loop back          Main Agent creates task with QA findings + SC[N]
+QA: All pass                       Build Complete     ✓ PASS
+Security Reviewer: FAIL            Loop back          Main Agent creates security fix task
+Security Reviewer: PASS            Build Complete     ✓ PASS
+
+---
+
+AGENT CONFIGURATION & MODEL PREFERENCES
+
+Agent                Model               Why                                    Token Impact
+────────────────────────────────────────────────────────────────────────────
+Coding Agent         claude-sonnet-4-6   Fast + excellent Next.js              Baseline
+Code Reviewer        claude-sonnet-4-6   85% cheaper than Opus, same quality   -85% vs Opus
+QA Agent             claude-sonnet-4-6   Reliable test generation              Baseline
+Research Agent       claude-sonnet-4-6   Fast API research                      Baseline
+Security Reviewer    claude-opus-4-6     Deep reasoning for OWASP audits       Expensive, on-demand only
+HR Agent             Haiku→Sonnet→Haiku  I/O + analysis + report              20% budget cap
+
+Load all agent configs at session start and cache in MEMORY.md.
+Reference MEMORY.md for all configs — do NOT re-read `.claude/agents/*.md` files.
+
+---
+
+THE 5 TOKEN MANAGEMENT LAWS (MANDATORY)
+
+1. The 60% Rule
+   Monitor context usage via `/status line`. If battery hits 60%:
+   - Warn user: "Context at 60%. Recommend `/compact` or start new session."
+   - Do NOT continue adding context
+   - User must explicitly approve context cleanup or session continuation
+
+2. The 95% Confidence Rule
+   Never begin writing application code until 95% confident in specification:
+   - If spec is ambiguous, run `spec-developer` skill first
+   - Clarify edge cases before coding starts
+   - No iterative "figure it out as we go"
+
+3. The Plan Graveyard
+   Every approved feature plan must be saved:
+   - Location: `docs/plans/YYYY-MM-DD-feature-name.md`
+   - Content: Final approved plan (markdown format)
+   - Cleanup: Monthly — archive completed plans to `docs/plans/archive/`
+
+4. The Sub-Agent 'Why'
+   When spawning ANY sub-agent, explicitly state the Why in the prompt:
+   - BAD: "Research Agent: investigate Gemini 2.5 Flash API"
+   - GOOD: "Research Agent: investigate Gemini 2.5 Flash API to clarify rate-limit handling for multi-file uploads (Phase 1 blocker)"
+   - Result: 15-20% better focus, fewer rabbit holes
+
+5. Applied Learning (Self-Healing)
+   After every recurring bug or context drop incident, append a 15-word maximum bullet to CLAUDE.md:
+   - Format: `- [INCIDENT] [Root cause] → [Fix applied] (date: YYYY-MM-DD)`
+   - Review quarterly — remove fixes that have not recurred in 3+ builds
+   - Purpose: Prevent the same issue from burning tokens twice
+
+================================================================================
+END SOP
+================================================================================

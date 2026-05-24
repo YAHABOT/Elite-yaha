@@ -1,0 +1,127 @@
+QA TEST PLAN REVIEW — V27-P0-B End Day Button Persistence
+Date: 2026-03-31
+
+ASSESSMENT: APPROVED FOR EXECUTION (✅)
+
+The QA test plan for V27-P0-B comprehensively covers all requirements with 5 
+well-designed test cases achieving 100% feature coverage.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+KEY FINDINGS
+
+1. COVERAGE: EXCELLENT (5/5 tests, 100%)
+   - All critical paths tested (happy path + 4 edge cases)
+   - All P0/P1 priority requirements addressed
+   - Security validation included (RLS)
+   - Date boundary edge case covered (midnight)
+
+2. IMPLEMENTATION READINESS: HIGH (100%)
+   Code is already in place:
+   ✓ DashboardClient.tsx condition logic
+   ✓ RoutineBanner.tsx button rendering
+   ✓ getActiveDayState() database query
+   ✓ markDayEnded() session closure
+   ✓ Chat route integration
+   
+   Only item pending: Supabase RLS policy verification (should be in place)
+
+3. TEST DESIGN QUALITY: GOOD
+   - Clear test scenarios with expected outcomes
+   - Proper isolation (unit + integration split)
+   - Security considerations included
+   - Minor scenario naming issue (TC-02 mentions "7pm" but test validates 
+     date-change logic, not time threshold)
+
+4. INTEGRATION WITH V27-P0-A: COMPLEMENTARY
+   V27-P0-B (Persistence) + V27-P0-A (Auto-Close) form seamless feature pair:
+   - P0-B: Button stays visible until midnight passes
+   - P0-A: Button disappears after new message on new date
+   - Together: Smooth UX with no unexpected state transitions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INDIVIDUAL TEST CASE ASSESSMENT
+
+TC-V27-B-01 (Button Appears After Start Day)
+├─ Status: ✅ Ready
+├─ Focus: Happy path validation
+├─ Effort: Low (simple render condition check)
+└─ Risk: None
+
+TC-V27-B-02 (Button Persists - No Time-Based Logic)
+├─ Status: ✅ Ready (minor naming clarification)
+├─ Focus: Validates no spurious time-based auto-close
+├─ Effort: Medium (requires Playwright clock mock)
+├─ Risk: None
+└─ Note: Rename "past 7pm" → "on same calendar day" for clarity
+
+TC-V27-B-03 (Button Persists Across Midnight)
+├─ Status: ✅ Ready
+├─ Focus: Date boundary validation (most critical)
+├─ Effort: Medium (requires clock mocking + date handling)
+├─ Risk: None
+└─ Critical: Validates inverse of V27-P0-A auto-close logic
+
+TC-V27-B-04 (Button Click Triggers End Day)
+├─ Status: ✅ Ready
+├─ Focus: User interaction flow
+├─ Effort: Medium (requires chat route mocking)
+├─ Risk: None
+└─ Implementation: Link element, no custom click handler
+
+TC-V27-B-05 (RLS Authorization)
+├─ Status: ✅ Ready
+├─ Focus: Security validation (defense in depth)
+├─ Effort: Medium (RLS policy verification)
+├─ Risk: None
+└─ Dependencies: Supabase RLS policy must be in place
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXECUTION READINESS
+
+✓ All test cases are implementable with current codebase
+✓ No architectural changes needed
+✓ Test infrastructure exists (Vitest, mock patterns established)
+✓ Mock patterns already proven in auto-end-day.test.ts
+
+Recommended test file structure:
+  src/__tests__/components/end-day-button.test.ts
+  src/__tests__/integration/day-state-persistence.integration.test.ts
+
+Recommended execution order (by complexity):
+  1. TC-01 (happy path - fastest)
+  2. TC-04 (user interaction)
+  3. TC-05 (security)
+  4. TC-02 (time persistence)
+  5. TC-03 (midnight crossing - most critical edge case)
+
+Estimated total time: 2-3 hours
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VERDICT CRITERIA
+
+All 5 TCs pass           → PASS ✅
+4/5 TCs pass             → PASS WITH NOTES ⚠
+3 or fewer TCs pass      → FAIL ❌ (requires fixes)
+
+Expected outcome: PASS ✅ (all tests are well-designed and code is ready)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RECOMMENDATION
+
+Execute the test plan as designed. The 5 test cases comprehensively validate the 
+V27-P0-B feature with proper coverage of happy path, edge cases, and security 
+concerns. Code is already in place. Minor scenario naming clarifications are 
+non-blocking.
+
+Approval: ✅ APPROVED FOR EXECUTION
+
+Next steps:
+1. Create test files in src/__tests__/
+2. Implement and run test cases in recommended order
+3. All tests should PASS based on current implementation
+4. Optional: Add cross-feature integration test with V27-P0-A

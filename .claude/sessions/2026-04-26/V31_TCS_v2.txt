@@ -1,0 +1,1064 @@
+================================================================================
+PHASE 2 TEST CASE SPECIFICATION (TCS_v2)
+Logic Fixes & LLM Intelligence
+================================================================================
+
+BRIEF OVERVIEW:
+Phase 2 implements nine logic improvements to fix hallucination, calculation errors,
+and context retrieval issues:
+
+1. 7:00 PM Timestamp Regression: Fixes random 7 PM timestamp injection across all states
+2. Text Field Width: Fixes awkward text wrapping (7+ vertical lines) in text inputs/textareas
+3. Historical Context Regex: Expands patterns to catch natural language variations
+4. YES_NO Field Logic: Fixes "No" being logged as literal string vs skip intent
+5. Routing Default: Changes root navigation from /dashboard to /chat
+6. LLM Persona Separation: Splits Data Extraction from Nutritional Estimation personas
+7. Field ID De-obfuscation: Maps fld_protein → Protein in system prompt
+8. Native Macro Totaling: Post-processing native JavaScript calculation before LLM injection
+9. Anti-hallucination Rules: Removes rules blocking web search and native knowledge
+
+These changes fix 9 major bugs (1, 2, 3, 4, 7, 8, 9, 15, 20, 22, 24, 25, 27).
+
+================================================================================
+DETAILED TEST CASES
+================================================================================
+
+TEST SET 1: 7:00 PM TIMESTAMP REGRESSION FIX
+==============================================
+
+TEST 1.1: Normal Timestamp During Morning Session
+---
+Objective: Verify timestamps are NOT forced to 7:00 PM during morning routine
+Preconditions:
+  - App open, user logged in
+  - Morning session active (e.g., 09:30 AM local time)
+  - Chat interface ready
+Steps:
+  1. Log a tracker entry in chat: "100 calories for breakfast"
+  2. Observe the timestamp recorded for the entry
+  3. Check database directly (via browser dev tools or Supabase dashboard)
+  4. Note the exact timestamp saved
+Expected Result:
+  - Timestamp reflects actual time (e.g., 09:30:15 AM)
+  - NOT 7:00 PM (19:00:00)
+  - Within ±2 seconds of client's local time
+  - Compare to Bug 7: Before fix, random 7 PM timestamp appeared
+
+TEST 1.2: Timestamp in NEUTRAL State
+---
+Objective: Verify 7 PM regression doesn't occur in NEUTRAL (between-session) state
+Preconditions:
+  - User has ended their day session (status = "NEUTRAL")
+  - Time is 2:30 PM local (outside 7 PM window)
+  - No active day session
+Steps:
+  1. In NEUTRAL state, trigger chat message
+  2. Check timestamp of message in database
+Expected Result:
+  - Timestamp is 2:30 PM (not 7:00 PM)
+  - Correctly reflects actual time
+  - Bug doesn't appear in non-session states
+
+TEST 1.3: Timestamp Across Multiple Logs Same Day
+---
+Objective: Verify timestamps increment correctly and don't regress to 7 PM
+Preconditions:
+  - Day session active
+  - Current time is 10:00 AM
+Steps:
+  1. Log entry 1: "200 calories at 10:00 AM"
+  2. Wait 5 minutes (10:05 AM)
+  3. Log entry 2: "150 calories at 10:05 AM"
+  4. Wait 5 minutes (10:10 AM)
+  5. Log entry 3: "100 calories at 10:10 AM"
+  6. Check all three timestamps in database
+Expected Result:
+  - Entry 1: ~10:00:XX AM
+  - Entry 2: ~10:05:XX AM
+  - Entry 3: ~10:10:XX AM
+  - All timestamps increment correctly
+  - None show 7:00 PM
+  - Time progression is logical
+
+TEST 1.4: Timestamp at 6:59 PM (Edge Case)
+---
+Objective: Verify 7 PM edge case doesn't trigger false positive
+Preconditions:
+  - Day session active
+  - Current local time is 6:59:30 PM
+Steps:
+  1. Log entry: "snack"
+  2. Check timestamp in database
+Expected Result:
+  - Timestamp shows 6:59:30 PM (not 7:00:00 PM)
+  - Edge case handled correctly
+  - No rounding to next hour
+
+TEST 1.5: Timestamp at 7:00:01 PM (Cross Edge)
+---
+Objective: Verify legitimate 7 PM entries aren't blocked
+Preconditions:
+  - Day session active
+  - Current local time is 7:00:01 PM
+Steps:
+  1. Log entry: "dinner prep"
+  2. Check timestamp in database
+Expected Result:
+  - Timestamp shows 7:00:01 PM
+  - Legitimate 7 PM entry is preserved
+  - Not filtered or altered
+
+TEST 1.6: Timestamp Across Timezone Boundaries
+---
+Objective: Verify timezone handling prevents 7 PM regression
+Preconditions:
+  - Client browser in PST (UTC-7)
+  - Log entry created at 9:00 AM PST
+Steps:
+  1. Create log entry at 9:00 AM PST
+  2. Check timestamp stored in database (verify timezone handling)
+  3. Repeat from different timezone (EST, UTC+0)
+Expected Result:
+  - All timestamps reflect actual local time
+  - No cross-timezone pollution
+  - PST 9:00 AM = UTC 4:00 PM (correct conversion)
+  - No 7 PM regression across timezones
+
+---
+
+TEST SET 2: TEXT FIELD WIDTH FIX
+================================
+
+TEST 2.1: Single-Line Text Input Width
+---
+Objective: Verify text inputs expand fully and don't wrap awkwardly
+Preconditions:
+  - Chat interface open
+  - Logging a field with TEXT type (not textarea)
+  - Field is "Notes" or similar single-line field
+Steps:
+  1. Focus on text input field
+  2. Type a 50-character string: "This is a test message about daily activities"
+  3. Observe the field width and text rendering
+  4. Inspect element width via dev tools (or visual inspection)
+Expected Result:
+  - Text input spans full width of container (minus padding)
+  - Single line (no wrapping to 7+ vertical lines)
+  - Text is readable and not truncated
+  - Compare to Bug 5: Before fix, text wrapped awkwardly into 7+ lines
+
+TEST 2.2: Textarea (Multi-line) Width
+---
+Objective: Verify textareas also expand fully without awkward wrapping
+Preconditions:
+  - Chat interface open
+  - Logging a multi-line text field (e.g., "Daily Journal" or "Notes")
+Steps:
+  1. Focus on textarea field
+  2. Type multiple lines:
+     Line 1: Morning felt great
+     Line 2: Afternoon was productive
+     Line 3: Evening relaxed
+  3. Observe text rendering width
+  4. Check if text wraps prematurely
+Expected Result:
+  - Textarea expands to full container width
+  - Line breaks only at intended newlines (not forced wraps)
+  - All text is readable
+  - No awkward 7-line vertical collapse
+
+TEST 2.3: Text Input with Long String (No Spaces)
+---
+Objective: Verify very long words don't break field layout
+Preconditions:
+  - Text input field visible
+Steps:
+  1. Type a very long word (no spaces): "pneumonoultramicroscopicsilicovolcanoconiosis"
+  2. Observe field behavior
+  3. Check horizontal scrollbar (if applicable)
+Expected Result:
+  - Field doesn't collapse or wrap awkwardly
+  - Either:
+    a) Text scrolls horizontally (input has overflow scroll), OR
+    b) Field expands or word wraps gracefully
+  - Field layout is not broken
+
+TEST 2.4: Text Input Responsive Width (Mobile)
+---
+Objective: Verify text fields adapt width on mobile devices
+Preconditions:
+  - Browser resized to mobile size (e.g., 375px width)
+  - Or mobile device (iPhone) viewing app
+  - Text input field visible
+Steps:
+  1. Type a moderate-length string: "Lunch was healthy and delicious"
+  2. Observe text rendering
+  3. Measure field width
+Expected Result:
+  - Text field spans full mobile width (minus safe margins)
+  - Text wraps at logical points (word boundaries)
+  - Not collapsed into 7+ awkward lines
+  - Still readable on mobile screen
+
+TEST 2.5: Label and Input Alignment
+---
+Objective: Verify text fields and labels align properly
+Preconditions:
+  - Chat interface with labeled fields
+  - Multiple text inputs on same page (e.g., Name, Notes, Comments)
+Steps:
+  1. Observe label positioning
+  2. Observe input field positioning
+  3. Type text into each field
+  4. Check alignment as text fills fields
+Expected Result:
+  - Labels align consistently above inputs
+  - Inputs all have same width
+  - No inputs collapse or shrink as text is added
+  - Layout is uniform across all fields
+
+TEST 2.6: CSS Flex/Grid Layout Validation
+---
+Objective: Verify underlying CSS (flex/grid) properly sizes text fields
+Preconditions:
+  - Dev tools open
+  - Text input visible
+Steps:
+  1. Open browser dev tools (F12)
+  2. Inspect text input element
+  3. Check computed CSS properties: width, flex, max-width, overflow
+  4. Verify parent container has overflow-auto (not overflow-hidden)
+Expected Result:
+  - width: 100% or flex: 1 (or similar expansion rule)
+  - max-width: undefined (or large value)
+  - overflow: auto or overflow-x: auto (for textareas)
+  - Parent container: overflow-auto (NOT overflow-hidden above sticky elements)
+  - No CSS rule forcing narrow width
+
+---
+
+TEST SET 3: HISTORICAL CONTEXT REGEX EXPANSION
+===============================================
+
+TEST 3.1: "Yesterday" Query Still Works
+---
+Objective: Verify classic "yesterday" keyword still triggers historical context
+Preconditions:
+  - Yesterday: Logs exist (e.g., 5 meals logged)
+  - Today: App running, user asks historical question
+  - Regex pattern exists: /\byesterday\b/i
+Steps:
+  1. Ask in chat: "Show me yesterday's nutrition"
+  2. Observe if bot retrieves historical data
+  3. Check if response includes yesterday's logs
+Expected Result:
+  - Bot fetches yesterday's data from database
+  - Includes meal entries from yesterday
+  - No error: "I don't have access to that data"
+  - Response shows yesterday's totals
+
+TEST 3.2: "Day Before" Query (New Pattern)
+---
+Objective: Verify new pattern "day before" is now recognized
+Preconditions:
+  - Yesterday: Logs exist
+  - Today: User asking about previous day in natural language
+Steps:
+  1. Ask in chat: "What did I eat the day before yesterday?"
+  2. Observe if bot fetches data
+Expected Result:
+  - Bot recognizes "day before" as historical context trigger
+  - Fetches day-before-yesterday data
+  - NO error about missing access
+  - Compare to Bug 1: Before fix, this query would fail
+
+TEST 3.3: "How Did I Do" Query (New Pattern)
+---
+Objective: Verify "how did I do" pattern is recognized
+Preconditions:
+  - Previous day: Logs exist
+  - Today: User asking for retrospective
+Steps:
+  1. Ask in chat: "How did I do on calories yesterday?"
+  2. Wait for bot response
+Expected Result:
+  - Bot fetches historical context
+  - Responds with yesterday's calorie data
+  - Pattern "how did i do" recognized as historical trigger
+  - Not interpreted as current day question
+
+TEST 3.4: "Totals For" Query (New Pattern)
+---
+Objective: Verify "totals for" pattern triggers historical context
+Preconditions:
+  - Previous day: Multiple entries exist
+Steps:
+  1. Ask in chat: "What are the totals for last Thursday?"
+  2. Observe response
+Expected Result:
+  - Bot fetches Thursday's data
+  - Returns daily totals (calories, protein, etc.)
+  - Pattern "totals for" recognized
+  - Not interpreted as current day query
+
+TEST 3.5: Partial Word Match Blocked (Case Sensitivity)
+---
+Objective: Verify regex word boundaries prevent false positives
+Preconditions:
+  - Chat interface ready
+Steps:
+  1. Ask in chat: "Do you like yesterday's music?" (yesterday as object, not time ref)
+  2. Observe if bot incorrectly fetches historical data
+Expected Result:
+  - Bot does NOT fetch historical data
+  - Understands "yesterday" as noun (music), not temporal reference
+  - Word boundary anchor (\b) prevents substring match
+  - Response stays in current context
+
+TEST 3.6: Multiple Time References (Complex Query)
+---
+Objective: Verify regex handles multi-reference queries
+Preconditions:
+  - Data exists for multiple days (last 3 days)
+Steps:
+  1. Ask: "Compare my workouts from yesterday to the day before"
+  2. Observe if bot fetches multiple time periods
+Expected Result:
+  - Bot recognizes BOTH "yesterday" and "day before"
+  - Fetches data from both time periods
+  - Comparison is made with correct historical data
+  - Not limited to single time reference
+
+---
+
+TEST SET 4: YES_NO FIELD LOGIC FIX
+==================================
+
+TEST 4.1: Boolean Yes/No Field (vs Text "Yes"/"No")
+---
+Objective: Verify "No" input to yes/no field = boolean false (skip), not string "No"
+Preconditions:
+  - Tracker has field "Took vitamins?" with type SELECT
+  - Options: ["Yes", "No"]
+  - Single-select mode
+  - Field is marked as "yes/no" semantic
+Steps:
+  1. During routine, bot asks: "Did you take vitamins today?"
+  2. User responds: "No"
+  3. Bot processes and logs
+  4. Check tracker entry
+Expected Result:
+  - Field shows as false or empty (not logged string "No")
+  - Bot doesn't log a literal "No" text entry
+  - Routine treats "No" as skip intent
+  - Next day, field is empty (not carrying over "No")
+  - Compare to Bug 29: Before fix, "No" was logged as string
+
+TEST 4.2: Yes/No Field with "Yes" Response
+---
+Objective: Verify "Yes" response logs correctly to yes/no field
+Preconditions:
+  - Yes/No SELECT field exists: "Took vitamins?"
+Steps:
+  1. Bot asks: "Did you take vitamins?"
+  2. User responds: "Yes"
+  3. Check tracker entry
+Expected Result:
+  - Field shows as true or "Yes" (whichever representation)
+  - Data is stored correctly
+  - Logged as boolean true or selected option "Yes"
+  - Not as string confusion
+
+TEST 4.3: Negation Handling ("nope", "nah", "no way")
+---
+Objective: Verify LLM contextually understands negation variations
+Preconditions:
+  - Yes/No field: "Completed workout?"
+  - Semantically a yes/no question
+Steps:
+  1. Bot asks: "Did you complete your workout?"
+  2. User responds: "Nope, ran out of time"
+  3. Bot processes and logs
+Expected Result:
+  - Bot understands "Nope" as negative response
+  - Field skipped (not logged as string "Nope")
+  - Narrative ("ran out of time") is understood conversationally
+  - Field remains empty/false for this day
+
+TEST 4.4: Affirmation Handling ("yep", "yeah", "absolutely")
+---
+Objective: Verify LLM contextually understands affirmation variations
+Preconditions:
+  - Yes/No field: "Meditated today?"
+Steps:
+  1. Bot asks: "Did you meditate?"
+  2. User responds: "Yeah, for 20 minutes"
+  3. Bot processes and logs
+Expected Result:
+  - Bot understands "Yeah" as positive response
+  - Field logs as true/"Yes"
+  - Duration ("20 minutes") is captured separately if applicable
+  - Field correctly records completion
+
+TEST 4.5: Ambiguous Response Handling
+---
+Objective: Verify LLM asks for clarification if response is ambiguous
+Preconditions:
+  - Yes/No field: "Slept well?"
+Steps:
+  1. Bot asks: "Did you sleep well?"
+  2. User responds: "Kind of, not really"
+  3. Bot processes response
+Expected Result:
+  - Bot recognizes ambiguity
+  - Either:
+    a) Asks clarifying question: "Does 'kind of' mean yes or no?", OR
+    b) Selects most likely intent: "I'll log that as 'No' since you weren't fully satisfied"
+  - Field is not left in error state
+  - Response is reasonable given ambiguous input
+
+TEST 4.6: Context-Aware Yes/No vs Text
+---
+Objective: Verify different fields handle Yes/No differently
+Preconditions:
+  - Field A: "Took medication?" (yes/no SELECT)
+  - Field B: "Notes on day" (TEXT field)
+Steps:
+  1. User logs to Field A: "No"
+  2. User logs to Field B: "Forgot to take medication"
+  3. Check both fields
+Expected Result:
+  - Field A: Boolean false (or empty)
+  - Field B: Text string "Forgot to take medication"
+  - Bot distinguishes field semantics
+  - "No" means skip for yes/no field, text content for text field
+
+---
+
+TEST SET 5: ROUTING DEFAULT FIX
+================================
+
+TEST 5.1: Root Path (/) Navigation to Chat
+---
+Objective: Verify navigating to / redirects to /chat, not /dashboard
+Preconditions:
+  - App running
+  - User logged in
+Steps:
+  1. Navigate to root URL: http://localhost:3000/
+  2. Observe which page loads
+Expected Result:
+  - Redirects to /chat
+  - Chat interface displays
+  - NOT /dashboard
+  - Compare to Bug 30: Before fix, / defaulted to /dashboard
+
+TEST 5.2: Direct Dashboard URL Still Works
+---
+Objective: Verify /dashboard is still accessible if user navigates directly
+Preconditions:
+  - App running
+Steps:
+  1. Navigate to http://localhost:3000/dashboard
+  2. Observe page load
+Expected Result:
+  - /dashboard loads normally
+  - Dashboard content displayed
+  - Direct navigation still works
+  - Only default / behavior changed (not removal of route)
+
+TEST 5.3: Fresh Login Redirect
+---
+Objective: Verify login flow redirects to /chat, not /dashboard
+Preconditions:
+  - User not logged in
+  - Login form visible
+Steps:
+  1. Log in with credentials
+  2. Observe redirect after successful auth
+Expected Result:
+  - After login, redirects to /chat
+  - Chat interface loads
+  - NOT /dashboard
+  - User sees active chat session immediately
+
+TEST 5.4: Logout and Redirect
+---
+Objective: Verify logout flow properly clears and redirects
+Preconditions:
+  - User logged in, viewing /chat
+Steps:
+  1. Click logout
+  2. Observe redirect
+  3. Try to navigate to /chat
+Expected Result:
+  - Logout completes
+  - Redirects to login page
+  - Cannot access /chat without re-authenticating
+  - Auth state properly cleared
+
+TEST 5.5: Browser Back Button from /dashboard
+---
+Objective: Verify back button works correctly with new routing
+Preconditions:
+  - User navigates: / → /dashboard (via direct URL)
+  - Currently on /dashboard
+Steps:
+  1. Click browser back button
+  2. Observe navigation
+Expected Result:
+  - Back button works (browser history respected)
+  - Returns to previous page (or root)
+  - Navigation is smooth
+  - No infinite redirects
+
+TEST 5.6: Deep Link to /chat/session/[id]
+---
+Objective: Verify nested /chat routes work correctly
+Preconditions:
+  - Specific chat session exists: /chat/session/abc123
+Steps:
+  1. Deep link to: http://localhost:3000/chat/session/abc123
+  2. Observe page load
+Expected Result:
+  - Session loads correctly
+  - Chat history displayed
+  - NOT redirected away
+  - Nested routing intact
+
+---
+
+TEST SET 6: LLM PERSONA SEPARATION
+==================================
+
+TEST 6.1: Data Extraction (Action Card) Format
+---
+Objective: Verify LLM outputs strict JSON action card for data extraction
+Preconditions:
+  - Chat interface open
+  - User logging structured data: "I had chicken (40g protein), rice (45g carbs), broccoli"
+Steps:
+  1. User sends message with nutrition data
+  2. Observe bot response format
+  3. Check for action card (JSON with fields, values)
+Expected Result:
+  - Bot outputs strict JSON action card:
+    {
+      "actionType": "LOG_DATA",
+      "fields": {
+        "Protein": 40,
+        "Carbs": 45,
+        "Vegetables": "broccoli"
+      }
+    }
+  - Action card is properly formatted and parseable
+  - JSON is valid (no syntax errors)
+
+TEST 6.2: Conversational Breakdown (Before Action Card)
+---
+Objective: Verify LLM provides conversational context BEFORE JSON action card
+Preconditions:
+  - User logs complex nutrition: "Had sandwich with turkey, mayo, lettuce on whole wheat"
+Steps:
+  1. User sends message
+  2. Observe full bot response
+Expected Result:
+  - Response includes TWO parts:
+    Part 1 (Conversational): "Great! A turkey sandwich with..." [conversational explanation]
+    Part 2 (Action Card): JSON with extracted fields
+  - NOT just raw JSON (confusing)
+  - User sees both understanding AND action card
+  - Cleaner output than before separation
+
+TEST 6.3: Nutritional Estimation (Native Gemini Knowledge)
+---
+Objective: Verify LLM uses native nutritional knowledge for macro estimation
+Preconditions:
+  - User logs without specific macros: "Had a slice of pizza"
+Steps:
+  1. User sends message
+  2. Observe bot's macro estimate
+Expected Result:
+  - Bot estimates reasonable macros:
+    - Pizza slice ≈ 250-300 kcal (not 1900)
+    - Protein ≈ 10-12g
+    - Carbs ≈ 30-35g
+    - Fat ≈ 10-12g
+  - Estimate is based on real-world nutritional data
+  - Not hallucinated (Bug 24, 25)
+  - Compare to Bug 14: Before fix, estimates were wildly inaccurate
+
+TEST 6.4: Macro Breakdown Formatting (Conversational)
+---
+Objective: Verify macro breakdown is formatted cleanly, not repetitive
+Preconditions:
+  - User logs food needing estimation: "grilled salmon with asparagus and olive oil"
+Steps:
+  1. User sends message
+  2. Observe formatting of macro breakdown
+Expected Result:
+  - Breakdown is formatted cleanly (markdown, table, or bullet list)
+  - NOT repetitive or cluttered
+  - Example clean format:
+    "Your salmon dinner estimate:
+    - Salmon (150g): 280 kcal, 35g protein, 18g fat
+    - Asparagus (100g): 22 kcal, 2.5g protein, 4g carbs
+    - Olive oil (1 tbsp): 120 kcal, 14g fat
+    Total: 422 kcal | 37.5g protein | 4g carbs | 32g fat"
+  - Clear, concise, not repeated multiple times
+
+TEST 6.5: Tone Separation (Professional vs Casual)
+---
+Objective: Verify conversational tone is appropriate (helpful, not robotic)
+Preconditions:
+  - User logs various foods
+Steps:
+  1. Log entry 1: "Just a simple salad"
+  2. Observe tone
+  3. Log entry 2: "Huge cheat day - pizza, ice cream, fries"
+  4. Observe tone
+Expected Result:
+  - Entry 1: "Great, a salad! Light and nutritious..."
+  - Entry 2: "Wow, quite the indulgent day! No judgment, everyone enjoys treats..."
+  - Tone adapts to context
+  - Not robotic or generic
+  - Persona separation allows natural language
+
+TEST 6.6: Handling Conflicting Instructions (Data Extraction Priority)
+---
+Objective: Verify when JSON formatting conflicts with readability, JSON wins
+Preconditions:
+  - User logs ambiguous entry: "I had some pasta but I'm not sure how much"
+Steps:
+  1. User sends ambiguous log
+  2. Observe response
+Expected Result:
+  - Bot acknowledges ambiguity conversationally:
+    "I see you're unsure about the portion size. Let me estimate based on typical serving..."
+  - Provides conversational estimate
+  - Then outputs best-effort JSON action card
+  - JSON is valid even if confidence is lower
+  - No action card failures due to conversational tone
+
+---
+
+TEST SET 7: FIELD ID DE-OBFUSCATION
+===================================
+
+TEST 7.1: Human-Readable Field Names in Prompt
+---
+Objective: Verify LLM sees "Protein: 25" instead of "fld_protein: 25"
+Preconditions:
+  - Chat interface during logging
+  - System prompt injection includes daily summary
+Steps:
+  1. Ask bot: "What did I eat for protein?"
+  2. Bot accesses buildDaySummary() which should map field IDs → labels
+Expected Result:
+  - Bot responds with human-readable field names
+  - Example: "Your protein intake today: 25g"
+  - NOT: "Your fld_protein today: 25"
+  - LLM sees decoded field names in prompt context
+
+TEST 7.2: Field ID Mapping Completeness
+---
+Objective: Verify ALL common fields are properly mapped (not just some)
+Preconditions:
+  - Tracker has fields: Calories, Protein, Carbs, Fat, Water, Sleep, Mood
+Steps:
+  1. In chat, ask bot about each field: "My calories?", "Sleep hours?", "Mood today?"
+  2. Observe if bot correctly references fields
+Expected Result:
+  - All fields mapped in prompt:
+    Calories → fld_kcal (mapped)
+    Protein → fld_protein (mapped)
+    Carbs → fld_carbs (mapped)
+    Fat → fld_fat (mapped)
+    Water → fld_water (mapped)
+    Sleep → fld_sleep_hours (mapped)
+    Mood → fld_mood (mapped)
+  - No field left as raw "fld_xxx"
+  - Bot references all fields by human name
+
+TEST 7.3: De-obfuscation Prevents Arithmetic Errors
+---
+Objective: Verify readable field names reduce LLM calculation errors
+Preconditions:
+  - User logs: 100 calories, 200 calories, 150 calories
+  - All labeled as "Calories" in prompt (not fld_kcal, fld_kcal, fld_kcal)
+Steps:
+  1. Ask bot: "What was my total calorie intake?"
+  2. Observe response and calculation
+Expected Result:
+  - Bot calculates: 100 + 200 + 150 = 450 kcal
+  - Correct total (not 150, not 300)
+  - Readable field names reduce mental mapping burden
+  - Fewer arithmetic errors
+  - Compare to Bug 23, 28: Before fix, calculations were wrong
+
+TEST 7.4: De-obfuscation for Custom Trackers
+---
+Objective: Verify user-created custom fields are also de-obfuscated
+Preconditions:
+  - User created custom tracker with fields: "Meditation Minutes", "Books Read", "Steps"
+Steps:
+  1. Ask bot: "How many minutes did I meditate?"
+  2. Observe field reference
+Expected Result:
+  - Bot says: "You meditated for 30 minutes"
+  - NOT: "Your fld_custom_1234 was 30"
+  - Custom field IDs also mapped to readable labels
+  - Works for user-defined trackers too
+
+TEST 7.5: Timestamp Preservation During De-obfuscation
+---
+Objective: Verify field mapping doesn't lose or corrupt timestamp data
+Preconditions:
+  - Multiple entries logged at different times same day
+Steps:
+  1. Check system prompt injection (dev tools)
+  2. Verify timestamps are preserved alongside field names
+Expected Result:
+  - Prompt includes: "At 10:30 AM: Protein: 25g"
+  - NOT: "At 10:30 AM: fld_protein: 25"
+  - Timestamps intact, field names decoded
+  - No data loss during mapping
+
+TEST 7.6: Performance (Mapping Overhead)
+---
+Objective: Verify de-obfuscation doesn't cause noticeable latency
+Preconditions:
+  - Chat interface ready
+  - Multiple fields to map
+Steps:
+  1. Measure response time for bot query about daily summary
+  2. Compare to previous session (if available)
+Expected Result:
+  - Response time <2 seconds
+  - No noticeable delay from field ID mapping
+  - Map-based lookup is O(1) (fast)
+  - No performance regression
+
+---
+
+TEST SET 8: NATIVE MACRO TOTALING
+==================================
+
+TEST 8.1: Daily Macro Total Calculation (JavaScript)
+---
+Objective: Verify native JavaScript calculates daily totals before LLM injection
+Preconditions:
+  - Multiple log entries same day:
+    * Entry 1: Protein 25g, Carbs 45g, Fat 10g
+    * Entry 2: Protein 30g, Carbs 35g, Fat 12g
+    * Entry 3: Protein 15g, Carbs 25g, Fat 8g
+  - All logged and confirmed
+Steps:
+  1. Ask bot: "What are my daily macro totals?"
+  2. Observe response
+Expected Result:
+  - Bot calculates:
+    Protein: 25 + 30 + 15 = 70g
+    Carbs: 45 + 35 + 25 = 105g
+    Fat: 10 + 12 + 8 = 30g
+  - Totals are correct (not rounded incorrectly)
+  - Calculated natively in JavaScript (not via LLM mental math)
+  - Compare to Bug 23, 28: Before fix, totals were wrong
+
+TEST 8.2: Null/Undefined Field Handling
+---
+Objective: Verify totaling skips missing/null fields correctly
+Preconditions:
+  - Entry 1: Protein 20, Carbs 40, Fat (null)
+  - Entry 2: Protein (null), Carbs 30, Fat 10
+  - Entry 3: Protein 25, Carbs (null), Fat 12
+Steps:
+  1. Ask bot: "What's my total macro intake?"
+  2. Check calculation logic
+Expected Result:
+  - Protein: 20 + 25 = 45g (null ignored)
+  - Carbs: 40 + 30 = 70g (null ignored)
+  - Fat: 10 + 12 = 22g (null ignored)
+  - No errors from null values
+  - Totals only count non-null entries
+  - Graceful null handling
+
+TEST 8.3: Zero Values vs Null
+---
+Objective: Verify zero values are included, nulls are skipped
+Preconditions:
+  - Entry 1: Protein 0, Carbs 50, Fat 10
+  - Entry 2: Protein 30, Carbs (null), Fat 12
+Steps:
+  1. Calculate totals
+Expected Result:
+  - Protein: 0 + 30 = 30g (zero included)
+  - Carbs: 50 = 50g (null skipped)
+  - Fat: 10 + 12 = 22g
+  - Zero values count, nulls don't
+  - Distinction is important (user might intentionally log zero)
+
+TEST 8.4: Only Positive Totals Injected (>0 Rule)
+---
+Objective: Verify only sums > 0 are injected into prompt context
+Preconditions:
+  - Entry 1: Protein 0, Carbs 0, Fat 0 (user logged nothing for macros)
+  - Entry 2: Sleep 8 hours (different field, not macro)
+Steps:
+  1. Ask bot: "What did I eat today?"
+  2. Observe prompt injection
+Expected Result:
+  - Prompt does NOT include "Protein: 0, Carbs: 0, Fat: 0"
+  - Prompt includes "Sleep: 8 hours" (>0)
+  - Only positive sums are injected
+  - Cleaner context, less noise
+  - Bot doesn't falsely assume data
+
+TEST 8.5: Same-Day Accumulation (Multiple Sessions)
+---
+Objective: Verify totals accumulate correctly across multiple logging sessions same day
+Preconditions:
+  - Morning (09:00): Breakfast logged (Protein 20, Carbs 50)
+  - Midday (12:30): Lunch logged (Protein 35, Carbs 45)
+  - Afternoon (15:00): Snack logged (Protein 10, Carbs 20)
+Steps:
+  1. End morning routine, continue later
+  2. Ask at evening: "Total carbs for today?"
+Expected Result:
+  - Bot retrieves ALL same-day entries
+  - Calculates: 50 + 45 + 20 = 115g carbs
+  - Not reset between sessions
+  - Accumulation continues throughout day
+
+TEST 8.6: Macro Total System Message to LLM
+---
+Objective: Verify macro totals are appended as system message to context
+Preconditions:
+  - Daily logs exist with calculated totals
+  - System prompt about to be injected
+Steps:
+  1. Check route.ts implementation (around lines 410-444)
+  2. Verify totals are appended as context message
+Expected Result:
+  - After daily summary, system message added:
+    "Daily Totals: Protein 70g | Carbs 105g | Fat 30g | Water 2.5L | Calories 1850 kcal"
+  - Message injected before LLM processes
+  - Pre-calculated values available to LLM
+  - LLM doesn't need to calculate
+
+---
+
+TEST SET 9: ANTI-HALLUCINATION RULES AUDIT
+============================================
+
+TEST 9.1: Web Search Tool Available to LLM
+---
+Objective: Verify GLOBAL_ANTI_HALLUCINATION_RULES doesn't block web search
+Preconditions:
+  - Chat interface open
+  - User asks: "What's the latest nutritional research on keto diets?"
+Steps:
+  1. User sends query about current information
+  2. Observe if bot can use web search
+  3. Check bot response (should include research info)
+Expected Result:
+  - Bot has access to web search tool (not blocked)
+  - Bot can retrieve current information
+  - Response includes recent nutritional data
+  - Bot is not artificially constrained
+  - Compare to Bug 24: Before fix, rules blocked search
+
+TEST 9.2: Native Nutritional Knowledge Used
+---
+Objective: Verify anti-hallucination rules allow native Gemini knowledge
+Preconditions:
+  - User logs: "Medium slice of pepperoni pizza"
+  - No web search needed (common food)
+Steps:
+  1. Bot processes food entry
+  2. Estimates macros using native knowledge
+Expected Result:
+  - Bot estimates: ~285 kcal, 12g protein, 36g carbs, 11g fat
+  - Based on real nutritional data
+  - Not hallucinated (1900 kcal Pizza disaster before fix)
+  - Native knowledge is accurate
+  - Compare to Bug 25: Before fix, estimates were outrageous
+
+TEST 9.3: Rules Don't Override LLM Intelligence
+---
+Objective: Verify anti-hallucination rules enhance, not cripple, LLM
+Preconditions:
+  - User asks contextual question: "Based on my logs, should I eat more protein?"
+Steps:
+  1. User sends nuanced question
+  2. Observe bot reasoning quality
+Expected Result:
+  - Bot uses:
+    * User's actual logged data
+    * Common nutritional guidelines
+    * Context from conversation
+  - Response is thoughtful (not generic)
+  - Not blocked by rigid rules
+  - Conversational intelligence intact
+
+TEST 9.4: Hallucination Still Prevented
+---
+Objective: Verify rules STILL prevent false claims while allowing intelligence
+Preconditions:
+  - User asks: "Do I have diabetes?"
+Steps:
+  1. User logs fitness data (not medical data)
+  2. Asks about medical condition
+Expected Result:
+  - Bot does NOT:
+    * Claim to diagnose medical conditions
+    * Invent medical history
+    * Suggest treatments
+  - Bot DOES:
+    * Say: "I can't diagnose, but your data shows..."
+    * Suggest consulting healthcare provider
+    * Remain helpful without overstepping
+
+TEST 9.5: Conflicting Instruction Removal
+---
+Objective: Verify redundant/conflicting rules are cleaned up
+Preconditions:
+  - Review prompt-builder.ts rules
+Steps:
+  1. Audit all GLOBAL_ANTI_HALLUCINATION_RULES
+  2. Check for conflicting instructions (e.g., "must output JSON" + "be conversational")
+  3. Verify redundant rules removed
+Expected Result:
+  - No conflicting instruction pairs
+  - Rules are clear and aligned
+  - JSON extraction AND conversational tone (not either/or)
+  - Streamlined rules (less token overhead)
+
+TEST 9.6: Rule Effectiveness (Edge Cases)
+---
+Objective: Verify rules still catch genuine hallucinations
+Preconditions:
+  - User logs minimal data: just "2 apples"
+  - Bot should NOT invent other foods
+Steps:
+  1. User logs minimal entry
+  2. Ask bot: "What did I eat today?"
+Expected Result:
+  - Bot responds: "You logged 2 apples. You haven't logged other meals yet."
+  - NOT: "You had 2 apples, a chicken sandwich, and a salad" (inventing)
+  - Hallucination prevention still active
+  - Rules work as intended
+
+---
+
+TEST SET 10: INTEGRATION TESTS
+=======================================
+
+TEST 10.1: Persona Separation + Field De-obfuscation
+---
+Objective: Verify both fixes work together correctly
+Preconditions:
+  - User logs complex nutrition: "Grilled chicken breast (150g) with brown rice and veggies"
+  - Both separating personas AND de-obfuscating fields
+Steps:
+  1. User sends nutrition log
+  2. Observe full response
+Expected Result:
+  - Response includes:
+    Part 1: "Great! A balanced meal with lean protein..." (conversational)
+    Part 2: Macro breakdown with readable field names ("Protein: 42g" not "fld_protein: 42")
+    Part 3: JSON action card with extracted fields
+  - All three work together smoothly
+  - No conflicts between features
+
+TEST 10.2: Native Macro Totaling + LLM Context
+---
+Objective: Verify pre-calculated totals reduce LLM errors
+Preconditions:
+  - Multiple entries logged, totals calculated natively
+  - Totals injected into system prompt
+Steps:
+  1. Ask bot: "Am I meeting my protein goal?"
+  2. Bot accesses pre-calculated totals
+  3. Compares to goal (e.g., 80g daily)
+Expected Result:
+  - Bot has accurate totals (not recalculating)
+  - Comparison is correct
+  - Response: "You've logged 70g protein today. Your goal is 80g. You need 10g more."
+  - Accurate math (previously would have been wrong)
+
+TEST 10.3: Regex Expansion + Persona Separation
+---
+Objective: Verify expanded regex + better conversational tone work together
+Preconditions:
+  - User asks: "How did I do on my macros yesterday?"
+Steps:
+  1. User sends historical query
+  2. Bot recognizes "yesterday" + "how did I do" patterns
+  3. Bot switches to historical context retrieval
+  4. Persona: conversational + informative
+Expected Result:
+  - Bot fetches yesterday's data
+  - Responds conversationally: "Yesterday you logged..."
+  - No robotic tone
+  - Natural language + effective context retrieval
+
+TEST 10.4: Field ID Mapping + Anti-hallucination
+---
+Objective: Verify readable field names + hallucination prevention work together
+Preconditions:
+  - User logged: Protein 30, Carbs 50, Fat 12 (no water intake)
+Steps:
+  1. Ask: "What are my totals for today?"
+  2. Bot sees readable field names
+  3. Bot avoids hallucinating missing data
+Expected Result:
+  - Bot responds: "Your totals: Protein 30g, Carbs 50g, Fat 12g. You haven't logged water yet."
+  - NOT: "Protein 30g, Carbs 50g, Fat 12g, Water 2L" (inventing)
+  - Readable names + anti-hallucination both working
+
+TEST 10.5: Timestamp Fix + Routing Default
+---
+Objective: Verify timestamp fix doesn't affect routing changes (independent)
+Preconditions:
+  - User logs entry (timestamp handling)
+  - User navigates to / (routing default)
+Steps:
+  1. Log entry at any time
+  2. Navigate to root path
+Expected Result:
+  - Entry has correct timestamp (not 7 PM)
+  - Root path routes to /chat (not /dashboard)
+  - Both fixes work independently
+  - No unintended side effects
+
+TEST 10.6: Text Width + Persona Separation
+---
+Objective: Verify UI fixes (text width) don't affect logic fixes (personas)
+Preconditions:
+  - Text input field expanded (width fix)
+  - User typing nutrition data
+  - Bot responds with separated personas
+Steps:
+  1. Type in expanded text field
+  2. Bot receives input and responds
+Expected Result:
+  - Text field displays properly (full width)
+  - Bot response is conversational + JSON (persona separation)
+  - Both fixes visible and working
+  - No conflicts
+
+---
+
+SUMMARY CHECKLIST:
+==================
+Run through all 46 tests above. For each:
+- If PASS: Mark as PASS, continue
+- If FAIL: Screenshot the failure, note what went wrong, save screenshot as SC_Phase2_Test[1.1-10.6]_FAIL.png
+
+EXPECTED OUTCOME:
+All 46 tests should PASS. If any FAIL, note the specific test number and failure mode so we can debug before moving to Phase 3.
+
+================================================================================
+END TCS_v2
+================================================================================

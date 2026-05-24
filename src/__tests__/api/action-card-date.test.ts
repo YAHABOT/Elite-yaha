@@ -38,17 +38,22 @@ describe('Action Card Date Logging (V27-P0-E)', () => {
     console.log = vi.fn()
 
     mockSupabaseSingle.mockResolvedValue({ data: null, error: null })
+    mockSupabaseUpdate.mockReturnValue({
+      eq: mockSupabaseEq,
+    })
     mockSupabaseEq.mockReturnValue({
       single: mockSupabaseSingle,
       update: mockSupabaseUpdate,
+      eq: mockSupabaseEq,
     })
     mockSupabaseSelect.mockReturnValue({
       eq: mockSupabaseEq,
       single: mockSupabaseSingle,
     })
-    mockSupabaseInsert.mockReturnValue({
-      select: mockSupabaseSelect,
-    })
+    // Insert returns a promise-like object that resolves with { error, data }
+    mockSupabaseInsert.mockReturnValue(
+      Promise.resolve({ error: null, data: null })
+    )
     mockFrom.mockReturnValue({
       insert: mockSupabaseInsert,
       select: mockSupabaseSelect,
@@ -82,11 +87,17 @@ describe('Action Card Date Logging (V27-P0-E)', () => {
       source: 'chat',
     }
 
-    mockSupabaseInsert.mockReturnValue({
-      select: mockSupabaseSelect,
-    })
-    mockSupabaseSelect.mockReturnValue({
-      single: vi.fn().mockResolvedValue({ data: { id: 'log-1' }, error: null }),
+    // Mock tracker fetch (only .single() call in this test path since messageId is undefined)
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'tracker-123',
+        user_id: 'test-user-id',
+        schema: [
+          { fieldId: 'fld_calories', label: 'Calories', type: 'number', unit: 'kcal' },
+          { fieldId: 'fld_food', label: 'Food', type: 'text' },
+        ],
+      },
+      error: null,
     })
 
     const result = await confirmLogAction(card)
@@ -156,11 +167,16 @@ describe('Action Card Date Logging (V27-P0-E)', () => {
       source: 'chat',
     }
 
-    mockSupabaseInsert.mockReturnValue({
-      select: mockSupabaseSelect,
-    })
-    mockSupabaseSelect.mockReturnValue({
-      single: vi.fn().mockResolvedValue({ data: { id: 'log-1' }, error: null }),
+    // Mock tracker fetch (only .single() call in this test path since messageId is undefined)
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'tracker-123',
+        user_id: 'test-user-id',
+        schema: [
+          { fieldId: 'fld_hours', label: 'Hours', type: 'number', unit: 'hours' },
+        ],
+      },
+      error: null,
     })
 
     const result = await confirmLogAction(card)
@@ -182,11 +198,17 @@ describe('Action Card Date Logging (V27-P0-E)', () => {
       source: 'chat',
     }
 
-    mockSupabaseInsert.mockReturnValue({
-      select: mockSupabaseSelect,
-    })
-    mockSupabaseSelect.mockReturnValue({
-      single: vi.fn().mockResolvedValue({ data: { id: 'log-1' }, error: null }),
+    // Mock tracker fetch (only .single() call in this test path since messageId is undefined)
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'tracker-workout-001',
+        user_id: 'test-user-id',
+        schema: [
+          { fieldId: 'fld_distance', label: 'Distance', type: 'number', unit: 'km' },
+          { fieldId: 'fld_duration', label: 'Duration', type: 'number', unit: 'minutes' },
+        ],
+      },
+      error: null,
     })
 
     const result = await confirmLogAction(card)
@@ -220,11 +242,16 @@ describe('Action Card Date Logging (V27-P0-E)', () => {
       source: 'chat',
     }
 
-    mockSupabaseInsert.mockReturnValue({
-      select: mockSupabaseSelect,
-    })
-    mockSupabaseSelect.mockReturnValue({
-      single: vi.fn().mockResolvedValue({ data: { id: 'log-1' }, error: null }),
+    // Mock tracker fetch (only .single() call in this test path since messageId is undefined)
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'tracker-123',
+        user_id: 'test-user-id',
+        schema: [
+          { fieldId: 'fld_value', label: 'Value', type: 'number' },
+        ],
+      },
+      error: null,
     })
 
     await confirmLogAction(card)
@@ -256,11 +283,28 @@ describe('Action Card Date Logging (V27-P0-E)', () => {
       source: 'chat',
     }
 
-    mockSupabaseInsert.mockReturnValue({
-      select: mockSupabaseSelect,
+    // Mock tracker fetch for card1 (first .single() call)
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'tracker-nutrition',
+        user_id: 'test-user-id',
+        schema: [
+          { fieldId: 'fld_calories', label: 'Calories', type: 'number', unit: 'kcal' },
+        ],
+      },
+      error: null,
     })
-    mockSupabaseSelect.mockReturnValue({
-      single: vi.fn().mockResolvedValue({ data: { id: 'log-1' }, error: null }),
+
+    // Mock tracker fetch for card2 (second .single() call)
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'tracker-nutrition',
+        user_id: 'test-user-id',
+        schema: [
+          { fieldId: 'fld_calories', label: 'Calories', type: 'number', unit: 'kcal' },
+        ],
+      },
+      error: null,
     })
 
     const result1 = await confirmLogAction(card1)

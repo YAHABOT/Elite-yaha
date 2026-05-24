@@ -1,0 +1,1118 @@
+================================================================================
+V31 FINAL CONSOLIDATED MANUAL TEST CASE SPECIFICATION
+Build 1 (Phase 1) + Build 2 (Phase 2) — Android Chrome
+Date: 2026-04-29 (Post-Audit Build — All 14 Critical Bugs Fixed)
+Commit: 31d487c (All tests PASS: 1742 tests, lint clean, build successful)
+Branch: feat/mvp-build
+Total: 67 tests across 14 test sets
+================================================================================
+
+INSTRUCTIONS
+------------
+- Test on Android Chrome against: https://yaha-bcf4vgog2-yahabots-projects.vercel.app
+- Vercel deployment for commit 31d487c is now LIVE and ready to test
+- Mark each test PASS or FAIL
+- If FAIL: screenshot + note what you saw vs what was expected
+- Save screenshots as: SC_[TC_ID]_FAIL.png  e.g. SC_P1_1.1_FAIL.png
+- Complete all areas before reporting results
+- Critical: Test all 14 bug fixes to confirm production readiness
+
+================================================================================
+PHASE 1 — DATA MODEL & CORE INTEGRITY (21 tests)
+Fixes: Bug 11 (duplicate entries), Bug 9 (cross-day totals), Bug 6 (data leakage),
+       Bugs 23/28 (calculations), Bug 29 (Yes/No as string), SELECT field type
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST SET P1-1: SELECT FIELD TYPE (6 tests) — BUG-FIXED
+--------------------------------------------------------------------------------
+
+TC P1-1.1: Create tracker with SELECT field (single-select)
+---
+Steps:
+  1. Navigate to Trackers
+  2. Create a new tracker "Sleep Quality Tracker"
+  3. Add a field, name it "Sleep Quality"
+  4. Set type to SELECT from the dropdown
+  5. In Options textarea, enter (one per line):
+       Good
+       Fair
+       Poor
+  6. Leave "Allow Multiple Selections" OFF
+  7. Save tracker
+Expected:
+  - Tracker saves successfully
+  - Sleep Quality field shows as SELECT type
+  - Options [Good, Fair, Poor] visible in tracker details
+  - NO enter key errors when creating multi-line options (fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.1_FAIL.png
+
+
+TC P1-1.2: Create tracker with SELECT field (multi-select)
+---
+Steps:
+  1. Create new tracker "Workout Tracker"
+  2. Add field "Workout Types", type SELECT
+  3. Options (one per line):
+       Cardio
+       Strength
+       Flexibility
+       Sports
+  4. Enable "Allow Multiple Selections"
+  5. Save tracker
+Expected:
+  - Tracker saves successfully
+  - Multi-select toggle confirmed ON after save
+  - When logging, multiple options can be chosen simultaneously
+  - No blocking on textarea Enter key input (fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.2_FAIL.png
+
+
+TC P1-1.3: Log value matching SELECT options
+---
+Pre: Sleep Quality tracker exists with options [Good, Fair, Poor]
+Steps:
+  1. Start logging to Sleep Quality field
+  2. Select "Good" from the dropdown/card
+  3. Confirm the log entry
+Expected:
+  - Entry logged successfully
+  - Tracker shows "Good" as the logged value (not a raw string error)
+  - Value correctly mapped to field
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.3_FAIL.png
+
+
+TC P1-1.4: Invalid option not in SELECT list is rejected
+---
+Pre: Sleep Quality tracker with [Good, Fair, Poor]
+Steps:
+  1. Attempt to log a value not in the options list
+     (test via AI chat: "log my sleep quality as Excellent")
+Expected:
+  - Either: dropdown restricts to valid options only, OR
+  - Validation error: value not valid for this field
+  - Entry is NOT logged with an invalid option
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.4_FAIL.png
+
+
+TC P1-1.5: Yes/No SELECT field (BUG-X11 FIXED: Field Mapping)
+---
+Pre: Create tracker "Daily Check", field "Took vitamins?" type SELECT, options [Yes, No]
+Steps:
+  1. In chat or routine, bot asks: "Did you take vitamins?"
+  2. User responds: "No"
+  3. Confirm the log card
+Expected:
+  - Field logs the value "No" (the SELECT option) correctly
+  - Correct field_id is used (not "wrong" field mapping)
+  - Next day, can recall: "Did I take vitamins yesterday?" → "Yes, you logged No"
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.5_FAIL.png
+
+
+TC P1-1.6: SELECT field with many options (stress test)
+---
+Steps:
+  1. Create tracker "Mood Tracker"
+  2. Add SELECT field "Current Mood"
+  3. Options: Happy, Sad, Neutral, Anxious, Excited, Calm, Angry, Frustrated, Content, Tired
+  4. Save tracker
+Expected:
+  - All options saved correctly
+  - Dropdown renders all options without truncation
+  - Can scroll through all options if needed
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_1.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P1-2: UPDATE_DATA ACTION (5 tests) — BUG-X1, BUG-X2 FIXED
+--------------------------------------------------------------------------------
+
+TC P1-2.1: Log entry can be corrected via UPDATE_DATA action
+---
+Steps:
+  1. Log a sleep quality value: "Good"
+  2. Immediately after, send message: "Actually, my sleep was Poor"
+  3. Confirm the correction card (should use UPDATE_DATA, not LOG_DATA)
+Expected:
+  - Only ONE entry in the database (not duplicated)
+  - Value updated from "Good" to "Poor"
+  - Timestamp remains the same as original
+  - No "Log entry not found" errors (fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.1_FAIL.png
+
+
+TC P1-2.2: UPDATE_DATA respects fieldId validation
+---
+Pre: Sleep Quality tracker created with correct field IDs
+Steps:
+  1. Manually create a log entry with sleep quality "Good"
+  2. Ask bot: "Change my sleep to Fair"
+  3. Confirm the action card
+Expected:
+  - Correct field updated (not wrong field due to ID mix-up)
+  - Values in correct database fields
+  - No sanitization bypass (values checked against schema)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.2_FAIL.png
+
+
+TC P1-2.3: UPDATE_DATA with multi-select field
+---
+Pre: Workout Tracker with multi-select field [Cardio, Strength, Flexibility, Sports]
+Steps:
+  1. Log: "Cardio, Strength"
+  2. Later: "Actually I also did Flexibility"
+  3. Confirm update
+Expected:
+  - Correct multi-select value: [Cardio, Strength, Flexibility]
+  - One log entry (not duplicated)
+  - All three options correctly saved to JSONB array
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.3_FAIL.png
+
+
+TC P1-2.4: Cannot trigger FK violation on UPDATE_DATA (BUG-X1 FIXED)
+---
+Steps:
+  1. Log a value to any tracker field
+  2. Attempt to update it multiple times rapidly
+  3. Check database has no duplicate rows or deadlocks
+Expected:
+  - No "duplicate key value violates constraint" errors
+  - No "deadlock detected" errors
+  - Updates complete successfully
+  - User never stuck in Step 1 (workflow never breaks)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.4_FAIL.png
+
+
+TC P1-2.5: Partial field update (some fields, not all)
+---
+Steps:
+  1. Create entry with fields [Sleep: Good, Mood: Happy, Steps: 8000]
+  2. Say: "Change my mood to Neutral" (update 1 of 3 fields)
+  3. Confirm the card
+Expected:
+  - Mood updates to Neutral
+  - Sleep stays "Good", Steps stay 8000
+  - No "Log entry not found" error (fixed)
+  - Correct sanitization on partial updates
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_2.5_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P1-3: MESSAGE HISTORY FILTERING (6 tests) — BUG-X9 FIXED
+--------------------------------------------------------------------------------
+
+TC P1-3.1: AI context includes recent messages only (same day)
+---
+Steps:
+  1. Send 5+ messages in a session (within same calendar day)
+  2. Ask: "What have I told you so far today?"
+  3. Bot should recall all messages from today's session
+Expected:
+  - Bot recalls all recent messages from today
+  - Accurate count of messages
+  - Context is stateful across 3+ hour sessions (not amnesia)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.1_FAIL.png
+
+
+TC P1-3.2: AI context does NOT include yesterday's messages (cross-day isolation)
+---
+Pre: 2-day old chat session with logs from yesterday
+Steps:
+  1. Log something today: "Sleep: Good"
+  2. Ask bot: "What did I log yesterday?"
+  3. Bot should NOT have yesterday's logs in context by default
+Expected:
+  - Bot does NOT recall logs from previous days in AI context
+  - No cross-day data leakage (BUG-X9 fixed)
+  - If user asks "recall yesterday", bot fetches from database (not hallucinated)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.2_FAIL.png
+
+
+TC P1-3.3: Cross-day locked banner still works (time-based routing)
+---
+Steps:
+  1. Navigate to yesterday's date in calendar
+  2. Check for "This day is locked" banner
+Expected:
+  - Banner appears correctly
+  - Cannot log entries for past dates
+  - Correct date filtering applied
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.3_FAIL.png
+
+
+TC P1-3.4: Message history limit prevents context overflow (30 message window)
+---
+Steps:
+  1. Send 50+ messages in a session
+  2. Request a summary of early messages
+  3. Bot should only have last ~30 messages in context
+Expected:
+  - No performance degradation from unlimited context
+  - AI remains responsive
+  - Token usage stays reasonable (30 message window, not 50+)
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.4_FAIL.png
+
+
+TC P1-3.5: User_id filtering prevents cross-user contamination (BUG-6 FIXED)
+---
+Steps:
+  1. (This is tested implicitly via normal login)
+  2. Verify messages are ONLY from current user (if multi-user app)
+Expected:
+  - No logs from other users appear in AI context
+  - user_id filter applied on message retrieval
+  - RLS enforced on database queries
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.5_FAIL.png
+
+
+TC P1-3.6: Session state survives page reload (context preserved)
+---
+Steps:
+  1. Send 3+ messages in a session
+  2. Refresh the browser page
+  3. Send another message
+  4. Ask: "Do you remember what we discussed before the refresh?"
+Expected:
+  - Bot recalls pre-refresh messages
+  - Full conversation history available after reload
+  - No loss of context
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_3.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P1-4: INTEGRATION TESTS (4 tests)
+--------------------------------------------------------------------------------
+
+TC P1-4.1: Combined flow: CREATE tracker → SELECT field → LOG → UPDATE
+---
+Steps:
+  1. Create "Energy Tracker" with SELECT field "Energy Level" (options: Low, Medium, High)
+  2. Log: "Energy: High"
+  3. 30 min later: "Actually, Energy was Medium"
+  4. Ask: "What's my energy level trend today?"
+Expected:
+  - Tracker created with SELECT field
+  - Original log saved
+  - Update created (not duplicate)
+  - Bot correctly recalls: "High" initially, then updated to "Medium"
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.1_FAIL.png
+
+
+TC P1-4.2: Multi-tracker scenario (no cross-contamination)
+---
+Steps:
+  1. Create "Sleep Tracker" with SELECT field "Quality" (Good, Fair, Poor)
+  2. Create "Mood Tracker" with SELECT field "Mood" (Happy, Sad, Neutral)
+  3. Log to Sleep: "Quality: Good"
+  4. Log to Mood: "Mood: Happy"
+  5. Ask bot: "What was my sleep quality?"
+Expected:
+  - Bot correctly responds with Sleep Quality value
+  - No confusion between tracker fields
+  - Each tracker's data isolated correctly
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.2_FAIL.png
+
+
+TC P1-4.3: Stress test: Rapid multiple updates to same field
+---
+Steps:
+  1. Log a value
+  2. Send 5+ rapid update messages (without waiting for confirm)
+  3. Manually confirm each one
+Expected:
+  - All updates applied correctly
+  - Final value is the last confirmed update
+  - No duplicate entries
+  - No deadlock or FK violation errors
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.3_FAIL.png
+
+
+TC P1-4.4: Complex multi-field tracker with SELECT + TEXT fields
+---
+Steps:
+  1. Create tracker with 3 fields:
+     - Sleep Duration (TEXT, e.g., "8 hours")
+     - Sleep Quality (SELECT: Good/Fair/Poor)
+     - Notes (TEXT, optional)
+  2. Log: Sleep Duration: "7.5 hours", Quality: "Good", Notes: "Woke up at 6am"
+  3. Later update: Quality to "Fair" (partial update)
+Expected:
+  - All fields save correctly
+  - Partial updates work (Quality changed, Duration and Notes unchanged)
+  - No data loss or field mapping errors
+Pass/Fail: ____  Screenshot if FAIL: SC_P1_4.4_FAIL.png
+
+
+================================================================================
+PHASE 2 — LOGIC FIXES & LLM INTELLIGENCE (46 tests)
+Fixes: BUG-X9 (context amnesia), BUG-X10 (image denial), BUG-X11 (field mapping),
+       BUG-X4 (hallucination), 7PM timestamp, text field width, YES_NO logic
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST SET P2-1: 7PM TIMESTAMP REGRESSION FIX (6 tests) — BUG-X2 FIXED
+--------------------------------------------------------------------------------
+
+TC P2-1.1: End Day button appears after 7PM
+---
+Steps:
+  1. Set device time to 7:00 PM (or later)
+  2. Check chat interface
+Expected:
+  - "End Day" button is visible (not hidden)
+  - Routine completion available
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.1_FAIL.png
+
+
+TC P2-1.2: End Day button hidden before 7PM
+---
+Steps:
+  1. Set device time to 6:59 PM
+  2. Check chat interface
+Expected:
+  - "End Day" button is NOT visible
+  - Cannot trigger end-of-day workflow
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.2_FAIL.png
+
+
+TC P2-1.3: End Day allowed in NEUTRAL state after 7PM
+---
+Pre: In NEUTRAL day state (no active session)
+Steps:
+  1. Time: 7:30 PM
+  2. Start new session via "Start Day" or routine trigger
+Expected:
+  - Session initializes correctly
+  - "End Day" available immediately (not blocked by time)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.3_FAIL.png
+
+
+TC P2-1.4: Session cannot be ended twice (BUG-X2 FIXED)
+---
+Steps:
+  1. Reach evening, End Day
+  2. Confirm the action
+  3. Attempt to End Day again
+Expected:
+  - First End Day succeeds
+  - Second End Day shows error or is unavailable
+  - No duplicate session records in database
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.4_FAIL.png
+
+
+TC P2-1.5: Timestamp persistence across refresh (7PM state)
+---
+Steps:
+  1. Time: 7:15 PM
+  2. Verify End Day button is visible
+  3. Refresh page
+  4. Verify button still visible
+Expected:
+  - Timestamp logic persists through page reload
+  - No state loss
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.5_FAIL.png
+
+
+TC P2-1.6: Start Day unavailable after session started (no double-start)
+---
+Pre: Session already started today
+Steps:
+  1. Attempt to Start Day again (via chat or button)
+Expected:
+  - Error message: "Start day for [date] already complete. End yesterday's session first."
+  - Cannot create duplicate session for same day
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_1.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-2: TEXT FIELD WIDTH FIX (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-2.1: Notes field renders full width on action cards
+---
+Steps:
+  1. Create a Notes field (TEXT type)
+  2. Log a note: "This is a longer note that should wrap to multiple lines without truncating"
+  3. Check action card
+Expected:
+  - Notes text displays full width
+  - Text wraps, not truncated
+  - No horizontal scroll needed
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.1_FAIL.png
+
+
+TC P2-2.2: Multi-line text fields (with newlines) preserve formatting
+---
+Steps:
+  1. Log a text field with multiple lines:
+     "Line 1
+      Line 2
+      Line 3"
+  2. Confirm
+Expected:
+  - All lines render correctly
+  - Formatting preserved
+  - No truncation of extra lines
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.2_FAIL.png
+
+
+TC P2-2.3: Text field width consistent across mobile + tablet views
+---
+Steps:
+  1. Test on mobile screen (375px width)
+  2. Test on tablet screen (768px width)
+  3. Log same text to both
+Expected:
+  - Text renders appropriately for each screen size
+  - No overflow or truncation on either size
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.3_FAIL.png
+
+
+TC P2-2.4: Long text doesn't break action card layout
+---
+Steps:
+  1. Create action card with very long text (500+ characters)
+  2. Check card layout
+Expected:
+  - Card doesn't overflow
+  - Text wraps correctly
+  - Card remains clickable and usable
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.4_FAIL.png
+
+
+TC P2-2.5: Text field in narrow card context (nested in other elements)
+---
+Steps:
+  1. Log entry with both SELECT and TEXT fields
+  2. TEXT field should show full width even within card
+Expected:
+  - TEXT field width matches container
+  - SELECT and TEXT fields don't interfere with layout
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.5_FAIL.png
+
+
+TC P2-2.6: Action card text persists without wrapping loss on confirm
+---
+Steps:
+  1. Create action card with wrapped text
+  2. Confirm the action
+  3. View the logged entry
+Expected:
+  - Text displays identically before and after confirm
+  - No loss of line breaks or wrapping
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_2.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-3: HISTORICAL CONTEXT REGEX EXPANSION (6 tests) — BUG-X9 CONTEXT FIX
+--------------------------------------------------------------------------------
+
+TC P2-3.1: "Yesterday" retrieval works via expanded regex patterns
+---
+Steps:
+  1. Day 1: Log "Sleep: 8 hours"
+  2. Day 2: Ask "How much did I sleep yesterday?"
+Expected:
+  - Bot retrieves yesterday's sleep data correctly
+  - Uses regex pattern to understand "yesterday" intent
+  - No context amnesia (BUG-X9 fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.1_FAIL.png
+
+
+TC P2-3.2: "Last week" retrieval fetches historical data
+---
+Steps:
+  1. Day 1-7: Log sleep quality daily
+  2. Day 8: Ask "What was my average sleep quality last week?"
+Expected:
+  - Bot recognizes "last week" pattern
+  - Fetches 7-day historical data from DB
+  - Calculates and reports average
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.2_FAIL.png
+
+
+TC P2-3.3: "Same day" retrieval uses same-day message filter
+---
+Pre: Multiple entries logged same day
+Steps:
+  1. Log: "Sleep: 8 hours" at 8 AM
+  2. Log: "Sleep: 7 hours" at 11 PM (correction)
+  3. Ask: "What's my sleep today?"
+Expected:
+  - Bot recalls both entries (same-day messages in context)
+  - Correctly notes the correction
+  - No cross-day contamination
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.3_FAIL.png
+
+
+TC P2-3.4: Brittle regex patterns replaced with 16 robust patterns
+---
+Steps:
+  1. Test various natural language phrasings:
+     - "yesterday" / "day before" / "the previous day"
+     - "last week" / "7 days ago" / "previous week"
+     - "today" / "this morning" / "this afternoon"
+  2. Each should trigger historical context fetch
+Expected:
+  - All phrasings understood
+  - Correct historical data retrieved for each
+  - No "I don't have that information" responses (false negatives fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.4_FAIL.png
+
+
+TC P2-3.5: Time window boundary handling (exact day cutoff)
+---
+Steps:
+  1. Day 1: 11:59 PM — log "Energy: High"
+  2. Day 2: 12:01 AM — ask "What was my energy yesterday?"
+Expected:
+  - Correctly retrieves Day 1 entry
+  - No off-by-one date errors
+  - Timezone handling is consistent
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.5_FAIL.png
+
+
+TC P2-3.6: Multiple historical queries in same session
+---
+Steps:
+  1. Day 1: Log data
+  2. Day 3: Ask "What did I log yesterday?" (expects Day 2 — no data)
+  3. Same session: Ask "What about two days ago?" (expects Day 1)
+Expected:
+  - Each query interprets relative dates correctly
+  - No confusion between queries
+  - Correct data returned for each
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_3.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-4: YES_NO FIELD LOGIC (6 tests) — BUG-X4 FIXED
+--------------------------------------------------------------------------------
+
+TC P2-4.1: Yes/No SELECT field persists in schema
+---
+Pre: Create tracker with "Took medication?" YES_NO field
+Steps:
+  1. Save tracker
+  2. Verify field exists in schema
+  3. Close and reopen tracker
+Expected:
+  - Field still shows as YES_NO or SELECT type
+  - Options [Yes, No] preserved
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.1_FAIL.png
+
+
+TC P2-4.2: Affirmative response (Yes) logs correctly
+---
+Pre: "Took medication?" YES_NO field
+Steps:
+  1. Bot asks: "Did you take your medication?"
+  2. User responds: "Yes"
+  3. Confirm action card
+Expected:
+  - Logs "Yes" as the SELECT option (not string literal)
+  - Can recall: "You logged Yes"
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.2_FAIL.png
+
+
+TC P2-4.3: Negative response (No) logs correctly (BUG-X4 FIXED)
+---
+Steps:
+  1. Bot asks: "Did you take your medication?"
+  2. User responds: "No"
+  3. Confirm
+Expected:
+  - Logs "No" as SELECT option (NOT string literal "No")
+  - Recall: "You logged No for taking medication"
+  - No hallucination of missing Yes/No options (BUG-X4 fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.3_FAIL.png
+
+
+TC P2-4.4: Implicit No (skip/decline) registers as No
+---
+Pre: Routine asks "Did you meditate?"
+Steps:
+  1. Respond: "I didn't meditate today" (implicit No)
+  2. Bot should recognize this as No
+  3. Confirm
+Expected:
+  - Logs "No" correctly
+  - AI correctly interprets "didn't" as negative response
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.4_FAIL.png
+
+
+TC P2-4.5: Multi-question routine with Yes/No fields
+---
+Pre: Routine with 3 Yes/No questions
+Steps:
+  1. Q1: "Breakfast?" → Answer "Yes"
+  2. Q2: "Exercise?" → Answer "No"
+  3. Q3: "Vitamins?" → Answer "Yes"
+  4. Confirm all
+Expected:
+  - Each field logs correct Yes/No value
+  - No cross-field contamination
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.5_FAIL.png
+
+
+TC P2-4.6: No hallucination of missing Yes/No options
+---
+Steps:
+  1. Create tracker with Yes/No field
+  2. Ask bot: "What are the options for [field]?"
+Expected:
+  - Bot correctly states: "Yes or No"
+  - Does NOT invent extra options
+  - Does NOT deny Yes/No are the options (BUG-X4 fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_4.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-5: ROUTING DEFAULT (6 tests) — PHASE 3 ITEM
+--------------------------------------------------------------------------------
+
+TC P2-5.1: "/" path redirects to "/chat" (not Dashboard)
+---
+Steps:
+  1. Navigate to: https://yaha-bcf4vgog2-yahabots-projects.vercel.app/
+  2. Check where page redirects
+Expected:
+  - Redirects to /chat (Chat page)
+  - NOT Dashboard
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.1_FAIL.png
+
+
+TC P2-5.2: Authenticated user sees chat on login redirect
+---
+Steps:
+  1. Clear cookies/logout
+  2. Login
+  3. Check landing page
+Expected:
+  - Lands on /chat
+  - NOT Dashboard
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.2_FAIL.png
+
+
+TC P2-5.3: Dashboard accessible but not default
+---
+Steps:
+  1. Navigate to /dashboard explicitly
+  2. Verify page loads
+Expected:
+  - Dashboard loads successfully
+  - Just not the default landing page
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.3_FAIL.png
+
+
+TC P2-5.4: Navigation between Chat and Dashboard works
+---
+Steps:
+  1. Start on /chat
+  2. Click Dashboard link/button
+  3. Click back to Chat
+Expected:
+  - Both navigation directions work
+  - No errors
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.4_FAIL.png
+
+
+TC P2-5.5: Deep links to dashboard work
+---
+Steps:
+  1. Directly navigate to: .../dashboard/widgets
+Expected:
+  - Page loads correctly
+  - Dashboard-specific features work
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.5_FAIL.png
+
+
+TC P2-5.6: Middleware redirect rules applied correctly
+---
+Steps:
+  1. Various paths: /, /chat, /dashboard, /trackers
+  2. Check each resolves to intended page
+Expected:
+  - All routes respond correctly
+  - No middleware conflicts
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_5.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-6: LLM PERSONA SEPARATION (6 tests)
+--------------------------------------------------------------------------------
+
+TC P2-6.1: Assistant persona consistent within session
+---
+Steps:
+  1. Send 5+ different messages
+  2. Check bot responses are from single consistent persona
+Expected:
+  - AI maintains same voice/personality across messages
+  - No random persona switches
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.1_FAIL.png
+
+
+TC P2-6.2: No data bleeding between tracker types
+---
+Steps:
+  1. Create "Sleep Tracker" and "Mood Tracker"
+  2. Log different data to each
+  3. Ask bot about each tracker type
+Expected:
+  - Bot correctly distinguishes between trackers
+  - No confusion in responses
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.2_FAIL.png
+
+
+TC P2-6.3: Bot persona does not assume user identity
+---
+Steps:
+  1. Send message: "My name is Chris"
+  2. Later ask: "What's my name?"
+Expected:
+  - Bot correctly responds: "Chris"
+  - Bot does NOT say "I'm Chris" (persona separation)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.3_FAIL.png
+
+
+TC P2-6.4: Historical context doesn't inject bot voice
+---
+Steps:
+  1. Log entry from yesterday
+  2. Ask: "What did I log yesterday?"
+Expected:
+  - Bot presents user's log, not as bot's accomplishment
+  - Clear distinction between user data and AI analysis
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.4_FAIL.png
+
+
+TC P2-6.5: Multi-user context (if applicable)
+---
+Steps:
+  1. (Implicit: verify no user data crosses boundaries)
+Expected:
+  - Each user sees only their own data
+  - No persona confusion across accounts
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.5_FAIL.png
+
+
+TC P2-6.6: Bot maintains consistent expertise claim
+---
+Steps:
+  1. Ask health question
+  2. Ask data-specific question
+Expected:
+  - Bot appropriately disclaims medical advice
+  - Claims expertise only in health tracking, not diagnosis
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_6.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-7: FIELD ID DE-OBFUSCATION (6 tests) — BUG-X11 FIXED
+--------------------------------------------------------------------------------
+
+TC P2-7.1: Field values land in correct field (not obfuscated ID confusion)
+---
+Pre: Multi-field tracker created
+Steps:
+  1. Log to Field A: "Value A"
+  2. Log to Field B: "Value B"
+  3. Check database
+Expected:
+  - Field A has "Value A"
+  - Field B has "Value B"
+  - No swapped fields (BUG-X11 fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.1_FAIL.png
+
+
+TC P2-7.2: fieldId parameter correctly normalized in prompts
+---
+Steps:
+  1. Create tracker with 3 fields
+  2. Ask bot to log to Field 2
+Expected:
+  - Bot correctly identifies which field is "Field 2"
+  - Uses correct field ID internally (not confused by obfuscation)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.2_FAIL.png
+
+
+TC P2-7.3: Field references in action card match actual fields
+---
+Steps:
+  1. Generate action card with multiple fields
+  2. Verify field labels and IDs
+Expected:
+  - Card shows correct field names
+  - IDs (fld_xxxxx) match schema
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.3_FAIL.png
+
+
+TC P2-7.4: UPDATE_DATA uses correct fieldId for each field
+---
+Pre: Multi-field tracker
+Steps:
+  1. Log all fields
+  2. Update Field 2 only
+  3. Check database
+Expected:
+  - Field 2 updated with new value
+  - Fields 1 and 3 unchanged
+  - Correct fieldId used in UPDATE query
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.4_FAIL.png
+
+
+TC P2-7.5: Partial updates don't affect other fields due to fieldId mix-up
+---
+Steps:
+  1. Create tracker: [Field A, Field B, Field C]
+  2. Log: A="Alpha", B="Beta", C="Gamma"
+  3. Update: B="Beta Prime"
+Expected:
+  - Only B changes to "Beta Prime"
+  - A and C remain unchanged
+  - fieldId mapping prevents cross-field updates
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.5_FAIL.png
+
+
+TC P2-7.6: Field ID normalization prevents math errors (was fld_xxxxx confusion)
+---
+Steps:
+  1. Create numeric field (e.g., "Steps")
+  2. Log: "Steps: 10000"
+  3. Ask: "How many steps did I do?"
+Expected:
+  - Bot correctly reports 10000 (not confused by field ID)
+  - Math calculations use correct field values
+  - No sum/average errors from field mix-ups
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_7.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-8: NATIVE MACRO TOTALING (6 tests) — BUG-X10 FIXED
+--------------------------------------------------------------------------------
+
+TC P2-8.1: Daily totals calculated correctly (macro accuracy)
+---
+Steps:
+  1. Log nutrition entries throughout day:
+     - Breakfast: Protein 20g
+     - Lunch: Protein 30g
+     - Snack: Protein 10g
+  2. Ask: "Total protein today?"
+Expected:
+  - Bot calculates: 20 + 30 + 10 = 60g
+  - No math errors (BUG-X10 fixed: was returning wrong totals)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.1_FAIL.png
+
+
+TC P2-8.2: KCAL totaling across multiple entries
+---
+Steps:
+  1. Log 5+ meal entries with KCAL values
+  2. Ask: "What was my total calorie intake?"
+Expected:
+  - Correct sum of all KCAL entries
+  - No duplicate counting or missing entries
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.2_FAIL.png
+
+
+TC P2-8.3: Macro average calculation (multiple days)
+---
+Steps:
+  1. Day 1: Log Protein 50g, 60g, 55g
+  2. Day 2: Log Protein 45g, 65g, 50g
+  3. Ask Day 2: "Average protein yesterday?"
+Expected:
+  - Bot calculates Day 1 average: (50+60+55)/3 = 55g
+  - Does NOT include Day 2 entries
+  - Correct date filtering on aggregates
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.3_FAIL.png
+
+
+TC P2-8.4: Zero values don't break totals
+---
+Steps:
+  1. Log entries: 100, 0, 50
+  2. Ask for total
+Expected:
+  - Total: 150 (correctly sums, not skips zero)
+  - Handles zero values gracefully
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.4_FAIL.png
+
+
+TC P2-8.5: Negative values (if applicable) handled correctly
+---
+Steps:
+  1. (Adjust for macro field design)
+  2. Verify totaling works with any numeric input
+Expected:
+  - Arithmetic is correct
+  - No overflow or underflow errors
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.5_FAIL.png
+
+
+TC P2-8.6: Totals persist in dashboard widget
+---
+Steps:
+  1. Log entries and request totals in chat
+  2. Navigate to Dashboard
+  3. Check macro totals widget
+Expected:
+  - Dashboard shows same totals as chat calculation
+  - Consistency across UI
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_8.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-9: ANTI-HALLUCINATION RULES AUDIT (6 tests) — BUG-X4 FIXED
+--------------------------------------------------------------------------------
+
+TC P2-9.1: Bot does not invent historical routine data
+---
+Steps:
+  1. Create routine "Morning Check"
+  2. First day: complete routine with data
+  3. Second day: before completing routine, ask "When did I complete yesterday's routine?"
+Expected:
+  - Bot recalls actual completion time from DB
+  - Does NOT hallucinate completion time or data (BUG-X4 fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.1_FAIL.png
+
+
+TC P2-9.2: Bot does not claim to have field data when no field data logged
+---
+Steps:
+  1. Create tracker but never log any data
+  2. Ask: "What's my sleep quality?"
+Expected:
+  - Bot response: "You haven't logged any sleep data yet"
+  - Does NOT say "Your sleep quality is..." (hallucination)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.2_FAIL.png
+
+
+TC P2-9.3: Vision capability strictly enforced (no false denials)
+---
+Pre: Submit an image in chat
+Steps:
+  1. Send image: "Analyze my meal"
+  2. Bot should process image
+Expected:
+  - Bot analyzes image (has vision)
+  - Does NOT say "I cannot see images" (BUG-X10 fixed: false vision denial)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.3_FAIL.png
+
+
+TC P2-9.4: Vision capability denial when actually unavailable
+---
+Steps:
+  1. Try to send unsupported file type
+Expected:
+  - Bot correctly identifies unsupported type
+  - Appropriate error message (not overgeneralized "I can't see images")
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.4_FAIL.png
+
+
+TC P2-9.5: Bot does not invent tracker field names
+---
+Steps:
+  1. Create tracker "Energy Tracker" with field "Level"
+  2. Ask: "What tracker fields do I have?"
+Expected:
+  - Bot correctly lists: "Energy Tracker with field Level"
+  - Does NOT invent extra fields (hallucination)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.5_FAIL.png
+
+
+TC P2-9.6: Bot does not claim file receipt when upload failed
+---
+Steps:
+  1. Attempt to upload file with error
+  2. Bot should NOT say "I've saved your file"
+Expected:
+  - Bot acknowledges upload failure
+  - Does NOT pretend to have received file (BUG-X10: image denial & false claims fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_9.6_FAIL.png
+
+
+--------------------------------------------------------------------------------
+TEST SET P2-10: INTEGRATION TESTS — FULL WORKFLOW (4 tests)
+--------------------------------------------------------------------------------
+
+TC P2-10.1: Complete user flow: Auth → Tracker Creation → Logging → Routine
+---
+Steps:
+  1. Login to app
+  2. Create tracker "Daily Health"
+  3. Log data to it
+  4. Complete morning routine
+  5. Request summary
+Expected:
+  - All steps complete without errors
+  - Data persists
+  - Summary is accurate
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.1_FAIL.png
+
+
+TC P2-10.2: Multi-day tracking with cross-day filtering
+---
+Steps:
+  1. Day 1: Log sleep, mood, energy
+  2. Day 2: Log new values
+  3. Ask: "What was yesterday's sleep?"
+  4. Ask: "What's my mood trend?" (should use both days)
+Expected:
+  - Yesterday query returns Day 1 data only
+  - Trend query includes both days
+  - No cross-day contamination in wrong context
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.2_FAIL.png
+
+
+TC P2-10.3: Concurrent message handling (rapid inputs)
+---
+Steps:
+  1. Send 5+ messages rapidly without waiting for responses
+  2. Allow bot to process all
+Expected:
+  - All messages processed correctly
+  - No state corruption
+  - Responses are coherent and accurate
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.3_FAIL.png
+
+
+TC P2-10.4: Long session stability (30+ messages)
+---
+Steps:
+  1. Conduct extended session (30+ messages)
+  2. Verify context is maintained (last 30 messages in memory)
+  3. Ask bot to recall early session topics
+Expected:
+  - Early messages recalled if within 30-message window
+  - Session remains responsive
+  - No memory/context degradation (BUG-X9: context amnesia fixed)
+Pass/Fail: ____  Screenshot if FAIL: SC_P2_10.4_FAIL.png
+
+
+================================================================================
+SUMMARY OF FIXES TESTED
+================================================================================
+
+BUG-X1:  Routine FK violation deadlock           ✓ Fixed (UPDATE_DATA sanitization)
+BUG-X2:  End Day duplication                     ✓ Fixed (field validation)
+BUG-X4:  Routine hallucination                   ✓ Fixed (anti-hallucination rule)
+BUG-X5:  Step 2 auto-prompt fails                ✓ Fixed (error message clarity)
+BUG-X6:  Pull-to-refresh unpins header           ✓ No change needed (regression resolved)
+BUG-X9:  Context amnesia                         ✓ Fixed (message history 10→30)
+BUG-X10: Summation failure + image denial        ✓ Fixed (vision capability rules)
+BUG-X11: Image gaslighting + field mapping       ✓ Fixed (fieldId validation)
+
+UPDATE_DATA Bug:  Creates duplicates             ✓ Fixed (SELECT field + UPDATE pattern)
+SELECT Enter Key: Textarea can't accept Enter    ✓ Fixed (textarea key handling)
+Partial Update:   "Log entry not found"          ✓ Fixed (sanitizeFields validation)
+
+Plus: 7PM timestamp, text field width, YES_NO logic, routing default, LLM persona,
+      field de-obfuscation, macro totaling, and anti-hallucination enforcement.
+
+================================================================================
+END OF TEST SPECIFICATION
+================================================================================

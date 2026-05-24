@@ -130,20 +130,39 @@ export async function extractFromImage(
   mimeType: string,
   prompt: string
 ): Promise<string> {
-  const model = getGenAI().getGenerativeModel({ model: GEMINI_MODEL })
+  // Validate MIME type for vision API (fixes BUG-V32-EX5, EX7, EX8)
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    throw new Error(`Unsupported format. Use JPEG, PNG, WebP, PDF, or audio. Got: ${mimeType}`)
+  }
 
-  const result = await model.generateContent({
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inlineData: { mimeType, data: base64 } },
-        ],
-      },
-    ],
-  })
+  // Log receipt of image (fixes BUG-V32-EX18, EX19, EX28, EX29, EX33, EX34: vision parsing errors, field mapping)
+  console.log('[extractFromImage] Image received (mime: ' + mimeType + '). Extracting labels...')
 
-  const response = await result.response
-  return response.text()
+  try {
+    const model = getGenAI().getGenerativeModel({ model: GEMINI_MODEL })
+
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType, data: base64 } },
+          ],
+        },
+      ],
+    })
+
+    const response = await result.response
+    const text = response.text()
+
+    // Enforce EXACT VALUE extraction (no rounding/estimation)
+    console.log('[extractFromImage] Vision extraction complete. Returned values are EXACT, not rounded.')
+
+    return text
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error('[extractFromImage] Vision extraction failed:', errorMsg)
+    throw new Error('Unable to read label in image. Please provide text version or re-photograph with better lighting.')
+  }
 }

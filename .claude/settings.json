@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel ls:*)",
+      "Bash(vercel inspect:*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\the--\\Documents\\Projects\\yaha\\.claude\\sessions\\2026-04-11"
+    ]
+  }
+}

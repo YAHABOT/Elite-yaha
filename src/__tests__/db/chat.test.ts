@@ -344,7 +344,7 @@ describe('getMessages', () => {
     const result = await getMessages(FAKE_SESSION_ID)
 
     expect(result).toEqual(messages)
-    // Implementation fetches DESC then .reverse() for display — test verifies the actual query direction
+    // getMessages orders descending (newest first) for display
     expect(queryBuilder.order).toHaveBeenCalledWith('created_at', { ascending: false })
   })
 
@@ -456,7 +456,7 @@ describe('getRecentMessagesForAI', () => {
     await expect(getRecentMessagesForAI(FAKE_SESSION_ID)).rejects.toThrow('Unauthorized')
   })
 
-  it('applies default limit of 20', async () => {
+  it('applies default limit of 30', async () => {
     setAuthenticatedUser()
     setQueryResult([])
 

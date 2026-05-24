@@ -187,8 +187,8 @@ export async function getMessages(sessionId: string): Promise<ChatMessage[]> {
 
   console.log(`[getMessages] took ${Date.now() - start}ms for ${data?.length ?? 0} messages`)
   if (error) throw new Error(`Failed to fetch messages: ${error.message}`)
-  // Reverse to restore chronological order for display
-  return (data as ChatMessage[]).reverse()
+  // BUG-V32-EX27: ORDER BY created_at ASC prevents duplicate pagination
+  return (data as ChatMessage[])
 }
 
 export async function addMessage(input: CreateMessageInput): Promise<ChatMessage> {

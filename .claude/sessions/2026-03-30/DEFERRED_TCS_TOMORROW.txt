@@ -1,0 +1,142 @@
+DEFERRED TEST CASES — Run Tomorrow (require End Day flow / clock manipulation)
+Generated: 2026-03-30 | V26 Build
+=======================================================================
+
+These TCs were deferred because they require either:
+  A) Advancing the system clock past midnight with an active session
+  B) Running a full End Day flow through to completion
+  C) Both
+
+Run these AFTER the main V26 TCs pass.
+
+BEFORE RUNNING: Apply the DB migration on Supabase first:
+  npx supabase db push
+  (Makes current_step_index nullable — required for V26-3 to work correctly)
+
+=======================================================================
+DEFERRED FROM V26-2 (Day Session Logic)
+=======================================================================
+
+TC-V26-08: Relative date "today" resolves to ACTUAL device date (not session date)
+  Setup:
+    1. Start a Day Session on the current date (e.g. March 30)
+    2. Change system clock forward by 1 day (to March 31)
+    3. Confirm session is still showing as active in the UI
+  Steps:
+    1. In chat, type: "log my weight as 75kg for today"
+    2. Check the action card before confirming
+  Expected: Action card shows logged_at = March 31 (actual date), NOT March 30 (session date)
+  Pass / Fail: ___
+
+---
+
+TC-V26-09: Relative date "yesterday" resolves relative to ACTUAL device date
+  Setup: Active March 30 session, system clock set to March 31
+  Steps:
+    1. In chat, type: "log sleep 8 hours for yesterday"
+    2. Check action card before confirming
+  Expected: logged_at = March 30 (yesterday of ACTUAL March 31), NOT March 29
+  Pass / Fail: ___
+
+---
+
+TC-V26-10: No date given → defaults to active SESSION date
+  Setup: Active March 30 session, system clock set to March 31
+  Steps:
+    1. In chat, type: "log water 2L" (no date mentioned)
+    2. Check action card
+  Expected: logged_at = March 30 (session date used as default when no date given)
+  Pass / Fail: ___
+
+---
+
+TC-V26-14: End Day trigger NOT blocked by Start Day guard
+  Setup: Active Day Session exists
+  Steps:
+    1. Trigger End Day routine (button or phrase)
+  Expected: End Day proceeds normally. NO blocking message. Routine steps begin.
+  Pass / Fail: ___
+
+=======================================================================
+DEFERRED FROM V26-3 (Routine State Persistence)
+=======================================================================
+
+TC-V26-19: Step banner shows CORRECT step after page refresh
+  Setup:
+    1. Start Day routine
+    2. Complete step 1 and step 2 (follow AI prompts)
+    3. Confirm you are on step 3 (banner reads "Step 3", AI awaiting input)
+    4. Do NOT complete step 3
+  Steps:
+    1. Press F5 / Ctrl+R
+    2. Wait for page to reload
+    3. Observe step banner immediately after load
+    4. Observe chat history
+    5. Wait 5 seconds — confirm no auto-trigger fires
+  Expected:
+    - Step banner shows "Step 3" (not Step 1, not blank)
+    - Chat history shows steps 1 and 2 messages
+    - No auto-response or re-trigger
+    - Typing step 3 response advances to step 4 normally
+  Pass / Fail: ___
+
+  Supplementary: Open DevTools > Application > Session Storage > localhost
+    - Key exists for the routine trigger (e.g. yaha_trigger_[routineId])
+    - Value contains a real session UUID (NOT the string "new")
+    - Timestamp is within the last 30 minutes
+  Pass / Fail: ___
+
+=======================================================================
+DEFERRED FROM V26-2 (End Day flow — requires full completion)
+=======================================================================
+
+TC-V26-25: Refresh warning CLEARS after End Day / routine completion
+  Setup:
+    1. Toggle "Confirm on page refresh" is ON in settings
+    2. Start a routine (active session)
+    3. Verify F5 triggers dialog at this point (optional check)
+  Steps:
+    1. Complete the routine fully (all steps + End Day confirmation)
+    2. Confirm session returns to neutral state
+    3. Press F5
+  Expected:
+    - Page refreshes immediately, NO dialog
+    - Guard was cleaned up when routine ended
+  Pass / Fail: ___
+
+---
+
+TC-V26-17: Completing a routine clears state — next run starts FRESH
+  Setup: Run a full routine to completion (End Day)
+  Steps:
+    1. After completion, go to /chat/new
+    2. Trigger the same routine again
+    3. Observe which step the AI presents
+  Expected:
+    - AI responds with step 1 (not a middle step)
+    - Step banner shows "Step 1"
+    - No "already in progress" blocking
+    - New session has a new session ID
+  Optional DB check: current_step_index = NULL on completed session
+  Pass / Fail: ___
+
+=======================================================================
+NOTES
+=======================================================================
+
+Clock manipulation tip (Windows):
+  - Win + R → "date and time settings" → toggle "Set time automatically" OFF
+  - Manually set date to next day
+  - Run the TCs
+  - Re-enable automatic time after testing
+
+If TC-V26-08/09/10 fail: the issue is prompt-builder.ts not separating
+  {{ACTUAL_TODAY}} from {{TODAY}} correctly. Check V26-2 diff.
+
+If TC-V26-19 fails (wrong step banner): sessionStorage key may have stale
+  "new" instead of real session ID. Check ChatInterface.tsx triple-lock guard.
+
+If TC-V26-25 fails (dialog still fires after End Day): session.active_routine_id
+  may not be cleared on the client state. Check setSession call on routine end.
+
+=======================================================================

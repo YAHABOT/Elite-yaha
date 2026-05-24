@@ -1,0 +1,452 @@
+================================================================================
+V31 MANUAL TEST CASE SPECIFICATION
+Build 1 + Build 2 — Android Chrome
+Date: 2026-04-26
+Branch: claude/trusting-satoshi-b6a06e
+================================================================================
+
+INSTRUCTIONS
+------------
+- Test on Android Chrome against the Vercel preview deploy for this branch
+- Mark each test PASS or FAIL
+- If FAIL: screenshot the screen and note what you saw vs what was expected
+- Complete all areas before reporting results
+
+================================================================================
+AREA 1: SELECT FIELD TYPE (7 tests)
+================================================================================
+
+TC-1.1: Select type appears in field type dropdown
+----------------------------------------------------
+Steps:
+  1. Navigate to Trackers
+  2. Create a new tracker or open an existing one
+  3. Add a new field
+  4. Tap the field type dropdown
+
+Expected:
+  - "Select" appears as an option in the dropdown list alongside
+    Number, Text, Rating, Time
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-1.2: Select type shows options textarea
+--------------------------------------------
+Steps:
+  1. Add a field, set type to "Select"
+
+Expected:
+  - A textarea labeled "Options (one per line)" appears below the
+    type/unit row
+  - A "Allow multiple selections" checkbox also appears
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-1.3: Options save correctly
+-------------------------------
+Steps:
+  1. Set field type to Select
+  2. Enter the following options in the textarea (one per line):
+       Great
+       Good
+       Okay
+       Bad
+  3. Save the tracker
+
+Expected:
+  - No error on save
+  - Tracker saves successfully
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-1.4: Options persist after re-opening
+------------------------------------------
+Steps:
+  1. Save the tracker from TC-1.3
+  2. Navigate away (e.g. back to tracker list)
+  3. Re-open the same tracker and go to its fields
+
+Expected:
+  - The four options (Great, Good, Okay, Bad) are still present in
+    the textarea exactly as entered
+  - "Allow multiple selections" toggle retains its state
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-1.5: Multi-select toggle works
+-----------------------------------
+Steps:
+  1. Open a tracker with a Select field
+  2. Tap "Allow multiple selections" checkbox to enable it
+  3. Save tracker
+  4. Re-open tracker
+
+Expected:
+  - Checkbox toggles on without page reload
+  - Saved state is retained after re-open
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-1.6: Switching away from Select clears options
+---------------------------------------------------
+Steps:
+  1. Create a field, set type to Select
+  2. Enter some options
+  3. Change the field type to "Number"
+
+Expected:
+  - The options textarea and multi-select checkbox disappear
+  - No ghost select options remain on the field object
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-1.7: Select field does not regress other field types
+--------------------------------------------------------
+Steps:
+  1. Create a tracker with a Number field, a Text field, and a
+     Select field
+  2. Save and re-open
+
+Expected:
+  - Number and Text fields show no options textarea
+  - Only the Select field shows the options UI
+  - All three fields save and load correctly
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+================================================================================
+AREA 2: UPDATE_DATA ACTION (5 tests)
+================================================================================
+
+TC-2.1: AI produces UPDATE_DATA card on correction request
+------------------------------------------------------------
+Steps:
+  1. Log an entry in chat — e.g. say "I had 500 calories"
+  2. Confirm the LOG_DATA card
+  3. Say "actually it was 600 calories" or "change that to 600"
+
+Expected:
+  - AI responds with an UPDATE_DATA card (blue-themed, NOT green)
+  - Card header says something like "Update Entry" not "Log Data"
+  - Card shows the field being updated with the new value
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-2.2: UPDATE_DATA card confirmed — no duplicate row
+------------------------------------------------------
+Steps:
+  1. Complete TC-2.1 and confirm the UPDATE_DATA card
+  2. Navigate to the tracker's log history
+
+Expected:
+  - There is only ONE log entry for that item (not two)
+  - The existing entry's value has been updated (e.g. shows 600, not 500)
+  - No duplicate row was created by the update
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-2.3: Partial update — only changed fields are modified
+----------------------------------------------------------
+Steps:
+  1. Log a nutrition entry with multiple fields (calories + protein)
+  2. Confirm the card
+  3. Say "update the calories to 800" (leave protein unchanged)
+  4. Confirm the UPDATE_DATA card
+
+Expected:
+  - The log entry shows updated calories (800)
+  - The protein value is unchanged from the original log
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-2.4: UPDATE_DATA discard works
+-----------------------------------
+Steps:
+  1. Trigger an UPDATE_DATA card (as in TC-2.1)
+  2. Tap "Discard" instead of confirming
+
+Expected:
+  - Card shows "Update discarded"
+  - Original log entry is unchanged
+  - No DB write occurred
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-2.5: Invalid field silently dropped
+----------------------------------------
+Steps:
+  1. (Advanced — may need to inspect AI response or test via console)
+  2. If the AI produces an UPDATE_DATA card with a field that does
+     not exist in the tracker schema, confirm it
+
+Expected:
+  - Confirmation succeeds without a 500 error
+  - The non-existent field does NOT appear in the log entry's JSONB
+  - Only valid schema fields are written
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+================================================================================
+AREA 3: MESSAGE HISTORY FILTERING (4 tests)
+================================================================================
+
+TC-3.1: AI does not see previous day's messages today
+------------------------------------------------------
+Steps:
+  1. Ensure you have at least one log entry from a previous day
+  2. Open a new chat session today
+  3. Ask: "What did I log yesterday?" or "What have I eaten today?"
+
+Expected:
+  - AI does NOT reference yesterday's chat messages as if they were
+    today's data
+  - AI correctly identifies it has no data from today (if true) or
+    only today's data
+  - No cross-day contamination in AI response
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-3.2: AI sees today's messages within same session
+------------------------------------------------------
+Steps:
+  1. In a chat session, log something ("I had 300 calories")
+  2. Later in the SAME session, ask "what did I log today?"
+
+Expected:
+  - AI references the 300 calorie entry from earlier in the session
+  - Correct recall within today's session
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-3.3: New chat session starts with clean context
+----------------------------------------------------
+Steps:
+  1. Start a brand new chat session (not continuing an existing one)
+  2. Ask "what did I log today?"
+
+Expected:
+  - AI sees today's confirmed tracker logs (via day summary) but
+    does NOT see messages from other chat sessions today
+  - No spillover from other sessions
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-3.4: Historical query still works
+--------------------------------------
+Steps:
+  1. In chat, ask "what did I log last week?" or "show me my logs
+     from 3 days ago"
+
+Expected:
+  - AI correctly retrieves historical data for the requested period
+  - Historical data injection still functions (not blocked by the
+    date filter, which only applies to chat message context)
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+================================================================================
+AREA 4: 7PM TIMESTAMP FIX (3 tests)
+================================================================================
+
+TC-4.1: Backdated entry does not show 12:00 UTC
+-------------------------------------------------
+Steps:
+  1. In chat, log a backdated entry:
+     "I had 400 calories yesterday"
+  2. Confirm the LOG_DATA card
+  3. Navigate to the tracker log history or check the log timestamp
+
+Expected:
+  - The logged_at timestamp is NOT 12:00:00 UTC (noon)
+  - The timestamp reflects approximately the current wall-clock time
+    on the previous calendar date
+  - If you are in UTC-7: the entry should NOT display as 7:00 PM
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-4.2: Today's entry timestamp is accurate
+---------------------------------------------
+Steps:
+  1. Log a normal entry right now (today)
+  2. Confirm the card
+  3. Check the log timestamp
+
+Expected:
+  - Timestamp is within a minute or two of when you confirmed
+  - NOT noon UTC, NOT 7pm local
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-4.3: Entry for specific date shows correct time
+----------------------------------------------------
+Steps:
+  1. Log an entry for a specific past date:
+     "log 500 calories for March 15th"
+  2. Confirm the card
+  3. Check the logged_at timestamp
+
+Expected:
+  - Calendar date is correct (March 15)
+  - Time component reflects approximately when you confirmed the card
+  - NOT 12:00:00Z
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+================================================================================
+AREA 5: SELECT FIELD WIDTH IN ACTION CARDS (3 tests)
+================================================================================
+
+TC-5.1: Select field value spans full card width
+-------------------------------------------------
+Steps:
+  1. Log an entry for a tracker that has a Select field
+  2. The AI produces a LOG_DATA action card showing the select value
+     (e.g. "Mood: Great")
+
+Expected:
+  - The "Mood" field cell spans the FULL WIDTH of the action card
+  - It does NOT appear as a narrow ~150px box crammed into a 2-column
+    grid next to another field
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-5.2: Long select value does not overflow
+--------------------------------------------
+Steps:
+  1. Create a Select field with a long option (e.g. "Extremely well
+     rested and refreshed")
+  2. Log using that option via chat
+
+Expected:
+  - The long value wraps correctly inside the full-width cell
+  - No text overflow or cut-off outside the card boundary
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-5.3: Numeric fields still use compact layout
+-------------------------------------------------
+Steps:
+  1. Log a nutrition entry with numeric fields (calories, protein,
+     carbs, fat)
+
+Expected:
+  - Numeric fields still display in the compact 2-column grid
+  - Only non-numeric string values get the full-width treatment
+  - The card layout does not regress to all-full-width for numbers
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+================================================================================
+AREA 6: SECURITY SANITY CHECKS (2 tests)
+================================================================================
+
+TC-6.1: UPDATE_DATA only writes schema-valid fields
+-----------------------------------------------------
+Steps:
+  1. Trigger and confirm a legitimate UPDATE_DATA card
+  2. Check the resulting tracker_logs row in Supabase (or via the
+     app's log view)
+
+Expected:
+  - The fields JSONB contains only keys that exist in the tracker's
+    schema (e.g. fld_calories, fld_protein, etc.)
+  - No extra keys, no objects as values, no injection artifacts
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+TC-6.2: Logged-out user cannot update logs
+-------------------------------------------
+Steps:
+  1. Log out of the app
+  2. Attempt to navigate directly to /chat or any authenticated route
+
+Expected:
+  - Redirected to /login immediately
+  - No data is accessible without authentication
+
+Pass/Fail: ____
+Notes: ________________________________________________________
+
+
+================================================================================
+SUMMARY SHEET
+================================================================================
+
+Area 1 — SELECT Field Type:
+  TC-1.1: ____  TC-1.2: ____  TC-1.3: ____  TC-1.4: ____
+  TC-1.5: ____  TC-1.6: ____  TC-1.7: ____
+  Area Result: PASS / FAIL
+
+Area 2 — UPDATE_DATA Action:
+  TC-2.1: ____  TC-2.2: ____  TC-2.3: ____  TC-2.4: ____
+  TC-2.5: ____
+  Area Result: PASS / FAIL
+
+Area 3 — Message History Filtering:
+  TC-3.1: ____  TC-3.2: ____  TC-3.3: ____  TC-3.4: ____
+  Area Result: PASS / FAIL
+
+Area 4 — 7PM Timestamp Fix:
+  TC-4.1: ____  TC-4.2: ____  TC-4.3: ____
+  Area Result: PASS / FAIL
+
+Area 5 — SELECT Field Width:
+  TC-5.1: ____  TC-5.2: ____  TC-5.3: ____
+  Area Result: PASS / FAIL
+
+Area 6 — Security:
+  TC-6.1: ____  TC-6.2: ____
+  Area Result: PASS / FAIL
+
+--------------------------------------------
+OVERALL RESULT: PASS / FAIL
+TOTAL: ____/22 passed
+FAILURES NOTED: ___________________________________________
+SCREENSHOTS: (attach any SC[N]_description.png files)
+================================================================================

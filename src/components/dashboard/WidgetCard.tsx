@@ -70,7 +70,7 @@ export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.
       }}
     >
       {/* Header row */}
-      <div className="mb-3 flex items-start justify-between gap-2">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div
             className="h-1.5 w-1.5 flex-shrink-0 rounded-full"

@@ -237,7 +237,7 @@ export function RoutineForm({ trackers, initialValues }: Props) {
                   key={`${draft.trackerId}-${stepIndex}`}
                   className="rounded-[32px] border border-white/5 bg-white/[0.02] p-5 md:p-8 space-y-6 relative group animate-in slide-in-from-bottom-2"
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-2">
                     <div className="flex items-center gap-4 min-w-0 flex-1">
                       <div
                         className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center"

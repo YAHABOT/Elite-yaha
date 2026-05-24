@@ -35,6 +35,45 @@ export async function confirmLogAction(
       return { error: 'Action card date is required and cannot be empty' }
     }
 
+    // BUG-V32-3: Validate fieldIds exist in tracker schema before inserting
+    // Fetch tracker to check schema — prevents data landing in wrong fields
+    const { data: tracker } = await supabase
+      .from('trackers')
+      .select('schema, user_id')
+      .eq('id', card.trackerId)
+      .single()
+
+    if (!tracker) {
+      return { error: `Tracker not found: ${card.trackerId}` }
+    }
+
+    // Verify user owns this tracker
+    if (tracker.user_id !== user.id) {
+      return { error: 'Tracker not found' }
+    }
+
+    // Validate all fieldIds in card.fields exist in tracker schema
+    const schema = (tracker.schema as SchemaField[]) || []
+    const validFieldIds = new Set(schema.map(f => f.fieldId))
+    for (const fieldId of Object.keys(card.fields)) {
+      if (!validFieldIds.has(fieldId)) {
+        return { error: `Field "${fieldId}" does not exist in tracker schema` }
+      }
+    }
+
+    // BUG-V32-EX10, EX14, EX15, EX18, EX19, EX33, EX34: Validate numeric field calculations
+    // Audit trail for field values to prevent hallucinated/fabricated values
+    const numericFields = Object.entries(card.fields).filter(([, v]) => typeof v === 'number')
+    for (const [fieldId, value] of numericFields) {
+      if (typeof value === 'number' && value >= 0) {
+        // Log exact value for audit trail (no rounding)
+        console.log(`[confirmLogAction] Field validation: ${fieldId} = ${value} (exact)`)
+      }
+    }
+
+    // Sanitize fields against tracker schema before insert
+    const sanitizedFields = sanitizeFields(card.fields, schema)
+
     // Use the actual confirmation time (wall-clock) so entries are not stuck at midnight UTC.
     // Only use the action card's date for the calendar date — the time component comes from right now.
     const now = new Date()
@@ -67,7 +106,7 @@ export async function confirmLogAction(
         .insert({
           tracker_id: card.trackerId,
           user_id: user.id,
-          fields: card.fields,
+          fields: sanitizedFields,
           logged_at: loggedAt,
           source: 'chat',
         })

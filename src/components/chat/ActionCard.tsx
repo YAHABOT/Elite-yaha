@@ -225,13 +225,28 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
               </div>
 
               {isEditExpanded ? (
-                <input
-                  type="text"
-                  value={value ?? ''}
-                  onChange={(e) => handleFieldChange(key, e.target.value)}
-                  className="bg-transparent text-sm font-bold text-foreground w-full placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
-                  placeholder="..."
-                />
+                card.fieldDefinitions?.[key]?.type === 'select' ? (
+                  <select
+                    value={value ?? ''}
+                    onChange={(e) => handleFieldChange(key, e.target.value)}
+                    className="bg-transparent text-sm font-bold text-foreground w-full placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10"
+                  >
+                    <option value="">Select option...</option>
+                    {(card.fieldDefinitions?.[key]?.selectOptions ?? []).map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={value ?? ''}
+                    onChange={(e) => handleFieldChange(key, e.target.value)}
+                    className="bg-transparent text-sm font-bold text-foreground w-full placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
+                    placeholder="..."
+                  />
+                )
               ) : (
                 <p className="text-sm font-bold text-foreground w-full leading-snug break-words whitespace-pre-wrap flex items-baseline gap-1.5 flex-wrap">
                   {value !== null && value !== undefined && value !== ''
