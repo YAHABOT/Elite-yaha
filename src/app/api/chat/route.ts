@@ -368,12 +368,12 @@ export async function POST(req: Request): Promise<Response> {
               const n = parseInt(nDaysMatch[1], 10)
               const startDate = new Date(actualDateObj)
               startDate.setUTCDate(startDate.getUTCDate() - n)
-              historicalContext = await getLogsForDateRange(getDateStr(startDate), yesterdayStr, supabase, trackersMini)
+              historicalContext = await getLogsForDateRange(getDateStr(startDate), today, supabase, trackersMini)
             } else if (/\bsummar[iy]se?\b|\banaly[sz]e?\b/i.test(message)) {
               // Generic summary/analysis — fetch last 7 days
               const weekAgo = new Date(actualDateObj)
               weekAgo.setUTCDate(weekAgo.getUTCDate() - 7)
-              historicalContext = await getLogsForDateRange(getDateStr(weekAgo), yesterdayStr, supabase, trackersMini)
+              historicalContext = await getLogsForDateRange(getDateStr(weekAgo), today, supabase, trackersMini)
             } else {
               // Named-item recall or "what did I" / "how was my" — text search
               const searchTermMatch = message.match(/(?:that\s+(?:food|item|meal|drink|snack)|what\s+did\s+i\s+(?:eat|have|log)|how\s+was\s+my\s+(\w+))/i)
@@ -563,11 +563,19 @@ export async function POST(req: Request): Promise<Response> {
             if (hasLoggedCurrentStep) {
               const nextStepIndex = session.current_step_index + 1
               if (nextStepIndex >= activeRoutine.steps.length) {
+                // BUG-V32-6 FIX: Ensure only one end call occurs by checking day_end_at is still null before marking ended
+                // Also clear the routine state in same transaction with current_step_index = 0
                 await updateSession(session.id, { active_routine_id: null, current_step_index: 0 })
                 if (activeRoutine.type === 'day_end') {
-                  markDayEnded(loggingDate).catch(e => console.error('[DayState] markDayEnded failed:', e))
+                  // Only mark ended if not already ended (prevent double-end race condition)
+                  const dayStateCheck = await getActiveDayState(supabase)
+                  if (dayStateCheck && dayStateCheck.date === loggingDate && dayStateCheck.day_ended_at === null) {
+                    markDayEnded(loggingDate).catch(e => console.error('[DayState] markDayEnded failed:', e))
+                  }
                 }
               } else {
+                // BUG-V32-7 FIX: Persist next step index before auto-prompting frontend
+                // This ensures the step state survives a page reload
                 await updateSession(session.id, { current_step_index: nextStepIndex })
                 // Flag to auto-prompt the frontend for the next step
                 shouldAutoPromptNextStep = true
