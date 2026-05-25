@@ -11,7 +11,7 @@ Full-stack health data tracking app. Users log data (nutrition, sleep, workouts,
 custom metrics) via web chat or Telegram. AI processes inputs, user confirms, saved to DB.
 
 - **Stack**: Next.js 15 App Router · TypeScript strict · Supabase (PostgreSQL + JSONB) ·
-  Gemini 2.5 Flash · Tailwind CSS OLED · Recharts v3 · Telegram Bot API v9.5 · Ralphy v4.7
+  Gemini 3.1 Flash Lite Preview · Tailwind CSS OLED · Recharts v3 · Telegram Bot API v9.5 · Ralphy v4.7
 - **Location**: `C:\Users\the--\Documents\Projects\yaha\`
 - **Terminology**: Always say **Tracker** — never "Container". Non-negotiable.
 

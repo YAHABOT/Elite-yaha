@@ -353,25 +353,28 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       }
 
       // Refresh session state so the routine step badge reflects the newly advanced step
-      const sessRes = await fetch(`/api/chat/sessions/${finalSessionId}`)
-      if (sessRes.ok) {
-        const nextSession = await sessRes.json()
-        if (!isMountedRef.current) return
-        setSession(nextSession)
-        if (nextSession.active_routine_id) {
-          const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
-          if (routRes.ok) {
-            if (!isMountedRef.current) return
-            setCurrentRoutine(await routRes.json())
-          }
-        } else {
-          setCurrentRoutine(null)
-          // Routine completed via silent auto-advance — clear the session storage
-          // entry so the next trigger starts fresh rather than redirecting here.
-          const routineParam = searchParams.get('routine')
-          if (routineParam) {
-            sessionStorage.removeItem(`yaha_trigger_${routineParam}`)
-            sessionStorage.removeItem(`yaha_trigger_session_${routineParam}`)
+      // Skip for 'new' sessions (no UUID yet, will be assigned on next message)
+      if (finalSessionId && finalSessionId !== 'new') {
+        const sessRes = await fetch(`/api/chat/sessions/${finalSessionId}`)
+        if (sessRes.ok) {
+          const nextSession = await sessRes.json()
+          if (!isMountedRef.current) return
+          setSession(nextSession)
+          if (nextSession.active_routine_id) {
+            const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
+            if (routRes.ok) {
+              if (!isMountedRef.current) return
+              setCurrentRoutine(await routRes.json())
+            }
+          } else {
+            setCurrentRoutine(null)
+            // Routine completed via silent auto-advance — clear the session storage
+            // entry so the next trigger starts fresh rather than redirecting here.
+            const routineParam = searchParams.get('routine')
+            if (routineParam) {
+              sessionStorage.removeItem(`yaha_trigger_${routineParam}`)
+              sessionStorage.removeItem(`yaha_trigger_session_${routineParam}`)
+            }
           }
         }
       }
