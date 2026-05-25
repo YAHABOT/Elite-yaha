@@ -534,7 +534,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
                   onClick={() => { setIsAttachMenuOpen(false); fileImageInputRef.current?.click() }}
                   className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
                 >
-                  <Image className="h-4 w-4 text-sleep shrink-0" />
+                  <Image className="h-4 w-4 text-sleep shrink-0" aria-label="Photo library icon" />
                   Photo Library
                 </button>
                 <button

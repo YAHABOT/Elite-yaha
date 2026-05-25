@@ -462,7 +462,7 @@ describe('getRecentMessagesForAI', () => {
 
     await getRecentMessagesForAI(FAKE_SESSION_ID)
 
-    expect(queryBuilder.limit).toHaveBeenCalledWith(20)
+    expect(queryBuilder.limit).toHaveBeenCalledWith(50)
   })
 
   it('applies custom limit when provided', async () => {

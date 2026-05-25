@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Paperclip, Send, X, Bot, Zap, CheckCircle2, ChevronRight, Menu, Image, FileText, Camera } from 'lucide-react'
+import { Paperclip, Send, X, Bot, Zap, CheckCircle2, ChevronRight, Menu, Image as ImageIcon, FileText, Camera } from 'lucide-react'
 import { ActionCard, UpdateDataCardComponent } from '@/components/chat/ActionCard'
 import { CreateTrackerCard } from '@/components/chat/CreateTrackerCard'
 import { AgentSelector } from '@/components/chat/AgentSelector'
@@ -155,7 +155,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       serverPollStopRef.current?.()
       return [...prev, ...fresh]
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessages]) // dep: only initialMessages (functional update avoids messages dep)
 
   // Warn before page refresh/close is now handled globally by RefreshGuard in app layout.
@@ -961,6 +960,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     if (at.type === 'image') {
                       return (
                         <div key={i} className="relative group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={`data:${at.mimeType};base64,${at.base64}`}
                             alt={at.filename || 'Attachment'}
@@ -1140,7 +1140,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     onClick={() => { setIsAttachMenuOpen(false); fileInputRef.current?.click() }}
                     className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
                   >
-                    <Image className="h-4 w-4 text-sleep shrink-0" />
+                    <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
                   <button

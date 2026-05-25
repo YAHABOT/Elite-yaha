@@ -237,12 +237,6 @@ describe('V32 UI Layout Bugs', () => {
     it('renders 5 sequential messages with correct vertical gap spacing', () => {
       // This test is conceptual — we'd need the full ChatInterface context
       // For now, we verify the spacing classes exist in components
-      const mockMessage = {
-        id: 'msg-1',
-        role: 'user',
-        content: 'Test message',
-        created_at: new Date().toISOString(),
-      }
 
       // Verify spacing patterns used in ChatInterface
       // space-y-2 = 8px, mb-3 = 12px
