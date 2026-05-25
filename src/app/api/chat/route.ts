@@ -3,7 +3,7 @@ export const maxDuration = 60 // extend Vercel function timeout for AI streaming
 import { createServerClient } from '@/lib/supabase/server'
 import { createSession, getSession, addMessage, updateSession, getRecentMessagesForAI } from '@/lib/db/chat'
 import { getTrackersBasic } from '@/lib/db/trackers'
-import { getLogsForDay, getLogsForDateRange, searchLogsByFieldText } from '@/lib/db/logs'
+import { getLogsForDay, getLogsForDateRange } from '@/lib/db/logs'
 import type { TrackerLogWithName } from '@/lib/db/logs'
 import { getRoutine as fetchRoutine } from '@/lib/db/routines'
 import { streamHealthMessage } from '@/lib/ai/gemini'
@@ -82,6 +82,22 @@ function validateAttachments(
     // Validate base64 format (should only contain valid base64 characters)
     if (!/^[A-Za-z0-9+/]*={0,2}$/.test(attachment.base64)) {
       throw new Error('Attachment base64 data is malformed — contains invalid characters')
+    }
+
+    // BUG-V32-EX1: Validate filename if provided (prevent path traversal and macro attacks)
+    if (attachment.filename) {
+      // Reject filenames with path traversal attempts
+      if (attachment.filename.includes('..') || attachment.filename.includes('/') || attachment.filename.includes('\\')) {
+        throw new Error('Filename contains invalid path characters')
+      }
+      // Reject Office files with macro extensions
+      if (attachment.filename.match(/\.(docm|xlsm|pptm|xltm)$/i)) {
+        throw new Error('Macro-enabled Office files are not supported')
+      }
+      // Reject executables
+      if (attachment.filename.match(/\.(exe|bat|cmd|sh|com|scr)$/i)) {
+        throw new Error('Executable files are not allowed')
+      }
     }
   }
 
@@ -577,7 +593,7 @@ export async function POST(req: Request): Promise<Response> {
             const currentStep = activeRoutine.steps[session.current_step_index]
             const hasLoggedCurrentStep = isSkipIntent
               ? true
-              : sanitizedActions.some(a => a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId)
+              : (currentStep ? sanitizedActions.some(a => a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId) : false)
 
             if (hasLoggedCurrentStep) {
               const nextStepIndex = session.current_step_index + 1
