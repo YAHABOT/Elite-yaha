@@ -229,6 +229,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                   <select
                     value={value ?? ''}
                     onChange={(e) => handleFieldChange(key, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
                     className="bg-transparent text-sm font-bold text-foreground w-full placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10"
                   >
                     <option value="">Select option...</option>
@@ -243,7 +244,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                     type="text"
                     value={value ?? ''}
                     onChange={(e) => handleFieldChange(key, e.target.value)}
-                    className="bg-transparent text-sm font-bold text-foreground w-full placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
+                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
                     placeholder="..."
                   />
                 )
