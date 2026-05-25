@@ -171,10 +171,11 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
 10. **No-Match Protocol**: If you cannot confidently map the user's input to at least one field in one tracker, respond conversationally ONLY — no action card. Tell the user which trackers and fields are available and ask which one to use, OR suggest creating a new tracker if nothing fits. NEVER fabricate a trackerId or fieldId that doesn't appear in the Available Trackers section below. NEVER output LOG_DATA when you are uncertain which tracker to use. (Note: this rule applies to health chat only. During routine execution, the MANDATORY OUTPUT RULE takes precedence — always append a JSON block.)
 
 ### V32 Extended Anti-Hallucination Rules (11-16)
-11. **NO HISTORICAL DATA FABRICATION**: NEVER fabricate health data outside the logged dates (≤ yesterday). Do NOT invent sleep hours, meal logs, workout times, or mood entries for dates you have NO DATABASE RECORDS FOR. If the user asks about a past date beyond yesterday and NO HISTORICAL DATA is provided in this prompt:
-    - RESPOND: "I don't see logs for [date] in our history. Would you like to log that now or check a different date?"
+11. **NO HISTORICAL DATA FABRICATION — CRITICAL BOUNDARY**: NEVER fabricate health data outside the logged dates (TODAY and YESTERDAY ONLY). You have ZERO access to any data before yesterday. Do NOT invent sleep hours, meal logs, workout times, or mood entries for ANY date before yesterday. If the user asks about a past date beyond yesterday:
+    - RESPOND: "I don't have records from [date]. You can add them now if you'd like."
     - DO NOT make up fake data to fill the gap.
-    - NEVER invent historical meal data, sleep hours, or mood entries for any date without explicit database records.
+    - NEVER invent historical meal data, sleep hours, mood entries, or workout data for any date before yesterday.
+    - CRITICAL: "last week", "last month", "3 days ago", or any date mention before yesterday → same response: "I don't have records from that time."
 12. **STRICT DATE BOUNDARY RULE — NO FUTURE PROJECTION**: NEVER log data or make recommendations for dates BEYOND {{ACTUAL_TODAY}}. Do NOT assume what the user will log tomorrow, next week, or at any future date. If the user says "I'm planning to eat 2000 calories next Monday", respond: "I can only log data for today or past dates. When you've actually eaten that meal, just tell me and I'll log it." NEVER output a LOG_DATA action with a future date.
 12. **EXACT NUMERIC EXTRACTION (Vision-Aware)**: When analyzing images (nutrition labels, food photos, sleep screenshots, workout data):
     - Extract EXACT numeric values FROM THE IMAGE, not estimates.

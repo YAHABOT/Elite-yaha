@@ -372,69 +372,19 @@ export async function POST(req: Request): Promise<Response> {
 
       if (hasHistoricalIntent) {
         try {
-          // Compute date ranges relative to actualDate (client's physical device date)
+          // CRITICAL FIX: BUG-V32-1 — Limit historical context to TODAY and YESTERDAY ONLY
+          // Prevent AI from fabricating data from dates before yesterday
           const actualDateObj = new Date(`${today}T00:00:00.000Z`)
-
           const getDateStr = (d: Date): string => d.toISOString().split('T')[0]
 
           const yesterday = new Date(actualDateObj)
           yesterday.setUTCDate(yesterday.getUTCDate() - 1)
           const yesterdayStr = getDateStr(yesterday)
 
-          if (/\byesterday\b/i.test(message)) {
-            // "same banh mi from yesterday" → text search filtered to yesterday
-            const namedItemMatch = message.match(/\bsame\s+(.+?)\s+from\s+yesterday\b/i)
-            if (namedItemMatch) {
-              const searchQuery = namedItemMatch[1].trim()
-              const allMatches = await searchLogsByFieldText(searchQuery, supabase, trackersMini, 10)
-              historicalContext = allMatches.filter(l => l.logged_at.startsWith(yesterdayStr))
-              if (historicalContext.length === 0) historicalContext = allMatches.slice(0, 5)
-            } else {
-              historicalContext = await getLogsForDateRange(yesterdayStr, yesterdayStr, supabase, trackersMini)
-            }
-          } else if (/\blast\s+week\b/i.test(message)) {
-            const dayOfWeek = actualDateObj.getUTCDay() // 0=Sun
-            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-            const lastMonday = new Date(actualDateObj)
-            lastMonday.setUTCDate(actualDateObj.getUTCDate() - daysToMonday - 7)
-            const lastSunday = new Date(lastMonday)
-            lastSunday.setUTCDate(lastMonday.getUTCDate() + 6)
-            historicalContext = await getLogsForDateRange(getDateStr(lastMonday), getDateStr(lastSunday), supabase, trackersMini)
-          } else if (/\blast\s+month\b/i.test(message)) {
-            const firstOfLastMonth = new Date(Date.UTC(actualDateObj.getUTCFullYear(), actualDateObj.getUTCMonth() - 1, 1))
-            const lastOfLastMonth = new Date(Date.UTC(actualDateObj.getUTCFullYear(), actualDateObj.getUTCMonth(), 0))
-            historicalContext = await getLogsForDateRange(getDateStr(firstOfLastMonth), getDateStr(lastOfLastMonth), supabase, trackersMini)
-          } else {
-            const nDaysMatch = message.match(/\blast\s+(\d+)\s+days?\b/i)
-            if (nDaysMatch) {
-              const n = parseInt(nDaysMatch[1], 10)
-              const startDate = new Date(actualDateObj)
-              startDate.setUTCDate(startDate.getUTCDate() - n)
-              historicalContext = await getLogsForDateRange(getDateStr(startDate), today, supabase, trackersMini)
-            } else if (/\bsummar[iy]se?\b|\banaly[sz]e?\b/i.test(message)) {
-              // Generic summary/analysis — fetch last 7 days
-              const weekAgo = new Date(actualDateObj)
-              weekAgo.setUTCDate(weekAgo.getUTCDate() - 7)
-              historicalContext = await getLogsForDateRange(getDateStr(weekAgo), today, supabase, trackersMini)
-            } else {
-              // Named-item recall or "what did I" / "how was my" — text search
-              const searchTermMatch = message.match(/(?:that\s+(?:food|item|meal|drink|snack)|what\s+did\s+i\s+(?:eat|have|log)|how\s+was\s+my\s+(\w+))/i)
-              if (searchTermMatch) {
-                const term = searchTermMatch[1] ?? ''
-                if (term) {
-                  historicalContext = await searchLogsByFieldText(term, supabase, trackersMini, 10)
-                }
-              }
-            }
-          }
-          // BUG-V32-8: If no historical context was fetched from explicit patterns,
-          // provide a default 7-day window for general AI context
-          if (!historicalContext || historicalContext.length === 0) {
-            const weekAgo = new Date(actualDateObj)
-            weekAgo.setUTCDate(weekAgo.getUTCDate() - 7)
-            historicalContext = await getLogsForDateRange(getDateStr(weekAgo), today, supabase, trackersMini)
-          }
-          console.log(`[ChatRoute] Historical context: ${historicalContext?.length ?? 0} logs fetched`)
+          // Only fetch from yesterday and today — no earlier dates allowed
+          historicalContext = await getLogsForDateRange(yesterdayStr, today, supabase, trackersMini)
+
+          console.log(`[ChatRoute] Historical context (TODAY + YESTERDAY): ${historicalContext?.length ?? 0} logs fetched`)
         } catch (err) {
           console.error('[ChatRoute] Historical context fetch failed:', err)
           historicalContext = []
