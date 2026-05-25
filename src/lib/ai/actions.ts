@@ -1,4 +1,4 @@
-import type { ActionCard, CreateTrackerCard, UpdateDataCard, AnyActionCard } from '@/types/action-card'
+import type { ActionCard, CreateTrackerCard, UpdateDataCard, AnyActionCard, SchemaFieldDef } from '@/types/action-card'
 
 const VALID_SOURCES = new Set(['chat', 'telegram', 'manual'])
 const VALID_TRACKER_TYPES = new Set(['nutrition', 'sleep', 'workout', 'mood', 'water', 'custom'])
@@ -154,18 +154,11 @@ export function validateActionCard(card: unknown): ActionCard | null {
     fields: c.fields as Record<string, number | string | null>,
     fieldLabels: (c.fieldLabels as Record<string, string>) || undefined,
     fieldUnits: (c.fieldUnits as Record<string, string>) || undefined,
+    fieldOrder: Array.isArray(c.fieldOrder) ? (c.fieldOrder as string[]) : undefined,
+    fieldDefinitions: (c.fieldDefinitions as Record<string, SchemaFieldDef>) || undefined,
     date: c.date as string,
     source,
   }
-}
-
-type SchemaField = {
-  fieldId: string
-  label: string
-  type: string
-  unit?: string
-  selectOptions?: string[]
-  multiSelect?: boolean
 }
 
 const WEIGHT_SANITY_MAX = 500
