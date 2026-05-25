@@ -100,25 +100,43 @@ export async function* streamHealthMessage(
   history: Array<{ role: 'user' | 'model'; parts: ContentPart[] }> = []
 ): AsyncGenerator<string> {
   console.log(`[Gemini] Streaming ${GEMINI_MODEL}...`)
-  
+  console.log(`[Gemini] Input text: "${input.text}"`)
+  console.log(`[Gemini] System prompt length: ${systemPrompt.length} chars`)
+  console.log(`[Gemini] History messages: ${history.length}`)
+
   try {
-    const model = getGenAI().getGenerativeModel({ 
+    const model = getGenAI().getGenerativeModel({
       model: GEMINI_MODEL,
       systemInstruction: systemPrompt
     })
 
     const currentParts = buildParts(input)
+    console.log(`[Gemini] Current parts built: ${currentParts.length} parts`)
+    currentParts.forEach((part, i) => {
+      if ('text' in part) {
+        console.log(`  [${i}] text: "${part.text.substring(0, 50)}..."`)
+      } else if ('inlineData' in part) {
+        console.log(`  [${i}] inlineData: ${part.inlineData.mimeType} (${part.inlineData.data.length} bytes)`)
+      }
+    })
+
     const contents = [
       ...history,
       { role: 'user' as const, parts: currentParts }
     ]
+    console.log(`[Gemini] Total contents: ${contents.length} (history + current)`)
 
     const result = await model.generateContentStream({ contents })
+    console.log(`[Gemini] generateContentStream() returned, starting iteration...`)
 
+    let chunkCount = 0
     for await (const chunk of result.stream) {
+      chunkCount++
       const text = chunk.text()
+      console.log(`[Gemini] Chunk ${chunkCount}: "${text.substring(0, 100)}..." (${text.length} chars)`)
       yield text
     }
+    console.log(`[Gemini] Stream complete. Total chunks: ${chunkCount}`)
   } catch (error: unknown) {
     console.error(`[Gemini] Streaming error for ${GEMINI_MODEL}:`, error instanceof Error ? error.message : error)
     throw error

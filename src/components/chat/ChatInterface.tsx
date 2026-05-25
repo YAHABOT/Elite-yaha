@@ -701,27 +701,30 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       setAttachedFiles([]) // Clear attachments after success
 
       // Update session state (routine progress etc.)
-      const sessRes = await fetch(`/api/chat/sessions/${attachSessionId}`)
-      if (sessRes.ok) {
-        const nextSession = await sessRes.json()
-        if (!isMountedRef.current) return
-        setSession(nextSession)
+      // Skip for 'new' sessions (no UUID yet, will be assigned on next message)
+      if (attachSessionId && attachSessionId !== 'new') {
+        const sessRes = await fetch(`/api/chat/sessions/${attachSessionId}`)
+        if (sessRes.ok) {
+          const nextSession = await sessRes.json()
+          if (!isMountedRef.current) return
+          setSession(nextSession)
 
-        if (nextSession.active_routine_id) {
-          const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
-          if (routRes.ok) {
-            if (!isMountedRef.current) return
-            setCurrentRoutine(await routRes.json())
-          }
-        } else {
-          setCurrentRoutine(null)
-          // Routine completed — clear the session storage entry so the next start
-          // of the same routine creates a fresh session rather than redirecting to
-          // this completed one.
-          const routineParam = searchParams.get('routine')
-          if (routineParam) {
-            sessionStorage.removeItem(`yaha_trigger_${routineParam}`)
-            sessionStorage.removeItem(`yaha_trigger_session_${routineParam}`)
+          if (nextSession.active_routine_id) {
+            const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
+            if (routRes.ok) {
+              if (!isMountedRef.current) return
+              setCurrentRoutine(await routRes.json())
+            }
+          } else {
+            setCurrentRoutine(null)
+            // Routine completed — clear the session storage entry so the next start
+            // of the same routine creates a fresh session rather than redirecting to
+            // this completed one.
+            const routineParam = searchParams.get('routine')
+            if (routineParam) {
+              sessionStorage.removeItem(`yaha_trigger_${routineParam}`)
+              sessionStorage.removeItem(`yaha_trigger_session_${routineParam}`)
+            }
           }
         }
       }
@@ -1253,14 +1256,22 @@ function MarkdownText({ content }: { content: string }) {
 
 function renderBold(text: string) {
   const parts = text.split(/(\*\*.*?\*\*)/g)
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return (
-        <strong key={i} className="font-black text-white">
-          {part.slice(2, -2)}
-        </strong>
-      )
-    }
-    return part
-  })
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!part) return null
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return (
+            <strong key={i} className="font-black text-white">
+              {part.slice(2, -2)}
+            </strong>
+          )
+        }
+        // Wrap plain text in span to ensure consistent JSX returns
+        return (
+          <span key={i}>{part}</span>
+        )
+      })}
+    </>
+  )
 }
