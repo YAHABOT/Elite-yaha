@@ -213,12 +213,7 @@ export function SchemaFieldRow({
       </div>
 
       {/* Select-type extras — only shown when type === 'select' */}
-      {field.type === 'select' && (
-        <SelectOptionsEditor
-          field={field}
-          onChange={onChange}
-        />
-      )}
+      {field.type === 'select' && <SelectOptionsEditor field={field} onChange={onChange} />}
     </div>
   )
 }
