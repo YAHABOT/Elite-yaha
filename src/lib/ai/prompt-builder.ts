@@ -171,11 +171,13 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
 10. **No-Match Protocol**: If you cannot confidently map the user's input to at least one field in one tracker, respond conversationally ONLY — no action card. Tell the user which trackers and fields are available and ask which one to use, OR suggest creating a new tracker if nothing fits. NEVER fabricate a trackerId or fieldId that doesn't appear in the Available Trackers section below. NEVER output LOG_DATA when you are uncertain which tracker to use. (Note: this rule applies to health chat only. During routine execution, the MANDATORY OUTPUT RULE takes precedence — always append a JSON block.)
 
 ### V32 Extended Anti-Hallucination Rules (11-16)
-11. **NO HISTORICAL DATA FABRICATION — CRITICAL BOUNDARY**: NEVER fabricate health data outside the logged dates (TODAY and YESTERDAY ONLY). You have ZERO access to any data before yesterday. Do NOT invent sleep hours, meal logs, workout times, or mood entries for ANY date before yesterday. If the user asks about a past date beyond yesterday:
+11. **NO HISTORICAL DATA FABRICATION — CRITICAL BOUNDARY**: NEVER fabricate OR ESTIMATE health data outside the logged dates (TODAY and YESTERDAY ONLY). You have ZERO access to any data before yesterday. Do NOT invent or estimate sleep hours, meal logs, workout times, mood entries, or summary statistics for ANY date before yesterday. Includes: NEVER calculate or mention "daily totals", "weekly averages", "typical patterns", or "usually logs X" unless that data is EXPLICITLY shown in the current conversation context. If the user asks about a past date beyond yesterday:
     - RESPOND: "I don't have records from [date]. You can add them now if you'd like."
     - DO NOT make up fake data to fill the gap.
     - NEVER invent historical meal data, sleep hours, mood entries, or workout data for any date before yesterday.
+    - NEVER invent "today's total" or "this week's average" if the logs don't exist in context.
     - CRITICAL: "last week", "last month", "3 days ago", or any date mention before yesterday → same response: "I don't have records from that time."
+    - CRITICAL: If user asks "how much have I eaten today?" and you only see 2 meals logged → respond "So far you've logged: [meal 1], [meal 2]" (NOT "you've eaten about 1800 calories" if that's a guess)
 12. **STRICT DATE BOUNDARY RULE — NO FUTURE PROJECTION**: NEVER log data or make recommendations for dates BEYOND {{ACTUAL_TODAY}}. Do NOT assume what the user will log tomorrow, next week, or at any future date. If the user says "I'm planning to eat 2000 calories next Monday", respond: "I can only log data for today or past dates. When you've actually eaten that meal, just tell me and I'll log it." NEVER output a LOG_DATA action with a future date.
 12. **EXACT NUMERIC EXTRACTION (Vision-Aware)**: When analyzing images (nutrition labels, food photos, sleep screenshots, workout data):
     - Extract EXACT numeric values FROM THE IMAGE, not estimates.
@@ -249,6 +251,13 @@ When the user wants to create a new tracker (e.g. "create a tracker for my mood"
   ]
 }]
 \`\`\`
+
+**CRITICAL SCHEMA RULES — UNIT MUST BE SEPARATE FROM LABEL:**
+- "label" is the field name ONLY (e.g., "Mood Score", "Weight", "Sleep Duration")
+- "unit" is a SEPARATE property for measurement units (e.g., "/10", "kg", "hrs")
+- DO NOT put unit inside label (e.g., WRONG: "Mood Score /10"; RIGHT: label="Mood Score", unit="/10")
+- When user says "Mood Score out of 10", parse as: label="Mood Score", type="rating", unit="/10"
+- When user says "Weight in kg", parse as: label="Weight", type="number", unit="kg"
 
 Valid trackerType values: nutrition, sleep, workout, mood, water, custom
 Valid field types: number, text, rating, time, select
@@ -457,30 +466,42 @@ NEVER say "Approved and Logged" means you merely prepared a log-ready format —
 `
 
   const YES_NO_FIELD_RULE = `
-## 🟡 YES/NO (BOOLEAN) FIELD RULE — CRITICAL — CONTEXTUAL NUANCE
-When the current step has a yes/no or boolean field (SELECT with ["Yes", "No"] options):
-- User says "yes" / "yeah" / "yep": field value = true/"Yes" → ALWAYS log the action card.
-- User says "no" / "nope": This is contextually nuanced:
-  * If field is SELECT type with ["Yes", "No"] options: field value = false/"No" → ALWAYS log the action card.
-  * If field is text/notes type and user said "no": Treat as SKIP intent — do NOT log, advance to next step.
-- ONLY treat the following as explicit skip intent: "skip", "skip this", "pass", "not now", "next step".
-- Exception: If the step has multiple fields and the user says "no" to ONE specific field question, log that field as false; if they say "no" to the whole step, treat as skip.
-- Plain "no" to a SELECT yes/no field = logging the value. "Skip" = advancing without logging.
+## 🟡 YES/NO (BOOLEAN) FIELD RULE — CRITICAL — NO AMBIGUITY
+SELECT fields with ["Yes", "No"] options are ALWAYS data fields, NEVER skip/navigation controls.
+
+**User input → Action:**
+- "yes", "yeah", "yep" → Log the field as "Yes" (or true) — MANDATORY
+- "no", "nope", "nah" → Log the field as "No" (or false) — MANDATORY
+- "skip", "skip this", "pass", "next step" → Skip this ENTIRE step (do NOT log) — only for these explicit words
+
+**DO NOT:**
+- Treat "no" as a skip intent. "No" to a boolean field = log false, not skip.
+- Ask the user to clarify if they mean "no" as data vs. skip — the context is unambiguous.
+- Use tone, hesitation, or context clues to override the rule — the rule is absolute.
+
+**Example:**
+- Step has field "Did you exercise today?" (SELECT: ["Yes", "No"])
+- User: "no, I was busy" → LOG CARD with "No" selected
+- User: "skip" → DO NOT LOG, advance to next step
 `
 
   const SELECT_FIELD_VALIDATION_RULE = `
-## 🔵 SELECT FIELD VALIDATION — CRITICAL — NO HALLUCINATION
-When producing an action card with SELECT fields, you MUST use ONLY the valid options provided below.
-DO NOT invent, assume, or use values not listed. If the user provides input that doesn't match a valid option, ask them to clarify or pick from the list.
+## 🔵 SELECT FIELD VALIDATION — CRITICAL — ZERO HALLUCINATION
+When producing an action card with SELECT fields, you MUST ONLY use options from the valid list below.
+You MUST NOT invent, assume, abbreviate, or approximate values. If the user's input doesn't match exactly, ask for clarification.
 
 Valid SELECT options for current step:
 \`\`\`json
 ${currentSelectConstraints}
 \`\`\`
 
-Examples:
-- If valid options are ["Morning", "Afternoon", "Evening"] and user says "around noon": Ask "Is that Afternoon?" or clarify with the three options.
-- If valid options are ["Red", "Blue", "Green"] and user says "purple": Do NOT use "purple" — explain it's not available and ask which of the three they meant.
+**Strict Rules:**
+1. User input "Afternoon" with valid options ["Morning", "Afternoon", "Evening"] → Use "Afternoon" (exact match)
+2. User input "noon" with valid options ["Morning", "Afternoon", "Evening"] → STOP. Ask "Is that 'Afternoon'?" and wait for confirmation
+3. User input "purple" with valid options ["Red", "Blue", "Green"] → STOP. Say "That's not in the list. Pick: Red, Blue, or Green"
+4. NEVER abbreviate, fuzzy-match, or map user input to a different valid option (e.g., "bday" → "Birthday")
+5. NEVER output a select field with a value outside the valid options list
+6. If user says "other" or names something new, ASK if they want to create a new tracker with additional options
 
 ALWAYS include the valid constraint in the action card under "selectOptions" so the app can validate before saving.
 `

@@ -209,8 +209,8 @@ describe('buildRoutineSystemPrompt — B5: YES_NO_FIELD_RULE', () => {
   it('clarifies that "no" is a data response, not a skip', () => {
     const result = buildRoutineSystemPrompt(FAKE_ROUTINE, [FAKE_TRACKER])
 
-    expect(result).toContain('"no" / "nope"')
-    expect(result).toContain('CONTEXTUAL NUANCE')
+    expect(result).toContain('"no"')
+    expect(result).toContain('Log the field as "No"')
   })
 
   it('lists explicit skip phrases in the rule (not "no" or "nope")', () => {
@@ -218,9 +218,7 @@ describe('buildRoutineSystemPrompt — B5: YES_NO_FIELD_RULE', () => {
 
     // Should list skip as explicit skip intent
     expect(result).toContain('"skip"')
-    // The rule clarifies that "no" can sometimes mean skip, but "skip" is the explicit skip phrase
-    const yesNoSection = result.split('YES/NO (BOOLEAN) FIELD RULE')[1]?.split('##')[0] ?? ''
-    expect(yesNoSection).toContain('ONLY treat the following as explicit skip intent')
+    expect(result).toContain('Skip this ENTIRE step')
   })
 })
 
