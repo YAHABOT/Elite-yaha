@@ -200,7 +200,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
       </div>
 
       {/* Fields Grid */}
-      <div className={`grid gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))' }}>
+      <div className={`grid gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 100px), 1fr))' }}>
         {fieldEntries.map(([key, value]) => {
           // Text fields and descriptions should take full width to avoid awkward wrapping
           const fieldLabel = card.fieldLabels?.[key] || key

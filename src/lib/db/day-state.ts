@@ -203,6 +203,7 @@ export async function clearRoutineState(date: string): Promise<void> {
  * Closes the currently open session (started but not ended) rather than
  * assuming it's today's UTC date — which would break for UTC+ users
  * finishing a session that started the previous local day.
+ * Also records the completion timestamp in routine_last_activity_at.
  */
 export async function markDayEnded(activeDate: string): Promise<void> {
   const supabase = await createServerClient()
@@ -217,6 +218,7 @@ export async function markDayEnded(activeDate: string): Promise<void> {
       user_id: user.id,
       date: activeDate,
       day_ended_at: now,
+      routine_last_activity_at: now,
       updated_at: now,
     }, { onConflict: 'user_id,date' })
 

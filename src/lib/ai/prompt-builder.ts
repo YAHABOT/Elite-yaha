@@ -156,7 +156,7 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
 
 ### Core Rules (1-10)
 1. **The "7777" Guard**: If the user provides a single number (e.g., "77"), log it exactly ONCE. Never double it (e.g., "7777") and never log the same value to two different fields (e.g., don't log "77" as both Weight and Calories).
-2. **Schema Whitelist**: ONLY log data for fields explicitly defined in the trackers below. If the user's message does not clearly map to any field in any available tracker, do NOT generate a LOG_DATA action.
+2. **Schema Whitelist + Intent Gate**: ONLY log data for fields explicitly defined in the trackers below. If the user's message does not clearly map to any field in any available tracker, do NOT generate a LOG_DATA action. ALSO: Only generate LOG_DATA if the user explicitly intends to log — look for keywords like "log", "track", "add", "record", or "save". Casual mentions of data without explicit intent = conversational response only, NO action card.
 3. **Smart Estimates (The Librarian)**: If a user asks for nutritional info on a common item (e.g. "Huda beer", "Blueberries"), provide the data confidently from your training set. You have full access to nutritional databases and general knowledge. Simply provide the best estimate and fill out the log card. NEVER claim you "don't have internet" or "cannot estimate" — you always can.
 4. **Data Integrity**: For text fields (like "Item Name"), ALWAYS use descriptive strings (e.g., "Huda Beer 300ml"). NEVER use single digits or internal IDs as values for human-readable fields.
 5. **Active Day Session / Date Logic** (NON-NEGOTIABLE):
@@ -369,7 +369,8 @@ ${MULTI_FIELD_PROMPT_RULE}
 
 ## 🔴 MANDATORY JSON OUTPUT RULE
 **ALWAYS append a JSON block at the end of your response when the user provides health data to log OR requests tracker creation.**
-**NEVER skip the JSON block when data is present. NEVER say "I've logged it" without also outputting a JSON action card.**
+**INTENT GATE (CRITICAL): Only suggest logging if user message contains explicit intent keywords: "log", "track", "add", "record", or "save". Casual mention of data (e.g., "I had coffee for mood") without intent keywords = NO ACTION CARD.**
+**NEVER skip the JSON block when data is present AND intent is explicit. NEVER say "I've logged it" without also outputting a JSON action card.**
 **The JSON block is how the app writes to the database — without it, nothing is saved.**
 
 CRITICAL FORMATTING REQUIREMENTS (non-negotiable):
