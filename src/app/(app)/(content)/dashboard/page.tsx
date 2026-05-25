@@ -17,6 +17,12 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   const supabase = await createServerClient()
 
   try {
+    // CRITICAL FIX: BUG-V32-2 & BUG-V32-8 — Filter logs to TODAY ONLY for accurate daily totals
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
     const [widgets, trackers, routines, correlationRecords, allLogs, dayState] = await Promise.all([
       getWidgets(supabase),
       getTrackersBasic(supabase),
@@ -26,9 +32,9 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
         .from('tracker_logs')
         .select('id, tracker_id, fields, logged_at')
         .eq('user_id', user.id)
-        .gte('logged_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .gte('logged_at', today.toISOString())
+        .lt('logged_at', tomorrow.toISOString())
         .order('logged_at', { ascending: false })
-        .limit(200)
         .then(res => res.data || []),
       getActiveDayState(supabase)
     ])

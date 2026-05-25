@@ -175,28 +175,22 @@ export function computeWidgetValueOptimized(
   allLogs: TrackerLog[],
   correlations: CorrelationRecord[]
 ): WidgetValue {
-  const nDays = widget.days ?? SPARKLINE_DEFAULT_DAYS
-  const cutoff = new Date(Date.now() - nDays * 24 * 60 * 60 * 1000)
-
-  // Filter logs for this widget's tracker and timeframe
-  const widgetLogs = allLogs.filter(l => 
-    l.tracker_id === widget.tracker_id && 
-    new Date(l.logged_at) >= cutoff
-  )
+  // CRITICAL FIX: BUG-V32-2 & BUG-V32-8 — For daily metrics, use TODAY boundary ONLY
+  // allLogs should already be filtered to today by dashboard/page.tsx
+  // Filter logs for this widget's tracker (all logs passed in are already today-only)
+  const widgetLogs = allLogs.filter(l => l.tracker_id === widget.tracker_id)
 
   switch (widget.type) {
     case 'field_latest': {
       if (!widget.tracker_id || !widget.field_id) return { value: null, label: widget.label }
 
-      // Latest log (logs are ordered desc)
-      const latestLog = allLogs.find(l => l.tracker_id === widget.tracker_id)
+      // Latest log from today (logs passed in are already today-only)
+      const latestLog = widgetLogs[0] // Already ordered desc by dashboard/page.tsx
       const raw = (latestLog?.fields as Record<string, unknown> | null)?.[widget.field_id] ?? null
       const value = raw !== null && (typeof raw === 'number' || typeof raw === 'string') ? raw : null
 
-      // Trend (Sparkline) - use 7 days specifically as per current design
-      const sparklineCutoff = new Date(Date.now() - SPARKLINE_DEFAULT_DAYS * 24 * 60 * 60 * 1000)
-      const trend = allLogs
-        .filter(l => l.tracker_id === widget.tracker_id && new Date(l.logged_at) >= sparklineCutoff)
+      // Trend (Sparkline) - use all today's logs since allLogs is today-only
+      const trend = widgetLogs
         .reverse() // chronological
         .map(l => (l.fields as Record<string, unknown>)?.[widget.field_id!])
         .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
@@ -227,7 +221,7 @@ export function computeWidgetValueOptimized(
 
       const total = values.length > 0
         ? values.reduce((a, b) => a + b, 0)
-        : 0
+        : null
 
       return { value: total, label: widget.label }
     }
