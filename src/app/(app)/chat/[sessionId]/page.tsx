@@ -44,7 +44,7 @@ export default async function ChatSessionPage({ params, searchParams }: Props): 
   //   This eliminates any case where a slow getSessions delays the final render.
   const sessionsPromise = getSessions()
 
-  const [session, messages] = await Promise.all([
+  const [session, messagesData] = await Promise.all([
     getSession(sessionId).catch(() => null),
     getMessages(sessionId).catch(() => ({ messages: [], nextCursor: undefined })),
   ])
@@ -58,7 +58,7 @@ export default async function ChatSessionPage({ params, searchParams }: Props): 
       : Promise.resolve(null),
   ])
 
-  const sessionData = { session, messages, routine }
+  const sessionData = { session, messages: messagesData.messages, routine }
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">

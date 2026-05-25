@@ -669,7 +669,7 @@ export async function POST(req: Request): Promise<Response> {
             const currentStep = activeRoutine.steps[session.current_step_index]
             const hasLoggedCurrentStep = isSkipIntent
               ? true
-              : (currentStep ? sanitizedActions.some(a => a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId) : false)
+              : (currentStep ? sanitizedActions.some(a => a && a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId) : false)
 
             if (hasLoggedCurrentStep) {
               const nextStepIndex = session.current_step_index + 1
@@ -712,7 +712,7 @@ export async function POST(req: Request): Promise<Response> {
             session_id: session.id,
             role: 'assistant',
             content: fullText,
-            actions: sanitizedActions,
+            actions: sanitizedActions.filter((a): a is AnyActionCard => a !== null),
           })
 
           // Send terminal metadata event (best-effort)
