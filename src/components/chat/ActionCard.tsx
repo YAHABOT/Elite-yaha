@@ -230,7 +230,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                     value={value ?? ''}
                     onChange={(e) => handleFieldChange(key, e.target.value)}
                     onClick={(e) => e.stopPropagation()}
-                    className="bg-transparent text-sm font-bold text-foreground w-full placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10"
+                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 cursor-pointer hover:border-white/20 transition-colors z-10 relative"
                   >
                     <option value="">Select option...</option>
                     {(card.fieldDefinitions?.[key]?.selectOptions ?? []).map((option) => (
@@ -244,7 +244,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                     type="text"
                     value={value ?? ''}
                     onChange={(e) => handleFieldChange(key, e.target.value)}
-                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
+                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 focus:border-blue-500/40"
                     placeholder="..."
                   />
                 )
@@ -411,7 +411,7 @@ export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm,
                 type="text"
                 value={value ?? ''}
                 onChange={(e) => setEditableFields(prev => ({ ...prev, [key]: e.target.value }))}
-                className="bg-transparent text-sm font-bold text-foreground w-full placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
+                className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 focus:border-blue-500/40"
                 placeholder="..."
               />
               {unit && <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/40">{unit}</span>}

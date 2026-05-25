@@ -175,7 +175,7 @@ export function computeWidgetValueOptimized(
   allLogs: TrackerLog[],
   correlations: CorrelationRecord[]
 ): WidgetValue {
-  // CRITICAL FIX: BUG-V32-2 & BUG-V32-8 — For daily metrics, use TODAY boundary ONLY
+  // BUG-V32-2 FIX: For daily metrics, use TODAY boundary ONLY
   // allLogs should already be filtered to today by dashboard/page.tsx
   // Filter logs for this widget's tracker (all logs passed in are already today-only)
   const widgetLogs = allLogs.filter(l => l.tracker_id === widget.tracker_id)

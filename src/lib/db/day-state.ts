@@ -199,7 +199,7 @@ export async function clearRoutineState(date: string): Promise<void> {
 }
 
 /**
- * Called when the End Day routine completes.
+ * BUG-V32-7 FIX: Called when the End Day routine completes.
  * Closes the currently open session (started but not ended) rather than
  * assuming it's today's UTC date — which would break for UTC+ users
  * finishing a session that started the previous local day.

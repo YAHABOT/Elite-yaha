@@ -351,6 +351,26 @@ export async function POST(req: Request): Promise<Response> {
       activeAgent = agentTrigger
     }
 
+    // BUG-V32-6 FIX: Enforce Start Day guard — reject starting day if session already open
+    if (normalizedMsg.includes('start day')) {
+      if (finalActiveDayState && finalActiveDayState.day_started_at && !finalActiveDayState.day_ended_at) {
+        const msg = await addMessage({
+          session_id: session.id,
+          role: 'assistant',
+          content: `Start day for ${today} already complete. End yesterday's session first.`,
+        })
+        return Response.json({
+          message: {
+            id: msg.id,
+            role: 'assistant',
+            content: msg.content,
+            actions: []
+          },
+          sessionId: session.id
+        }, { status: 200 })
+      }
+    }
+
     // Save user message
     await addMessage({
       session_id: session.id,
@@ -388,7 +408,7 @@ export async function POST(req: Request): Promise<Response> {
 
       if (hasHistoricalIntent) {
         try {
-          // CRITICAL FIX: BUG-V32-1 — Limit historical context to TODAY and YESTERDAY ONLY
+          // BUG-V32-1 FIX: Limit historical context to TODAY and YESTERDAY ONLY
           // Prevent AI from fabricating data from dates before yesterday
           const actualDateObj = new Date(`${today}T00:00:00.000Z`)
           const getDateStr = (d: Date): string => d.toISOString().split('T')[0]
@@ -445,7 +465,7 @@ export async function POST(req: Request): Promise<Response> {
       systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList })
     }
 
-    // Append native macro totaling for nutrition tracker (prevents LLM arithmetic errors)
+    // BUG-V32-8 FIX: Append native macro totaling for nutrition tracker (prevents LLM arithmetic errors)
     const nutritionTracker = trackers.find(t => t.type === 'nutrition')
     if (nutritionTracker && dayLogs && dayLogs.length > 0) {
       // Find nutrition logs for today

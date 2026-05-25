@@ -456,13 +456,13 @@ describe('getRecentMessagesForAI', () => {
     await expect(getRecentMessagesForAI(FAKE_SESSION_ID)).rejects.toThrow('Unauthorized')
   })
 
-  it('applies default limit of 30', async () => {
+  it('applies default limit of 100 (BUG-V32-6)', async () => {
     setAuthenticatedUser()
     setQueryResult([])
 
     await getRecentMessagesForAI(FAKE_SESSION_ID)
 
-    expect(queryBuilder.limit).toHaveBeenCalledWith(50)
+    expect(queryBuilder.limit).toHaveBeenCalledWith(100)
   })
 
   it('applies custom limit when provided', async () => {

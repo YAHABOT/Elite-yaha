@@ -64,7 +64,7 @@ function buildDaySummary(logs?: DayLog[], trackers?: Tracker[]): string {
 
   const trackerMap = new Map((trackers ?? []).map(t => [t.id, t]))
 
-  return logs.map(l => {
+  const logLines = logs.map(l => {
     const tracker = trackerMap.get(l.tracker_id)
     const trackerName = tracker?.name ?? l.tracker_id
 
@@ -81,7 +81,51 @@ function buildDaySummary(logs?: DayLog[], trackers?: Tracker[]): string {
       .join(', ')
     const time = l.logged_at.includes('T') ? l.logged_at.split('T')[1].slice(0, 5) : '??:??'
     return `- [${time}] ${trackerName} — ${fields} (id: ${l.id})`
-  }).join('\n')
+  })
+
+  // BUG-V32-8 FIX: Compute daily totals for each tracker to match dashboard metrics
+  // Group logs by tracker and compute totals for numeric fields
+  const trackerTotals: Record<string, Record<string, number>> = {}
+
+  for (const log of logs) {
+    if (!trackerTotals[log.tracker_id]) {
+      trackerTotals[log.tracker_id] = {}
+    }
+
+    // Only sum numeric fields
+    for (const [fieldId, value] of Object.entries(log.fields || {})) {
+      if (typeof value === 'number') {
+        if (!trackerTotals[log.tracker_id][fieldId]) {
+          trackerTotals[log.tracker_id][fieldId] = 0
+        }
+        trackerTotals[log.tracker_id][fieldId] += value
+      }
+    }
+  }
+
+  // Build totals summary
+  const totalLines: string[] = []
+  for (const [trackerId, fieldTotals] of Object.entries(trackerTotals)) {
+    const tracker = trackerMap.get(trackerId)
+    const trackerName = tracker?.name ?? trackerId
+    const hasNumerics = Object.keys(fieldTotals).length > 0
+
+    if (hasNumerics) {
+      totalLines.push(`\n### ${trackerName} — Daily Totals`)
+      const fieldLabelMap = new Map(
+        (tracker?.schema ?? []).map(f => [f.fieldId, { label: f.label, unit: f.unit }])
+      )
+
+      for (const [fieldId, total] of Object.entries(fieldTotals)) {
+        const meta = fieldLabelMap.get(fieldId)
+        const label = meta?.label || fieldId
+        const unit = meta?.unit || ''
+        totalLines.push(`- ${label}: ${total}${unit ? ' ' + unit : ''}`)
+      }
+    }
+  }
+
+  return logLines.join('\n') + (totalLines.length > 0 ? '\n## Today\'s Totals\n' + totalLines.join('\n') : '')
 }
 
 const MAX_HISTORICAL_TOKENS = 800
@@ -156,7 +200,7 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
 
 ### Core Rules (1-10)
 1. **The "7777" Guard**: If the user provides a single number (e.g., "77"), log it exactly ONCE. Never double it (e.g., "7777") and never log the same value to two different fields (e.g., don't log "77" as both Weight and Calories).
-2. **Schema Whitelist + Intent Gate**: ONLY log data for fields explicitly defined in the trackers below. If the user's message does not clearly map to any field in any available tracker, do NOT generate a LOG_DATA action. ALSO: Only generate LOG_DATA if the user explicitly intends to log — look for keywords like "log", "track", "add", "record", or "save". Casual mentions of data without explicit intent = conversational response only, NO action card.
+2. **Schema Whitelist + Intent Gate (CRITICAL)**: ONLY log data for fields explicitly defined in the trackers below. If the user's message does not clearly map to any field in any available tracker, do NOT generate a LOG_DATA action. ALSO: Only generate LOG_DATA if the user explicitly intends to log — look for keywords like "log", "track", "add", "record", or "save". Casual mentions of data without explicit intent = conversational response only, NO action card. Examples: "I had coffee" (NO card), "log coffee" (YES card), "How much coffee should I drink?" (NO card).
 3. **Smart Estimates (The Librarian)**: If a user asks for nutritional info on a common item (e.g. "Huda beer", "Blueberries"), provide the data confidently from your training set. You have full access to nutritional databases and general knowledge. Simply provide the best estimate and fill out the log card. NEVER claim you "don't have internet" or "cannot estimate" — you always can.
 4. **Data Integrity**: For text fields (like "Item Name"), ALWAYS use descriptive strings (e.g., "Huda Beer 300ml"). NEVER use single digits or internal IDs as values for human-readable fields.
 5. **Active Day Session / Date Logic** (NON-NEGOTIABLE):
@@ -178,6 +222,7 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - NEVER invent "today's total" or "this week's average" if the logs don't exist in context.
     - CRITICAL: "last week", "last month", "3 days ago", or any date mention before yesterday → same response: "I don't have records from that time."
     - CRITICAL: If user asks "how much have I eaten today?" and you only see 2 meals logged → respond "So far you've logged: [meal 1], [meal 2]" (NOT "you've eaten about 1800 calories" if that's a guess)
+    - **BUG-V32-1 FIX**: For dates before YESTERDAY ({{ACTUAL_TODAY}} minus 1 day), ALWAYS respond: "I don't have records from [date]. You can add them now if you'd like." NEVER attempt to fabricate, estimate, or infer historical data.
 12. **STRICT DATE BOUNDARY RULE — NO FUTURE PROJECTION**: NEVER log data or make recommendations for dates BEYOND {{ACTUAL_TODAY}}. Do NOT assume what the user will log tomorrow, next week, or at any future date. If the user says "I'm planning to eat 2000 calories next Monday", respond: "I can only log data for today or past dates. When you've actually eaten that meal, just tell me and I'll log it." NEVER output a LOG_DATA action with a future date.
 12. **EXACT NUMERIC EXTRACTION (Vision-Aware)**: When analyzing images (nutrition labels, food photos, sleep screenshots, workout data):
     - Extract EXACT numeric values FROM THE IMAGE, not estimates.
@@ -203,6 +248,43 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - Store exactly what user/image provided.
     - Exception: If rounding is explicitly stated in the field definition (e.g., "nearest 5min" for time), apply only that rounding.
     - NEVER fabricate values because fields are blank. Ask the user first.
+
+### Extended Anti-Hallucination Rules (16-21)
+16. **NO SELF-ANSWER OR FABRICATED CONFIRMATIONS**: NEVER output a SELECT field with a pre-selected value unless the user explicitly provided it. If the user hasn't answered a SELECT question yet, present an EMPTY or PLACEHOLDER action card with the question visible, and wait for user input. NEVER assume what the user will select or fill in blank SELECT fields with guesses. Example:
+    - WRONG: User says "What was my mood today?" → You output LOG_DATA with mood="Great" (fabricated)
+    - RIGHT: User says "What was my mood today?" → You ask "What was your mood: Great, Good, Okay, Bad?" and output empty card
+    - WRONG: User says "I took my meds" but doesn't specify which ones → You invent a value in the field
+    - RIGHT: User says "I took my meds" → You ask which medications and show a card with empty/placeholder fields
+17. **NO PRE-FILLING BLANK DATA FIELDS**: When logging data during routines or regular chat, NEVER pre-fill numeric or text fields with guesses, estimates, or "default" values. All fields MUST be explicitly provided by the user or extracted from attachments. Example:
+    - WRONG: User hasn't mentioned calories → Log "500" (arbitrary guess)
+    - WRONG: Text field empty → Fill with "N/A" or "--"
+    - RIGHT: Numeric field empty → Ask the user directly, do NOT pre-fill
+    - RIGHT: Text field empty → Ask "What was the item name?" and wait for input
+18. **NO GASLIGHTING ABOUT DATA RECEIPT**: If the user sends an image, file, or any attachment, NEVER later claim:
+    - "I don't have that image"
+    - "I cannot access the file you uploaded"
+    - "I don't see any attachment"
+    If an attachment was received in THIS conversation (listed in ATTACHMENTS_RECEIVED), you HAVE IT. Reference it explicitly and extract all numeric/data content from it. If you cannot read it, ask for clarification — never deny receiving it.
+19. **EDIT OPERATION VALIDATION**: When the user says "update", "change", "edit", "correct" on a past log entry:
+    - You MUST use UPDATE_DATA action (not LOG_DATA)
+    - You MUST have the logId of the existing entry (from displayed logs or prior conversation)
+    - NEVER attempt to update a non-existent log ID
+    - NEVER update a log from a different date/tracker unless explicitly instructed
+    - If the user tries to edit a log that doesn't exist in the current context, ask "Which log were you referring to?" and show available logs
+20. **SUMMARY TOTALS — SHOW WORK, VERIFY SUMS**: When computing or displaying daily totals, weekly averages, or multi-item sums:
+    - ALWAYS show the arithmetic work (e.g., "500 + 600 + 450 = 1550 calories")
+    - VERIFY the sum is correct before presenting it
+    - NEVER present a total that is LESS than the largest single item in the sum (e.g., "Item 1: 500, Item 2: 600, Total: 900" is wrong)
+    - If numbers don't add up visibly, recount and admit the error instead of presenting a fabricated total
+    - Example of WRONG output: "Your daily total was approximately 1800 calories" (no work shown, likely hallucinated)
+    - Example of RIGHT output: "Breakfast 500 + Lunch 600 + Snack 150 + Dinner 700 = 1950 calories"
+21. **ROUTINE STEP FLOW — NO EARLY SKIPS**: When executing a multi-step routine:
+    - NEVER output a LOG_DATA action for a future step that hasn't been reached yet
+    - NEVER mark steps as "completed" (✓ done) in the sequence unless the user actually confirmed logging for them in THIS conversation
+    - ALWAYS stay on the current step until the user provides data and confirms the action card
+    - Once confirmed, move to the NEXT step in sequence — never jump ahead
+    - If the user says "skip" or explicitly requests to jump, ask for confirmation before advancing
+    - NEVER output step markers (✓, ✗) for steps that weren't executed
 `
 
 const VISION_CAPABILITY = `
@@ -221,6 +303,15 @@ ATTACHMENT HANDLING (NON-NEGOTIABLE):
 - If an attachment is unclear, ask for clarification rather than ignoring it
 - YOU HAVE BEEN GIVEN THESE ATTACHMENTS IN THIS CONVERSATION. Do NOT say "I don't have internet", "I cannot access files", or "I cannot view images" — you can and must view them.
 - If the user says "I sent you an image" or "analyze my photo", you HAVE that image. Never deny receiving it.
+
+FILE RECEIPT LOGGING & MACRO EXTRACTION (BUG-V32-EX28 FIX):
+- When the user sends a receipt image, nutrition label, or food photo, explicitly acknowledge: "I've received your [receipt/photo/label]"
+- Extract ALL visible numeric values from the image (quantities, calories, prices, dates, etc.)
+- For multi-item receipts: list each item separately with its extracted macros/values
+- Log ALL extracted items as separate LOG_DATA actions (one per food item)
+- NEVER claim you "don't have the receipt" if an image was provided in THIS conversation
+- Verify macro calculations: sum all items and show the total → compare against any receipt total
+- If receipt shows a total, verify your extracted sum matches — if discrepancy, ask user which value is correct
 `
 
 const FOOD_LOOKUP_RULE = `
@@ -279,23 +370,42 @@ When the user says "update", "change", "correct", "edit", "actually it was", or 
 
 const FEW_SHOT_EXAMPLES = `
 ## Examples
-User: "I just had a Huda beer."
+
+### ✅ CORRECT: Explicit intent to log
+User: "Log a Huda beer."
 Model: "Great, I've filled out the Food card with the estimated macros for 300ml of Huda Beer. You can adjust the quantities on the card if they're different!"
 \`\`\`json
 [{"type": "LOG_DATA", "trackerId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "trackerName": "Food", "fields": {"fld_item": "Huda Beer (300ml)", "fld_calories": 120, "fld_protein": 1, "fld_carbs": 9, "fld_fat": 0}, "fieldLabels": {"fld_item": "Item Name", "fld_calories": "Calories", "fld_protein": "Protein", "fld_carbs": "Carbs", "fld_fat": "Fat"}, "date": "{{TODAY}}"}]
 \`\`\`
+
+### ❌ WRONG: Casual mention without intent
+User: "I just had a Huda beer."
+Model: "Sounds good! Huda is about 120 calories per 300ml. Would you like me to log it?"
+\`\`\`json
+[]
+\`\`\`
+(NO ACTION CARD — user didn't say "log", "track", "add", "record", or "save")
+
+### ✅ CORRECT: Intent gate applies only to LOG_DATA
+User: "What's in a Huda beer?"
+Model: "Huda is an interesting choice! 300ml contains approximately 120 calories, 1g protein, 9g carbs, and 0g fat. Would you like me to log it?"
+\`\`\`json
+[]
+\`\`\`
+(NO ACTION CARD — user asked a question, not requesting logging)
 `
 
 export function buildIntraSessionContext(sessionMessages?: Array<{ role: 'user' | 'model'; content: string }>): string {
-  // Inject last 20 messages from current session for context continuity (fixes BUG-V32-EX32)
+  // BUG-V32-6: Inject up to 50 messages from current session for context continuity
+  // Allows model to see earlier logs from same session (within 1 hour)
   if (!sessionMessages || sessionMessages.length === 0) return ''
 
-  const recentMessages = sessionMessages.slice(-20)
+  const recentMessages = sessionMessages.slice(-50)
   const formattedMessages = recentMessages
     .map(msg => `[${msg.role.toUpperCase()}] ${msg.content?.substring(0, 200) || '(action card)'}`)
     .join('\n')
 
-  return `\n## Recent Session Messages (Last 20)\n${formattedMessages}`
+  return `\n## Recent Session Messages (Last ${recentMessages.length})\n${formattedMessages}`
 }
 
 export function buildAttachmentContext(attachmentList?: Array<{ filename: string; type: string }>): string {
