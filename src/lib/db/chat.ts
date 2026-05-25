@@ -2,7 +2,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import type { ChatSession, ChatMessage, CreateSessionInput, CreateMessageInput } from '@/types/chat'
 
 const DEFAULT_SESSION_TITLE = 'New Chat'
-const DEFAULT_AI_CONTEXT_LIMIT = 20
+const DEFAULT_AI_CONTEXT_LIMIT = 50
 const SESSIONS_SIDEBAR_LIMIT = 30
 const MESSAGES_DISPLAY_LIMIT = 100
 // Reuse a very recent default session instead of spawning a new one.
