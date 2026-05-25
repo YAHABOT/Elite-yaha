@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getSafeUser } from '@/lib/supabase/auth'
+import { getColorForTrackerType } from '@/lib/db/dashboard-data'
 import type { Widget, CreateWidgetInput } from '@/types/widget'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -37,6 +38,21 @@ export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
     ? (existing[0].position as number) + 1
     : 0
 
+  // EX13 FIX: Map tracker type to color if color not explicitly provided
+  let widgetColor = input.color ?? null
+  if (!widgetColor && input.tracker_id) {
+    const { data: tracker } = await supabase
+      .from('trackers')
+      .select('type')
+      .eq('id', input.tracker_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (tracker?.type) {
+      widgetColor = getColorForTrackerType(tracker.type)
+    }
+  }
+
   const { data, error } = await supabase
     .from('widgets')
     .insert({
@@ -48,7 +64,7 @@ export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
       correlation_id: input.correlation_id ?? null,
       days: input.days ?? 7,
       position: nextPosition,
-      color: input.color ?? null,
+      color: widgetColor,
     })
     .select(WIDGET_COLUMNS)
     .single()

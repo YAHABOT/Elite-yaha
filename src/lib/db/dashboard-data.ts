@@ -8,6 +8,20 @@ export type CorrelationRecord = { id: string; formula: FormulaNode; unit: string
 
 const SPARKLINE_DEFAULT_DAYS = 7
 
+// EX13 FIX: Map tracker types to dashboard colors
+const TRACKER_TYPE_TO_COLOR: Record<string, string> = {
+  nutrition: '#10b981',
+  sleep: '#3b82f6',
+  workout: '#f97316',
+  mood: '#a855f7',
+  water: '#06b6d4',
+  custom: '#6B7280', // fallback for custom trackers
+}
+
+export function getColorForTrackerType(trackerType: string): string {
+  return TRACKER_TYPE_TO_COLOR[trackerType] ?? '#6B7280'
+}
+
 function getNDaysAgo(nDays: number): string {
   const d = new Date()
   d.setDate(d.getDate() - nDays)
@@ -127,9 +141,10 @@ export async function computeWidgetValue(
         })
         .filter((v): v is number => v !== null && Number.isFinite(v))
 
+      // EX15 FIX: Return 0 instead of null when no values present
       const total = values.length > 0
         ? values.reduce((a, b) => a + b, 0)
-        : null
+        : 0
 
       return { value: total, label: widget.label }
     }
@@ -219,9 +234,10 @@ export function computeWidgetValueOptimized(
         .map(l => (l.fields as Record<string, unknown>)?.[widget.field_id!])
         .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
 
+      // EX15 FIX: Return 0 instead of null when no values present
       const total = values.length > 0
         ? values.reduce((a, b) => a + b, 0)
-        : null
+        : 0
 
       return { value: total, label: widget.label }
     }

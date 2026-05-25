@@ -7,6 +7,41 @@ import { createTrackerAction } from '@/app/actions/trackers'
 import { SchemaFieldRow } from '@/components/trackers/SchemaFieldRow'
 import type { SchemaField, TrackerType } from '@/types/tracker'
 
+// EX14 FIX: WCAG AA contrast checker for OLED background
+function getContrastRatio(foreground: string, background: string): number {
+  const getHex = (hex: string): [number, number, number] => {
+    const h = hex.replace('#', '')
+    return [
+      parseInt(h.substring(0, 2), 16),
+      parseInt(h.substring(2, 4), 16),
+      parseInt(h.substring(4, 6), 16),
+    ]
+  }
+
+  const getLuminance = (rgb: [number, number, number]): number => {
+    const [r, g, b] = rgb.map(v => {
+      const s = v / 255
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+
+  const l1 = getLuminance(getHex(foreground))
+  const l2 = getLuminance(getHex(background))
+  const lighter = Math.max(l1, l2)
+  const darker = Math.min(l1, l2)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+function isColorContrastOK(color: string, background: string = '#050505'): boolean {
+  try {
+    const ratio = getContrastRatio(color, background)
+    return ratio >= 4.5 // WCAG AA standard for normal text
+  } catch {
+    return true // Fallback: allow invalid hex
+  }
+}
+
 const TYPE_OPTIONS: { value: TrackerType; label: string }[] = [
   { value: 'nutrition', label: 'Nutrition' },
   { value: 'sleep', label: 'Sleep' },
@@ -47,10 +82,30 @@ export function CreateTrackerForm(): React.ReactElement {
   const [schema, setSchema] = useState<SchemaField[]>([])
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<boolean>(false)
+  const [contrastWarning, setContrastWarning] = useState<string | null>(null)
 
   function handleTypeChange(newType: TrackerType): void {
     setType(newType)
-    setColor(TYPE_COLORS[newType])
+    const newColor = TYPE_COLORS[newType]
+    setColor(newColor)
+    // EX14: Check contrast when type changes
+    if (!isColorContrastOK(newColor)) {
+      setContrastWarning('Color contrast below WCAG AA standard (4.5:1)')
+    } else {
+      setContrastWarning(null)
+    }
+  }
+
+  function handleColorChange(newColor: string): void {
+    setColor(newColor)
+    // EX14: Check contrast when color changes
+    if (newColor && /^#[0-9a-fA-F]{6}$/.test(newColor)) {
+      if (!isColorContrastOK(newColor)) {
+        setContrastWarning('Color contrast below WCAG AA standard (4.5:1)')
+      } else {
+        setContrastWarning(null)
+      }
+    }
   }
 
   function handleAddField(): void {
@@ -142,19 +197,22 @@ export function CreateTrackerForm(): React.ReactElement {
             id="tracker-color"
             type="color"
             value={color}
-            onChange={(e) => setColor(e.target.value)}
+            onChange={(e) => handleColorChange(e.target.value)}
             className="h-10 w-10 cursor-pointer rounded-lg border border-border bg-background"
           />
           <input
             type="text"
             value={color}
-            onChange={(e) => setColor(e.target.value)}
+            onChange={(e) => handleColorChange(e.target.value)}
             pattern="^#[0-9a-fA-F]{6}$"
             placeholder="#10b981"
             className="w-32 rounded-lg border border-border bg-background px-3 py-2 text-sm text-textPrimary placeholder-textMuted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             aria-label="Hex color value"
           />
         </div>
+        {contrastWarning && (
+          <p className="mt-2 text-xs text-yellow-400">⚠ {contrastWarning}</p>
+        )}
       </div>
 
       {/* Schema Fields */}

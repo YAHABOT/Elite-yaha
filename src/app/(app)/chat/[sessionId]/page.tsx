@@ -46,7 +46,7 @@ export default async function ChatSessionPage({ params, searchParams }: Props): 
 
   const [session, messages] = await Promise.all([
     getSession(sessionId).catch(() => null),
-    getMessages(sessionId).catch(() => [] as Awaited<ReturnType<typeof getMessages>>),
+    getMessages(sessionId).catch(() => ({ messages: [], nextCursor: undefined })),
   ])
 
   if (!session) notFound()

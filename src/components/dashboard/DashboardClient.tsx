@@ -8,6 +8,7 @@ import { WidgetCard } from '@/components/dashboard/WidgetCard'
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal'
 import { deleteWidgetAction } from '@/app/actions/dashboard'
 import { resetDayStateAction, resetEndDayStateAction, skipStartDayAction, skipEndDayAction } from '@/app/actions/day-state'
+import { getTrackerTypeColor } from '@/lib/utils/tracker-colors'
 import type { Widget, WidgetValue } from '@/types/widget'
 import type { Tracker } from '@/types/tracker'
 import type { Routine } from '@/types/routine'
@@ -28,6 +29,26 @@ type Props = {
   dayState: UserDayState | null
 }
 
+/**
+ * EX13 FIX: Apply tracker type colors to widgets.
+ * For widgets linked to trackers, use the tracker's type-specific color.
+ * For correlator widgets, keep the existing widget.color.
+ */
+function applyTrackerColorToWidget(widget: Widget, trackers: Tracker[]): Widget {
+  // If widget already has an explicit color, keep it (for correlators)
+  if (widget.color) return widget
+
+  // If widget is linked to a tracker, apply the tracker's type color
+  if (widget.tracker_id) {
+    const tracker = trackers.find(t => t.id === widget.tracker_id)
+    if (tracker) {
+      return { ...widget, color: getTrackerTypeColor(tracker.type) }
+    }
+  }
+
+  return widget
+}
+
 export function DashboardClient({
   widgets,
   widgetValues,
@@ -40,6 +61,9 @@ export function DashboardClient({
   const [showAddModal, setShowAddModal] = useState(false)
   const [devMode, setDevMode] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  // EX13 FIX: Apply tracker type colors to widgets
+  const widgetsWithColors = widgets.map(w => applyTrackerColorToWidget(w, trackers))
 
   const hasWidgets = widgets.length > 0
 
@@ -241,7 +265,7 @@ export function DashboardClient({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-          {widgets.map((widget, index) => (
+          {widgetsWithColors.map((widget, index) => (
             <WidgetCard
               key={widget.id}
               widget={widget}

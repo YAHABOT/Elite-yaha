@@ -162,7 +162,7 @@ export async function deleteSession(id: string): Promise<void> {
   if (error) throw new Error(`Failed to delete session: ${error.message}`)
 }
 
-export async function getMessages(sessionId: string): Promise<ChatMessage[]> {
+export async function getMessages(sessionId: string, paginationCursor?: string): Promise<{ messages: ChatMessage[]; nextCursor?: string }> {
   const start = Date.now()
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -178,17 +178,36 @@ export async function getMessages(sessionId: string): Promise<ChatMessage[]> {
 
   if (sessionError) throw new Error(`Failed to fetch messages: ${sessionError.message}`)
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('chat_messages')
     .select(MESSAGE_COLUMNS)
     .eq('session_id', sessionId)
     .order('created_at', { ascending: false })
-    .limit(MESSAGES_DISPLAY_LIMIT)
+    .limit(MESSAGES_DISPLAY_LIMIT + 1) // Fetch one extra to detect if there are more
+
+  // EX10 FIX: Pagination cursor support — fetch messages before this timestamp
+  if (paginationCursor) {
+    query = query.lt('created_at', paginationCursor)
+  }
+
+  const { data, error } = await query
 
   console.log(`[getMessages] took ${Date.now() - start}ms for ${data?.length ?? 0} messages`)
   if (error) throw new Error(`Failed to fetch messages: ${error.message}`)
+
+  const messages = (data as ChatMessage[])
+  let nextCursor: string | undefined
+
+  // If we got more than MESSAGES_DISPLAY_LIMIT, there are more messages to fetch
+  if (messages.length > MESSAGES_DISPLAY_LIMIT) {
+    // The last message's created_at timestamp becomes the cursor for the next fetch
+    nextCursor = messages[MESSAGES_DISPLAY_LIMIT].created_at
+    // Return only the requested limit
+    messages.pop()
+  }
+
   // BUG-V32-EX27: ORDER BY created_at ASC prevents duplicate pagination
-  return (data as ChatMessage[])
+  return { messages, nextCursor }
 }
 
 export async function addMessage(input: CreateMessageInput): Promise<ChatMessage> {
@@ -229,6 +248,59 @@ export async function addMessage(input: CreateMessageInput): Promise<ChatMessage
   if (bumpError) throw new Error(`Failed to update session timestamp: ${bumpError.message}`)
 
   return data as ChatMessage
+}
+
+/**
+ * EX10: Cursor-based pagination for chat history.
+ * Fetches messages in pages of 20, with nextCursor for the next page.
+ * Use cursor from previous response to fetch older messages.
+ */
+export async function getChatHistoryPage(
+  sessionId: string,
+  cursor?: string,  // Message created_at timestamp to start from (exclusive)
+  limit: number = 20  // Page size
+): Promise<{ messages: ChatMessage[]; nextCursor?: string }> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Verify session belongs to user
+  const { error: sessionError } = await supabase
+    .from('chat_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (sessionError) throw new Error(`Failed to fetch chat history: ${sessionError.message}`)
+
+  let query = supabase
+    .from('chat_messages')
+    .select(MESSAGE_COLUMNS)
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(limit + 1) // Fetch one extra to detect if more exist
+
+  // EX10 FIX: If cursor provided, fetch messages created before that timestamp
+  if (cursor) {
+    query = query.lt('created_at', cursor)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw new Error(`Failed to fetch chat history: ${error.message}`)
+
+  const messages = (data as ChatMessage[])
+  let nextCursor: string | undefined
+
+  // If we got more than limit, there are more messages to fetch
+  if (messages.length > limit) {
+    nextCursor = messages[limit].created_at
+    messages.pop()
+  }
+
+  // Return in chronological order (oldest first in the page)
+  return { messages: messages.reverse(), nextCursor }
 }
 
 /**

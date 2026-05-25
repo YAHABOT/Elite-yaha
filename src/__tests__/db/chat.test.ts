@@ -343,7 +343,9 @@ describe('getMessages', () => {
 
     const result = await getMessages(FAKE_SESSION_ID)
 
-    expect(result).toEqual(messages)
+    // EX10: getMessages now returns { messages, nextCursor } for pagination
+    expect(result.messages).toEqual(messages)
+    expect(result.nextCursor).toBeUndefined()
     // getMessages orders descending (newest first) for display
     expect(queryBuilder.order).toHaveBeenCalledWith('created_at', { ascending: false })
   })

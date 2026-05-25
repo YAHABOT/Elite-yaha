@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getSafeUser } from '@/lib/supabase/auth'
+import { revalidatePath } from 'next/cache'
 import type { TrackerLog, CreateLogInput, UpdateLogInput } from '@/types/log'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -33,6 +34,15 @@ export async function createLog(input: CreateLogInput): Promise<TrackerLog> {
     .single()
 
   if (error) throw new Error(`Failed to create log: ${error.message}`)
+
+  // EX11 FIX: Invalidate dashboard cache when a log is added (correlator metrics depend on logs)
+  try {
+    revalidatePath('/dashboard')
+    revalidatePath('/daily')
+  } catch {
+    // Ignore revalidatePath errors in test environments where cache context is unavailable
+  }
+
   return data as TrackerLog
 }
 
@@ -164,6 +174,15 @@ export async function updateLog(
     .single()
 
   if (error) throw new Error(`Failed to update log: ${error.message}`)
+
+  // EX11 FIX: Invalidate dashboard cache when a log is updated (correlator metrics depend on logs)
+  try {
+    revalidatePath('/dashboard')
+    revalidatePath('/daily')
+  } catch {
+    // Ignore revalidatePath errors in test environments where cache context is unavailable
+  }
+
   return data as TrackerLog
 }
 
@@ -179,6 +198,14 @@ export async function deleteLog(id: string): Promise<void> {
     .eq('user_id', user.id)
 
   if (error) throw new Error(`Failed to delete log: ${error.message}`)
+
+  // EX11 FIX: Invalidate dashboard cache when a log is deleted (correlator metrics depend on logs)
+  try {
+    revalidatePath('/dashboard')
+    revalidatePath('/daily')
+  } catch {
+    // Ignore revalidatePath errors in test environments where cache context is unavailable
+  }
 }
 
 export type TrackerLogWithName = {

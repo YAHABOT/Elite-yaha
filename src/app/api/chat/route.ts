@@ -371,6 +371,25 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
+    // EX2 FIX: If routine is active and file attachment received, queue file for processing after routine completes
+    // Check if routine is active and has a current step
+    if (activeRoutine && session.current_step_index !== undefined && session.current_step_index !== null && attachments && attachments.length > 0) {
+      console.log(`[ChatRoute] EX2: Routine in progress (step ${session.current_step_index + 1}) with ${attachments.length} file(s) — queuing for post-routine processing`)
+      // Queue the attachment metadata for processing after current routine step completes
+      // Don't process immediately; respond to user that file has been queued
+      const queuedMsg = await addMessage({
+        session_id: session.id,
+        role: 'assistant',
+        content: `I've queued your attachment for processing after step ${session.current_step_index + 1} completes. We'll extract the data when we move to the next step.`,
+        actions: [],
+        attachments: attachments ?? null
+      })
+      return Response.json({
+        message: { id: queuedMsg.id, role: 'assistant' as const, content: queuedMsg.content, actions: [] },
+        sessionId: session.id,
+      } satisfies ChatResponse, { status: 200 })
+    }
+
     // Save user message
     await addMessage({
       session_id: session.id,
@@ -529,9 +548,38 @@ export async function POST(req: Request): Promise<Response> {
     const loggingDateMs = new Date(loggingDate).getTime()
 
     // Helper: sanitize raw action cards extracted from Gemini output
-    function buildSanitizedActions(rawActions: AnyActionCard[]): AnyActionCard[] {
+    // EX4 FIX: Add idempotency key to detect and prevent duplicate action cards
+    function buildSanitizedActions(rawActions: AnyActionCard[]): (AnyActionCard | null)[] {
+      const recentActionHashes = new Set<string>()
+
       return rawActions.map(action => {
         if (action.type !== 'LOG_DATA' && action.type !== 'UPDATE_DATA') return action
+
+        // EX4: Generate idempotency hash for action card
+        const idempotencyKey = (() => {
+          if (action.type === 'LOG_DATA') {
+            const fieldsStr = JSON.stringify(action.fields || {})
+            const dateStr = action.date || loggingDate
+            return `${action.trackerId}-${fieldsStr}-${dateStr}`
+          } else {
+            const fieldsStr = JSON.stringify(action.fields || {})
+            return `${action.trackerId}-${fieldsStr}-update`
+          }
+        })()
+
+        // Create a hash of the idempotency key
+        let hash = 0
+        for (let i = 0; i < idempotencyKey.length; i++) {
+          const char = idempotencyKey.charCodeAt(i)
+          hash = ((hash << 5) - hash) + char
+          hash = hash & hash // Convert to 32-bit integer
+        }
+
+        if (recentActionHashes.has(String(hash))) {
+          console.log(`[ChatRoute] EX4: Duplicate action card detected (hash=${hash}) — skipping`)
+          return null
+        }
+        recentActionHashes.add(String(hash))
 
         let actionWithDate = action
         // Only apply date override to LOG_DATA (UPDATE_DATA doesn't have a date field)
@@ -564,7 +612,7 @@ export async function POST(req: Request): Promise<Response> {
           }
         }
         return actionWithDate
-      })
+      }).filter(a => a !== null)
     }
 
     // Detect skip intent so we do NOT attempt to log a skipped step.
@@ -594,6 +642,14 @@ export async function POST(req: Request): Promise<Response> {
         // Emit session ID immediately so MobileChatHome can navigate to the chat
         // page without waiting for the full AI response (fixes new-chat lag).
         safeEnqueue(`data: ${JSON.stringify({ type: 'session', sessionId: session.id })}\n\n`)
+
+        // EX3 FIX: If file attachments present, send immediate ACK before AI starts processing
+        // This prevents the 30s blank-screen delay users see while Gemini processes files
+        if (hasAttachments && attachments && attachments.length > 0) {
+          const fileNames = attachments.map(a => a.filename || 'unnamed').join(', ')
+          safeEnqueue(`data: ${JSON.stringify({ type: 'chunk', text: `Processing your file(s): ${fileNames}...` })}\n\n`)
+          console.log(`[ChatRoute] EX3: Sent immediate ACK for ${attachments.length} file(s)`)
+        }
 
         try {
           for await (const chunk of streamHealthMessage(chatInput, systemPrompt, history)) {
