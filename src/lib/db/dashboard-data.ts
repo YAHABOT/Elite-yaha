@@ -227,7 +227,7 @@ export function computeWidgetValueOptimized(
 
       const total = values.length > 0
         ? values.reduce((a, b) => a + b, 0)
-        : null
+        : 0
 
       return { value: total, label: widget.label }
     }
