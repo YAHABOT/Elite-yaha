@@ -193,7 +193,7 @@ function resolveField(
 
 export function sanitizeFields(
   fields: Record<string, unknown>,
-  schema: SchemaField[]
+  schema: SchemaFieldDef[]
 ): Record<string, number | string | string[] | null> {
   const result: Record<string, number | string | string[] | null> = {}
 
