@@ -1,6 +1,6 @@
 
-> yaha@0.1.0 dev
-> next dev
+> yaha@0.1.0 build
+> next build
 
  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
  We detected multiple lockfiles and selected the directory of C:\Users\the--\package-lock.json as the root directory.
@@ -9,13 +9,8 @@
  Detected additional lockfiles: 
    * C:\Users\the--\Documents\Projects\yaha\package-lock.json
 
- ⨯ Failed to start server
-Error: listen EADDRINUSE: address already in use :::3010
-    at <unknown> (Error: listen EADDRINUSE: address already in use :::3010) {
-  code: 'EADDRINUSE',
-  errno: -4091,
-  syscall: 'listen',
-  address: '::',
-  port: 3010
-}
-[?25h
+   ▲ Next.js 15.5.12
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+Next.js build worker exited with code: 143 and signal: null

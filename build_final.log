@@ -1,0 +1,26 @@
+
+> yaha@0.1.0 build
+> next build
+
+ ⚠ Invalid next.config.ts options detected: 
+ ⚠     Expected 'standalone' | 'export', received object at "output"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+   ▲ Next.js 15.5.12
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.0min
+   Linting and checking validity of types ...
+Failed to compile.
+
+./next.config.ts:4:3
+Type error: Type '{ tracingRoot: string; }' is not assignable to type '"standalone" | "export" | undefined'.
+
+[0m [90m 2 |[39m
+ [90m 3 |[39m [36mconst[39m nextConfig[33m:[39m [33mNextConfig[39m [33m=[39m {
+[31m[1m>[22m[39m[90m 4 |[39m   output[33m:[39m {
+ [90m   |[39m   [31m[1m^[22m[39m
+ [90m 5 |[39m     [90m// Silence workspace root warning by specifying the correct root[39m
+ [90m 6 |[39m     tracingRoot[33m:[39m process[33m.[39mcwd()[33m,[39m
+ [90m 7 |[39m   }[33m,[39m[0m
+Next.js build worker exited with code: 1 and signal: null

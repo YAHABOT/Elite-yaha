@@ -1,0 +1,65 @@
+
+> yaha@0.1.0 build
+> next build
+
+ ⚠ Invalid next.config.ts options detected: 
+ ⚠     Expected 'standalone' | 'export', received object at "output"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+   ▲ Next.js 15.5.12
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (101kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (231kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+socket hang up
+
+Retrying 1/3...
+ ✓ Compiled successfully in 2.9min
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/20) ...
+   Generating static pages (5/20) 
+   Generating static pages (10/20) 
+   Generating static pages (15/20) 
+ ✓ Generating static pages (20/20)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                      168 B         102 kB
+├ ○ /_not-found                             1 kB         103 kB
+├ ƒ /analytics                             167 B         106 kB
+├ ƒ /api/auth/callback                     168 B         102 kB
+├ ƒ /api/chat                              168 B         102 kB
+├ ƒ /api/chat/sessions/[sessionId]         168 B         102 kB
+├ ƒ /api/routines/[id]                     168 B         102 kB
+├ ƒ /chat                                 4.5 kB         116 kB
+├ ƒ /chat/[sessionId]                    11.2 kB         122 kB
+├ ƒ /dashboard                            105 kB         211 kB
+├ ƒ /journal                             7.25 kB         109 kB
+├ ƒ /journal/correlations                  168 B         102 kB
+├ ○ /login                               66.3 kB         168 kB
+├ ƒ /routines                              129 B         109 kB
+├ ƒ /routines/[id]/edit                    129 B         110 kB
+├ ƒ /routines/new                          129 B         110 kB
+├ ƒ /settings                             5.6 kB         111 kB
+├ ƒ /settings/agent-forge                4.23 kB         110 kB
+├ ƒ /settings/routines                     129 B         109 kB
+├ ƒ /settings/routines/[id]/edit           129 B         110 kB
+├ ƒ /settings/routines/new                 128 B         110 kB
+├ ƒ /trackers                              167 B         106 kB
+├ ƒ /trackers/[id]                       5.67 kB         111 kB
+├ ƒ /trackers/[id]/log                   3.98 kB         109 kB
+├ ƒ /trackers/[id]/schema                2.71 kB         111 kB
+└ ƒ /trackers/new                        2.13 kB         110 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/1255-ad409e5887c155b0.js      45.7 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js  54.2 kB
+  └ other shared chunks (total)          2.01 kB
+
+
+ƒ Middleware                             90.3 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

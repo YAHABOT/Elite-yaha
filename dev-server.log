@@ -1,0 +1,29 @@
+
+> yaha@0.1.0 dev
+> next dev
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\the--\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\the--\Documents\Projects\yaha\package-lock.json
+
+ ⚠ Port 3000 is in use by process 41148, using available port 3004 instead.
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3004
+   - Network:      http://10.5.0.2:3004
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 8.1s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 3.7s (167 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (101kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (231kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ○ Compiling /api/chat ...
+ ✓ Compiled /api/chat in 5.4s (372 modules)
+ POST /api/chat 401 in 6129ms
+ POST /api/chat 401 in 31ms
+ POST /api/chat 401 in 43ms
+ POST /api/chat 401 in 26ms
