@@ -371,16 +371,17 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
-    // EX2 FIX: If routine is active and file attachment received, queue file for processing after routine completes
-    // Check if routine is active and has a current step
-    if (activeRoutine && session.current_step_index !== undefined && session.current_step_index !== null && attachments && attachments.length > 0) {
-      console.log(`[ChatRoute] EX2: Routine in progress (step ${session.current_step_index + 1}) with ${attachments.length} file(s) — queuing for post-routine processing`)
-      // Queue the attachment metadata for processing after current routine step completes
+    // FIX: During active routines, process attachments normally through Gemini
+    // so LOG_DATA actions can be generated for current step advancement.
+    // Only queue attachments when NOT in a routine (non-routine chat mode).
+    if (!activeRoutine && attachments && attachments.length > 0) {
+      console.log(`[ChatRoute] Non-routine chat: ${attachments.length} file(s) queued for processing after current message completes`)
+      // Queue the attachment metadata for processing after current message completes
       // Don't process immediately; respond to user that file has been queued
       const queuedMsg = await addMessage({
         session_id: session.id,
         role: 'assistant',
-        content: `I've queued your attachment for processing after step ${session.current_step_index + 1} completes. We'll extract the data when we move to the next step.`,
+        content: `I've queued your attachment for processing. We'll extract the data after I process your current message.`,
         actions: [],
         attachments: attachments ?? null
       })
