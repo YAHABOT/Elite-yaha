@@ -625,6 +625,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         body: JSON.stringify({
           message: trimmed,
           sessionId: currentSessionId,
+          routineId: session?.active_routine_id,
           agentId: activeAgentId,
           attachments: snapshotAttachments,
           date: getLocalDateStr(),
