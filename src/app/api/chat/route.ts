@@ -204,6 +204,11 @@ export async function POST(req: Request): Promise<Response> {
     // Sessions stay ACTIVE until the user explicitly ends or skips — NEVER auto-close based on clock.
     // Cross-day continuity is intentional: the active session's date is the authoritative logging date.
     const finalActiveDayState = activeDayState
+    console.log(`[ChatRoute DEBUG] finalActiveDayState:`, JSON.stringify({
+      date: finalActiveDayState?.date,
+      active_routine_id: finalActiveDayState?.active_routine_id,
+      current_step_index: finalActiveDayState?.current_step_index,
+    }))
 
     // The authoritative logging date for this request:
     // 1. If a day session is open → use that session's date (even if physical day has changed)
@@ -214,10 +219,13 @@ export async function POST(req: Request): Promise<Response> {
 
     // FIX: BUG-V32-EX17 — Restore routine state from day_state table (survives page reloads)
     // If an active routine is persisted in day_state, restore it to the session
+    console.log(`[ChatRoute DEBUG] Checking restoration condition: dayState.active_routine_id=${finalActiveDayState?.active_routine_id}, session.active_routine_id=${session.active_routine_id}`)
     if (finalActiveDayState?.active_routine_id && !session.active_routine_id) {
-      console.log(`[ChatRoute] Restoring routine from day_state: ${finalActiveDayState.active_routine_id}`)
+      console.log(`[ChatRoute] RESTORING routine from day_state: ${finalActiveDayState.active_routine_id}`)
       const restored = await fetchRoutine(finalActiveDayState.active_routine_id)
+      console.log(`[ChatRoute DEBUG] fetchRoutine returned:`, restored ? `Routine(${restored.id}, type=${restored.type}, steps=${restored.steps?.length})` : 'NULL')
       if (restored) {
+        console.log(`[ChatRoute] Updating session with routine: id=${restored.id}, step=${finalActiveDayState.current_step_index ?? 0}`)
         await updateSession(session.id, {
           active_routine_id: restored.id,
           current_step_index: finalActiveDayState.current_step_index ?? 0,
@@ -225,7 +233,12 @@ export async function POST(req: Request): Promise<Response> {
         session.active_routine_id = restored.id
         session.current_step_index = finalActiveDayState.current_step_index ?? 0
         activeRoutine = restored
+        console.log(`[ChatRoute DEBUG] activeRoutine SET: ${activeRoutine.id}`)
+      } else {
+        console.log(`[ChatRoute ERROR] fetchRoutine failed for ${finalActiveDayState.active_routine_id}`)
       }
+    } else {
+      console.log(`[ChatRoute DEBUG] Restoration condition FALSE - skipping restoration`)
     }
 
     // FIX: BUG-V32-EX12 — Timeout recovery (30s inactivity)
@@ -653,59 +666,129 @@ export async function POST(req: Request): Promise<Response> {
         }
 
         try {
+          console.log(`[ChatRoute DEBUG] About to call streamHealthMessage:`, {
+            activeRoutine: activeRoutine ? `${activeRoutine.name}(step ${session.current_step_index + 1}/${activeRoutine.steps.length})` : 'null',
+            activeAgent: activeAgent ? activeAgent.name : 'null',
+            hasAttachments,
+            messageLength: message ? message.length : 0,
+            loggingDate,
+            systemPromptLength: systemPrompt.length,
+          })
+
           for await (const chunk of streamHealthMessage(chatInput, systemPrompt, history)) {
             fullText += chunk
             // Forward raw text chunk to the client (best-effort — client may have navigated)
             safeEnqueue(`data: ${JSON.stringify({ type: 'chunk', text: chunk })}\n\n`)
           }
 
+          console.log(`[ChatRoute DEBUG] streamHealthMessage completed, fullText length: ${fullText.length}`)
+
           // Full response received — parse actions and persist to DB.
           // This ALWAYS runs, even if the client disconnected after the session event.
           const rawActions = parseActionCards(fullText)
           const sanitizedActions = buildSanitizedActions(rawActions)
 
+          console.log(`[ChatRoute DEBUG] parseActionCards result:`, {
+            rawActionsCount: rawActions.length,
+            sanitizedActionsCount: sanitizedActions.filter(a => a !== null).length,
+            actionTypes: sanitizedActions.map(a => a?.type || 'null'),
+            activeRoutine: activeRoutine ? `${activeRoutine.name}(step ${session.current_step_index})` : 'null',
+          })
+
           // 4. Advance Routine Step?
           let shouldAutoPromptNextStep = false
           if (activeRoutine) {
+            console.log(`[ChatRoute DEBUG] Evaluating routine advancement:`, {
+              routineId: activeRoutine.id,
+              routineName: activeRoutine.name,
+              currentStepIndex: session.current_step_index,
+              totalSteps: activeRoutine.steps.length,
+              isSkipIntent,
+            })
+
             const currentStep = activeRoutine.steps[session.current_step_index]
+            console.log(`[ChatRoute DEBUG] Current step:`, {
+              stepIndex: session.current_step_index,
+              step: currentStep ? { name: currentStep.name, trackerId: currentStep.trackerId } : 'null',
+            })
+
+            console.log(`[ChatRoute DEBUG] Checking for LOG_DATA action:`, {
+              isSkipIntent,
+              hasActions: sanitizedActions.length > 0,
+              actionTypes: sanitizedActions.map(a => a?.type || 'null'),
+              currentStepTrackerId: currentStep?.trackerId || 'null',
+            })
+
             const hasLoggedCurrentStep = isSkipIntent
               ? true
               : (currentStep ? sanitizedActions.some(a => a && a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId) : false)
 
+            console.log(`[ChatRoute DEBUG] hasLoggedCurrentStep evaluated:`, {
+              result: hasLoggedCurrentStep,
+              isSkipIntent,
+              currentStepExists: !!currentStep,
+              matchingLogData: currentStep ? sanitizedActions.filter(a => a && a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId).length : 0,
+            })
+
             if (hasLoggedCurrentStep) {
               const nextStepIndex = session.current_step_index + 1
+              console.log(`[ChatRoute DEBUG] Advancing routine step:`, {
+                currentIndex: session.current_step_index,
+                nextIndex: nextStepIndex,
+                totalSteps: activeRoutine.steps.length,
+                isLastStep: nextStepIndex >= activeRoutine.steps.length,
+              })
+
               if (nextStepIndex >= activeRoutine.steps.length) {
+                console.log(`[ChatRoute] Routine complete — clearing state`)
                 // FIX: BUG-V32-EX16, BUG-V32-EX21 — Final step completion clears routine state
                 // Clear routine state in day_state (prevents looping back to Step 1)
                 await clearRoutineState(loggingDate)
+                console.log(`[ChatRoute DEBUG] clearRoutineState called for date: ${loggingDate}`)
 
                 // Also clear from chat_sessions for consistency
                 await updateSession(session.id, { active_routine_id: null, current_step_index: 0 })
+                console.log(`[ChatRoute DEBUG] updateSession called - routine cleared from chat_sessions`)
 
                 if (activeRoutine.type === 'day_end') {
                   // Only mark ended if not already ended (prevent double-end race condition)
                   const dayStateCheck = await getActiveDayState(supabase)
                   if (dayStateCheck && dayStateCheck.date === loggingDate && dayStateCheck.day_ended_at === null) {
+                    console.log(`[ChatRoute] Marking day ended for date: ${loggingDate}`)
                     markDayEnded(loggingDate).catch(e => console.error('[DayState] markDayEnded failed:', e))
+                  } else {
+                    console.log(`[ChatRoute DEBUG] Day end already marked or session doesn't match`)
                   }
                 }
               } else {
                 // FIX: BUG-V32-EX6, BUG-V32-EX17 — Persist step index to survive page reloads
                 const nextStepIndex_persist = nextStepIndex
+                console.log(`[ChatRoute DEBUG] Calling persistRoutineState:`, {
+                  loggingDate,
+                  routineId: activeRoutine.id,
+                  nextStepIndex: nextStepIndex_persist,
+                  routineName: activeRoutine.name,
+                })
                 await persistRoutineState(
                   loggingDate,
                   activeRoutine.id,
                   nextStepIndex_persist,
                   {} // Clear step field data when advancing to next step
                 )
+                console.log(`[ChatRoute DEBUG] persistRoutineState completed`)
 
                 // Also update chat_sessions for consistency
                 await updateSession(session.id, { current_step_index: nextStepIndex })
+                console.log(`[ChatRoute DEBUG] updateSession called - step index updated to ${nextStepIndex}`)
 
                 // Flag to auto-prompt the frontend for the next step
                 shouldAutoPromptNextStep = true
               }
+            } else {
+              console.log(`[ChatRoute DEBUG] hasLoggedCurrentStep is FALSE - routine not advancing`)
             }
+          } else {
+            console.log(`[ChatRoute DEBUG] No active routine - skipping advancement check`)
           }
 
           // Save model response — capture the returned row to get the real DB UUID

@@ -136,7 +136,8 @@ export async function skipStartDay(date: string): Promise<void> {
  * activeDate: the date of the currently open session.
  */
 export async function skipEndDay(activeDate: string): Promise<void> {
-  // Reuse markDayEnded — identical semantics: closes the session for the given date.
+  // Clear routine state first, then mark day ended
+  await clearRoutineState(activeDate)
   await markDayEnded(activeDate)
 }
 

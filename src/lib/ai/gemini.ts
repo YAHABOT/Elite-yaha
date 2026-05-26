@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ChatInput, GeminiResponse } from '@/types/action-card'
 import { parseActionCards } from './actions'
 
-export const GEMINI_MODEL = 'gemini-3.1-flash-lite'
+export const GEMINI_MODEL = 'gemini-2.0-flash'
 
 let genAI: GoogleGenerativeAI | null = null
 
@@ -29,6 +29,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'audio/flac',
   'audio/aac',
   'application/pdf',
+  'application/json',
   'text/plain',
   'text/csv',
 ])

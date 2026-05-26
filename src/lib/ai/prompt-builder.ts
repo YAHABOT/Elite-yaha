@@ -513,6 +513,14 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
   if (!routine.steps || routine.steps.length === 0) {
     return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate })
   }
+
+  // FIX: BUG-V33-RT01 — Bounds check currentStepIndex to prevent undefined step errors
+  // If currentStepIndex is out of bounds, fall back to health system prompt (routine is complete)
+  if (currentStepIndex < 0 || currentStepIndex >= routine.steps.length) {
+    console.error(`[PromptBuilder] Routine step index ${currentStepIndex} out of bounds (total: ${routine.steps.length})`)
+    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate })
+  }
+
   // Use client-supplied local date so routine logs land on the user's correct calendar day
   const today = date ?? new Date().toISOString().split('T')[0]
   const currentStep = routine.steps[currentStepIndex]
