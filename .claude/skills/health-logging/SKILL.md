@@ -8,10 +8,12 @@ description: Invoke when implementing the health data logging pipeline — proce
 ## What This Skill Covers
 
 Any health data logging goes through this pipeline:
-**User input → Gemini 2.5 Flash → ActionCard[] → User confirms → Supabase**
+**User input → Gemini 3.1 Flash Lite Preview → ActionCard[] → User confirms → Supabase**
 
 Input modalities: plain text · images (nutrition labels, food photos, screenshots) ·
 audio (voice memos, voice messages) · files (documents, PDFs).
+
+**Model:** `gemini-3.1-flash-lite-preview`
 
 ---
 
@@ -86,7 +88,7 @@ export async function processHealthMessage(
   input: ChatInput,
   systemPrompt: string
 ): Promise<{ text: string; actions: ActionCard[] }> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL }) // gemini-3.1-flash-lite-preview
 
   const parts = []
   if (input.text) parts.push({ text: input.text })

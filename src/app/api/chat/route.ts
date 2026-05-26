@@ -709,7 +709,7 @@ export async function POST(req: Request): Promise<Response> {
             const currentStep = activeRoutine.steps[session.current_step_index]
             console.log(`[ChatRoute DEBUG] Current step:`, {
               stepIndex: session.current_step_index,
-              step: currentStep ? { name: currentStep.name, trackerId: currentStep.trackerId } : 'null',
+              step: currentStep ? { trackerName: currentStep.trackerName, trackerId: currentStep.trackerId } : 'null',
             })
 
             console.log(`[ChatRoute DEBUG] Checking for LOG_DATA action:`, {
