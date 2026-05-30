@@ -129,7 +129,7 @@ function buildDaySummary(logs?: DayLog[], trackers?: Tracker[]): string {
   return logLines.join('\n') + (totalLines.length > 0 ? '\n## Today\'s Totals\n' + totalLines.join('\n') : '')
 }
 
-const MAX_HISTORICAL_TOKENS = 800
+const MAX_HISTORICAL_TOKENS = 4000
 const CHARS_PER_TOKEN = 4
 
 function buildHistoricalSection(logs: HistoricalLog[], trackers?: Tracker[]): string {
@@ -137,8 +137,8 @@ function buildHistoricalSection(logs: HistoricalLog[], trackers?: Tracker[]): st
     return '## HISTORICAL DATA\nNo logs found for the requested period.'
   }
 
-  // BUG-V32-8: Limit to last 30 logs (7-day window) instead of 10
-  const recentLogs = logs.slice(-30)
+  // Show up to 200 logs — single-day queries rarely exceed 30; 7-day queries capped by token budget below
+  const recentLogs = logs.slice(-200)
 
   // Build tracker schema map for de-obfuscation
   const trackerMap = new Map((trackers ?? []).map(t => [t.id, t]))
@@ -153,8 +153,12 @@ function buildHistoricalSection(logs: HistoricalLog[], trackers?: Tracker[]): st
   }
 
   const sortedDates = Array.from(byDate.keys()).sort().reverse()
-  const lines: string[] = ['## HISTORICAL DATA']
-  let charCount = lines[0].length
+  const lines: string[] = [
+    '## HISTORICAL DATA',
+    '⚠️ COMPLETENESS RULE: List EVERY entry below. Never skip, summarize, or say "and more". If asked what was eaten/logged on a date, output ALL items shown here — one bullet per entry.',
+    '⚠️ FORMAT RULE: For each food/nutrition entry show macros in bold pipe format: **Xkcal | Xg P | Xg C | Xg F**. At end of the date group, show daily totals with explicit addition: "Total: X + X + X = Y kcal".',
+  ]
+  let charCount = lines.join('\n').length
 
   const budget = MAX_HISTORICAL_TOKENS * CHARS_PER_TOKEN
 

@@ -502,7 +502,7 @@ export async function POST(req: Request): Promise<Response> {
               // If computed date is in the future, use previous year
               if (d > actualDateObj) d.setUTCFullYear(targetYear - 1)
               rangeStart = getDateStr(d)
-              rangeEnd = today // include through today for full context
+              rangeEnd = getDateStr(d) // fetch that specific day only (not a multi-day range)
             } else {
               // Fallback to yesterday if parsing fails
               const d = new Date(actualDateObj)
