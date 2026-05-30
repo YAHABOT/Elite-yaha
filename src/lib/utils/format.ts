@@ -14,16 +14,22 @@ export function formatFieldValue(value: number | string | string[] | null, unit?
 
   const cleanLabel = (label || '').toLowerCase().trim()
   const isTime = cleanLabel.includes('start') || cleanLabel.includes('end') || cleanLabel.includes('time at')
-  const isDuration = (unit || '').toLowerCase().includes('hrs') || 
-                    (unit || '').toLowerCase().includes('hours') ||
-                    cleanLabel.includes('duration') || 
-                    cleanLabel.includes('time in') || 
-                    cleanLabel.includes('actual sleep') ||
-                    cleanLabel.includes('awake') ||
-                    cleanLabel.includes('rem') ||
-                    cleanLabel.includes('light') ||
-                    cleanLabel.includes('deep') ||
-                    cleanLabel.includes('total sleep')
+
+  // "hrs" / "hours" unit or sleep-related labels → decimal hours stored, display as Xh Ym
+  const isDurationHrs = (unit || '').toLowerCase().includes('hrs') ||
+                        (unit || '').toLowerCase().includes('hours') ||
+                        cleanLabel.includes('duration') ||
+                        cleanLabel.includes('time in') ||
+                        cleanLabel.includes('actual sleep') ||
+                        cleanLabel.includes('awake') ||
+                        cleanLabel.includes('rem') ||
+                        cleanLabel.includes('light') ||
+                        cleanLabel.includes('deep') ||
+                        cleanLabel.includes('total sleep')
+
+  // "mins" / "min" unit → decimal minutes stored, display as M:SS (e.g. 4.05 → "4:03")
+  const unitLower = (unit || '').toLowerCase()
+  const isDurationMins = unitLower === 'mins' || unitLower === 'min'
 
   if (typeof val === 'number') {
     if (isTime) {
@@ -32,8 +38,15 @@ export function formatFieldValue(value: number | string | string[] | null, unit?
       const m = totalMinutes % 60
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
     }
-    
-    if (isDuration) {
+
+    if (isDurationMins) {
+      // Decimal minutes → M:SS (e.g. 4.05 min = 4 min 3 sec → "4:03")
+      const mins = Math.floor(val)
+      const secs = Math.round((val - mins) * 60)
+      return `${mins}:${String(secs).padStart(2, '0')}`
+    }
+
+    if (isDurationHrs) {
       const totalMinutes = Math.round(val * 60)
       const h = Math.floor(totalMinutes / 60)
       const m = totalMinutes % 60

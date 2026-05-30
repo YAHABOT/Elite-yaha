@@ -410,6 +410,7 @@ export async function POST(req: Request): Promise<Response> {
         /\blast\s+(week|month)\b/i,
         /\blast\s+\d+\s+days?\b/i,
         /\b\d+\s+days?\s+ago\b/i,
+        /\blast\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,  // EX15/EX26: "last friday"
         /\bsame\s+.{0,30}(yesterday|last|previous|before)\b/i,  // EX29: "same stats as yesterday"
         /\buse\s+same\b/i,                                        // EX29: "use same stats"
         /\brepeat\s+(last|yesterday|same)\b/i,
@@ -424,6 +425,7 @@ export async function POST(req: Request): Promise<Response> {
         /\bsummary\s+of\b/i,
         /\bwhat\s+about\b/i,
         /\bthat\s+(food|item|meal|drink|snack)\b/i,
+        /\btell\s+me\s+(all|what|about)\b/i,                      // EX15/EX26: "tell me all the food I ate"
       ]
       const hasHistoricalIntent = HISTORICAL_INTENT_PATTERNS.some(p => p.test(message))
 
@@ -435,7 +437,7 @@ export async function POST(req: Request): Promise<Response> {
           const getDateStr = (d: Date): string => d.toISOString().split('T')[0]
 
           let rangeStart: string
-          const rangeEnd = today
+          let rangeEnd = today
 
           if (/\blast\s+month\b/i.test(message)) {
             const d = new Date(actualDateObj)
@@ -458,8 +460,21 @@ export async function POST(req: Request): Promise<Response> {
             const d = new Date(actualDateObj)
             d.setUTCDate(d.getUTCDate() - days)
             rangeStart = getDateStr(d)
+          } else if (/\blast\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(message)) {
+            // EX15/EX26 FIX: "last friday", "last monday", etc. — find the most recent past occurrence
+            const match = message.match(/\blast\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i)
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+            const targetDay = match?.[1].toLowerCase() ?? 'friday'
+            const targetDayIndex = dayNames.indexOf(targetDay)
+            const currentDayIndex = actualDateObj.getUTCDay()
+            let daysBack = (currentDayIndex - targetDayIndex + 7) % 7
+            if (daysBack === 0) daysBack = 7 // today is that weekday → go back to previous week
+            const d = new Date(actualDateObj)
+            d.setUTCDate(d.getUTCDate() - daysBack)
+            rangeStart = getDateStr(d)
+            rangeEnd = today // include through today so AI has full recent context
           } else {
-            // Default (yesterday, "day before", "same as yesterday", "use same", etc.): yesterday + today
+            // Default (yesterday, "day before", "same as yesterday", "use same", "tell me all", etc.): yesterday + today
             const d = new Date(actualDateObj)
             d.setUTCDate(d.getUTCDate() - 1)
             rangeStart = getDateStr(d)

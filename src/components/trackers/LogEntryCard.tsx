@@ -294,7 +294,7 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
 
       {/* Field display / edit */}
       {isEditing ? (
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
           {schema.map((field) => (
             <EditFieldInput
               key={field.fieldId}
@@ -309,15 +309,23 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
       ) : filledFields.length === 0 ? (
         <p className="text-sm text-textMuted">No fields recorded</p>
       ) : (
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
-          {filledFields.map((field) => (
-            <div key={field.fieldId}>
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-textMuted">{field.label}</dt>
-              <dd className="mt-0.5 text-sm font-semibold text-textPrimary">
-                {formatFieldValue(log.fields[field.fieldId] ?? null, field.unit, field.label)}
-              </dd>
-            </div>
-          ))}
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+          {filledFields.map((field) => {
+            const rawValue = log.fields[field.fieldId]
+            // text/select fields or long string values span full width (P2-2.6 FIX)
+            const isWide = field.type === 'text' || field.type === 'select' ||
+              (typeof rawValue === 'string' && isNaN(Number(rawValue)) && String(rawValue).length > 15)
+            // Strip parenthetical unit suffixes from legacy labels like "Magnesium Citrate (g)" (EX3 cleanup)
+            const displayLabel = field.label.replace(/\s*\([^)]+\)\s*$/, '').trim()
+            return (
+              <div key={field.fieldId} className={isWide ? 'col-span-2' : ''}>
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-textMuted">{displayLabel}</dt>
+                <dd className="mt-0.5 text-sm font-semibold text-textPrimary break-words">
+                  {formatFieldValue(rawValue ?? null, field.unit, field.label)}
+                </dd>
+              </div>
+            )
+          })}
         </dl>
       )}
     </div>
@@ -336,9 +344,11 @@ function EditFieldInput({ field, value, onChange }: EditFieldInputProps): React.
   const inputId = `edit-${field.fieldId}`
   const inputClasses =
     'w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-textPrimary focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20'
+  // text/select fields span the full 2-column grid (P2-2.6 FIX)
+  const isWide = field.type === 'text' || field.type === 'select'
 
   return (
-    <div>
+    <div className={isWide ? 'col-span-2' : ''}>
       <label htmlFor={inputId} className="block text-[10px] font-medium uppercase tracking-wider text-textMuted">
         {field.label}
         {field.unit && <span className="ml-1 normal-case text-textMuted/60">({field.unit})</span>}

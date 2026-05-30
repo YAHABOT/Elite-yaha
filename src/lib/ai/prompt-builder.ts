@@ -333,13 +333,21 @@ FILE RECEIPT LOGGING & MACRO EXTRACTION (BUG-V32-EX28 FIX):
 `
 
 const DURATION_FORMAT_RULE = `
-DURATION FIELD FORMATTING (EX31 FIX):
-When logging to any field with unit "hrs" (time/duration type):
-- ALWAYS output as a decimal number of hours, NOT as a string
-- Examples: 59 minutes → 0.983 | 1h 30m → 1.5 | 24 minutes 59 seconds → 0.416 | 8 hours → 8.0
-- NEVER output "59 mins", "1h30m", "24:59", or any string format — use decimal hours ONLY
-- The app converts decimal hours to HH:MM display automatically
-- Exception: if the tracker schema says type="text" for a duration field, use HH:MM string format
+DURATION FIELD FORMATTING:
+Match the unit shown in the tracker schema EXACTLY. Two different duration units are used:
+
+**Unit = "hrs"** (sleep, recovery, time-in-bed, session durations measured in hours):
+  → Log as DECIMAL HOURS: 7h 30m → 7.5 | 6h 8m → 6.133 | 45 minutes → 0.75 | 8 hours → 8.0
+  → The app displays these as "Xh Ym" automatically
+  → NEVER write "7:30" or "6h8m" — always a plain decimal number
+
+**Unit = "mins"** (performance times, run splits, benchmark durations measured in minutes):
+  → Log as DECIMAL MINUTES: 4m 3s → 4.05 | 12m 30s → 12.5 | 1m 45s → 1.75 | 59s → 0.983
+  → The app displays these as "M:SS" automatically
+  → NEVER write "4:03" or "1:45" — always a plain decimal number of minutes
+
+**Exception**: if the field type is "text", write a human-readable string (e.g. "4:03", "7:30:00").
+**Quick rule**: look at the unit. "hrs" → decimal hours. "mins" → decimal minutes. No string formats.
 `
 
 const FOOD_LOOKUP_RULE = `

@@ -208,14 +208,13 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
         </div>
       </div>
 
-      {/* Fields Grid */}
-      <div className={`grid gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))' }}>
+      {/* Fields Grid — explicit 2-col so col-span-2 reliably spans full width (P2-2.6/BUG-V32-5 FIX) */}
+      <div className={`grid grid-cols-2 gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`}>
         {fieldEntries.map(([key, value]) => {
           const fieldLabel = card.fieldLabels?.[key] || key
           const fieldType = card.fieldDefinitions?.[key]?.type
           const isSelect = fieldType === 'select'
-          // Non-numeric, non-duration string values → always full width to prevent narrow wrapping
-          // BUG-V32-5 FIX: text type fields always span full width (even when empty initially)
+          // text-type fields, select fields, long strings, or long labels → span full row
           const isTextField = fieldType === 'text'
           const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}$/)
           const isLarge = isSelect || isTextField || isStringValue || String(value || '').length > 12 || fieldLabel.length > 14
@@ -225,7 +224,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
           return (
             <div
               key={key}
-              className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border transition-all duration-200 overflow-visible ${isEditExpanded ? 'border-blue-500/20 bg-blue-500/[0.03]' : 'border-white/[0.05]'} focus-within:border-blue-500/40 focus-within:bg-white/[0.05] ${isLarge ? 'col-span-full' : ''}`}
+              className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border transition-all duration-200 overflow-visible ${isEditExpanded ? 'border-blue-500/20 bg-blue-500/[0.03]' : 'border-white/[0.05]'} focus-within:border-blue-500/40 focus-within:bg-white/[0.05] ${isLarge ? 'col-span-2' : ''}`}
             >
               <div className="flex flex-wrap items-start gap-1 min-w-0">
                 <span className="min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
@@ -414,14 +413,14 @@ export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm,
         </span>
       </div>
 
-      <div className="grid gap-2.5 w-full overflow-visible" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))' }}>
+      <div className="grid grid-cols-2 gap-2.5 w-full overflow-visible">
         {fieldEntries.map(([key, value]) => {
           const fieldLabel = card.fieldLabels?.[key] || key
           const unit = card.fieldUnits?.[key]
           const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}$/)
           const isLarge = isStringValue || String(value || '').length > 15 || (fieldLabel.length ?? 0) > 16
           return (
-            <div key={key} className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border border-white/[0.05] overflow-visible ${isLarge ? 'col-span-full' : ''}`}>
+            <div key={key} className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border border-white/[0.05] overflow-visible ${isLarge ? 'col-span-2' : ''}`}>
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{fieldLabel}</span>
               <input
                 type="text"
