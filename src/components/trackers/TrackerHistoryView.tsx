@@ -128,44 +128,42 @@ export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement
           Back to Trackers
         </Link>
 
-        <div className="mt-6 flex items-end justify-between">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-4">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-300"
-                style={{
-                  backgroundColor: `${tracker.color}18`,
-                  border: `1px solid ${tracker.color}35`,
-                  boxShadow: `0 0 20px -5px ${tracker.color}50`,
-                  color: tracker.color,
-                }}
-              >
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-black tracking-tight text-textPrimary">
-                  {tracker.name}
-                </h1>
-                <p className="mt-0.5 text-xs font-black uppercase tracking-widest text-textMuted/50">
-                  {logs.length} total entries · {tracker.schema.length} fields
-                </p>
-              </div>
+        <div className="mt-6 flex flex-col gap-4">
+          {/* Title row — icon + name + subtitle, no button here so name can't push it off-screen */}
+          <div className="flex items-center gap-4">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-all duration-300"
+              style={{
+                backgroundColor: `${tracker.color}18`,
+                border: `1px solid ${tracker.color}35`,
+                boxShadow: `0 0 20px -5px ${tracker.color}50`,
+                color: tracker.color,
+              }}
+            >
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-black tracking-tight text-textPrimary leading-tight break-words">
+                {tracker.name}
+              </h1>
+              <p className="mt-0.5 text-xs font-black uppercase tracking-widest text-textMuted/50">
+                {logs.length} total entries · {tracker.schema.length} fields
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/trackers/${tracker.id}/log`}
-              className="flex items-center gap-2 rounded-full px-6 py-2.5 text-[11px] font-black uppercase tracking-widest text-background transition-all duration-300 hover:scale-[1.03] hover:opacity-90 active:scale-[0.97]"
-              style={{
-                backgroundColor: tracker.color,
-                boxShadow: `0 4px 20px -4px ${tracker.color}60`,
-              }}
-            >
-              <ClipboardList className="h-4 w-4" />
-              Log Entry
-            </Link>
-          </div>
+          {/* Log Entry button — full-width row below title so it's never crowded out */}
+          <Link
+            href={`/trackers/${tracker.id}/log`}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-[11px] font-black uppercase tracking-widest text-background transition-all duration-300 hover:scale-[1.01] hover:opacity-90 active:scale-[0.98]"
+            style={{
+              backgroundColor: tracker.color,
+              boxShadow: `0 4px 20px -4px ${tracker.color}60`,
+            }}
+          >
+            <ClipboardList className="h-4 w-4" />
+            Log Entry
+          </Link>
         </div>
       </div>
 

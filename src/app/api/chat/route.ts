@@ -426,6 +426,8 @@ export async function POST(req: Request): Promise<Response> {
         /\bwhat\s+about\b/i,
         /\bthat\s+(food|item|meal|drink|snack)\b/i,
         /\btell\s+me\s+(all|what|about)\b/i,                      // EX15/EX26: "tell me all the food I ate"
+        /\b\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i, // "23rd may"
+        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(st|nd|rd|th)?\b/i, // "may 23rd"
       ]
       const hasHistoricalIntent = HISTORICAL_INTENT_PATTERNS.some(p => p.test(message))
 
@@ -473,6 +475,40 @@ export async function POST(req: Request): Promise<Response> {
             d.setUTCDate(d.getUTCDate() - daysBack)
             rangeStart = getDateStr(d)
             rangeEnd = today // include through today so AI has full recent context
+          } else if (
+            /\b\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\b/i.test(message) ||
+            /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2}(st|nd|rd|th)?\b/i.test(message)
+          ) {
+            // EX15/EX26 FIX: Absolute date reference — "23rd may", "may 23rd", "may 23", "23 may"
+            const MONTH_MAP: Record<string, number> = {
+              jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+              jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+            }
+            // Try "day month" format first, then "month day"
+            let dayNum: number | null = null
+            let monthIdx: number | null = null
+            const dayMonthMatch = message.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i)
+            const monthDayMatch = message.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d{1,2})(?:st|nd|rd|th)?/i)
+            if (dayMonthMatch) {
+              dayNum = parseInt(dayMonthMatch[1])
+              monthIdx = MONTH_MAP[dayMonthMatch[2].toLowerCase().slice(0, 3)]
+            } else if (monthDayMatch) {
+              monthIdx = MONTH_MAP[monthDayMatch[1].toLowerCase().slice(0, 3)]
+              dayNum = parseInt(monthDayMatch[2])
+            }
+            if (dayNum !== null && monthIdx !== null) {
+              const targetYear = actualDateObj.getUTCFullYear()
+              const d = new Date(Date.UTC(targetYear, monthIdx, dayNum))
+              // If computed date is in the future, use previous year
+              if (d > actualDateObj) d.setUTCFullYear(targetYear - 1)
+              rangeStart = getDateStr(d)
+              rangeEnd = today // include through today for full context
+            } else {
+              // Fallback to yesterday if parsing fails
+              const d = new Date(actualDateObj)
+              d.setUTCDate(d.getUTCDate() - 1)
+              rangeStart = getDateStr(d)
+            }
           } else {
             // Default (yesterday, "day before", "same as yesterday", "use same", "tell me all", etc.): yesterday + today
             const d = new Date(actualDateObj)

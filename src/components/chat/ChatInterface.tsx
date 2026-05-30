@@ -121,10 +121,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   useEffect(() => {
     if (sessionId === 'new') return
-    // Messages arrive DESC (newest first). Index 0 is the most recent message.
-    // The old check used the last array item (oldest = always a user message),
-    // which caused the poll to fire on every existing session opened from sidebar.
-    const mostRecent = initialMessages[0]
+    // Messages are now ASC (oldest first). The last item is the most recent.
+    // Poll only when the most recent message is a dangling user msg with no AI reply yet.
+    const mostRecent = initialMessages[initialMessages.length - 1]
     if (!mostRecent || mostRecent.role !== 'user') return
 
     // Only poll if the dangling user message is fresh (< 2 min) — guards against
@@ -136,7 +135,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     let count = 0
     const interval = setInterval(() => {
       count++
-      // Re-check condition: if last message is no longer from user, stop polling
+      // Re-check condition: stop polling when AI has responded (last msg is no longer user)
       const current = initialMessages[initialMessages.length - 1]
       if (!current || current.role !== 'user') {
         clearInterval(interval)

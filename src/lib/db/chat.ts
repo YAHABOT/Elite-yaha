@@ -200,14 +200,16 @@ export async function getMessages(sessionId: string, paginationCursor?: string):
 
   // If we got more than MESSAGES_DISPLAY_LIMIT, there are more messages to fetch
   if (messages.length > MESSAGES_DISPLAY_LIMIT) {
-    // The last message's created_at timestamp becomes the cursor for the next fetch
+    // The last message's created_at timestamp becomes the cursor for the next page (DESC order)
     nextCursor = messages[MESSAGES_DISPLAY_LIMIT].created_at
     // Return only the requested limit
     messages.pop()
   }
 
-  // BUG-V32-EX27: ORDER BY created_at ASC prevents duplicate pagination
-  return { messages, nextCursor }
+  // Reverse to ASC (oldest first) for correct chat display order.
+  // DB query uses DESC for efficient pagination cursor logic; we reverse here for UI.
+  const ordered = [...messages].reverse()
+  return { messages: ordered, nextCursor }
 }
 
 export async function addMessage(input: CreateMessageInput): Promise<ChatMessage> {
