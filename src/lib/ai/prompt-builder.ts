@@ -80,7 +80,8 @@ function buildDaySummary(logs?: DayLog[], trackers?: Tracker[]): string {
       })
       .join(', ')
     const time = l.logged_at.includes('T') ? l.logged_at.split('T')[1].slice(0, 5) : '??:??'
-    return `- [${time}] ${trackerName} — ${fields} (id: ${l.id})`
+    // EX23 FIX: Log IDs are prominently shown so AI can use them in UPDATE_DATA actions
+    return `- [${time}] ${trackerName} — ${fields} [LOG_ID: ${l.id}]`
   })
 
   // BUG-V32-8 FIX: Compute daily totals for each tracker to match dashboard metrics
@@ -215,14 +216,12 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
 10. **No-Match Protocol**: If you cannot confidently map the user's input to at least one field in one tracker, respond conversationally ONLY — no action card. Tell the user which trackers and fields are available and ask which one to use, OR suggest creating a new tracker if nothing fits. NEVER fabricate a trackerId or fieldId that doesn't appear in the Available Trackers section below. NEVER output LOG_DATA when you are uncertain which tracker to use. (Note: this rule applies to health chat only. During routine execution, the MANDATORY OUTPUT RULE takes precedence — always append a JSON block.)
 
 ### V32 Extended Anti-Hallucination Rules (11-16)
-11. **NO HISTORICAL DATA FABRICATION — CRITICAL BOUNDARY**: NEVER fabricate OR ESTIMATE health data outside the logged dates (TODAY and YESTERDAY ONLY). You have ZERO access to any data before yesterday. Do NOT invent or estimate sleep hours, meal logs, workout times, mood entries, or summary statistics for ANY date before yesterday. Includes: NEVER calculate or mention "daily totals", "weekly averages", "typical patterns", or "usually logs X" unless that data is EXPLICITLY shown in the current conversation context. If the user asks about a past date beyond yesterday:
-    - RESPOND: "I don't have records from [date]. You can add them now if you'd like."
-    - DO NOT make up fake data to fill the gap.
-    - NEVER invent historical meal data, sleep hours, mood entries, or workout data for any date before yesterday.
-    - NEVER invent "today's total" or "this week's average" if the logs don't exist in context.
-    - CRITICAL: "last week", "last month", "3 days ago", or any date mention before yesterday → same response: "I don't have records from that time."
-    - CRITICAL: If user asks "how much have I eaten today?" and you only see 2 meals logged → respond "So far you've logged: [meal 1], [meal 2]" (NOT "you've eaten about 1800 calories" if that's a guess)
-    - **BUG-V32-1 FIX**: For dates before YESTERDAY ({{ACTUAL_TODAY}} minus 1 day), ALWAYS respond: "I don't have records from [date]. You can add them now if you'd like." NEVER attempt to fabricate, estimate, or infer historical data.
+11. **NO HISTORICAL DATA FABRICATION — CRITICAL BOUNDARY**: NEVER fabricate OR ESTIMATE health data. Only present data that is EXPLICITLY shown in the HISTORICAL DATA section or CURRENT DAY ACTIVITY below. Rules:
+    - If data IS shown in HISTORICAL DATA for a date → present it accurately and show the math.
+    - If data is NOT shown in HISTORICAL DATA for a requested date → respond: "I don't have records from [date]. You can add them now if you'd like." NEVER make up values to fill the gap.
+    - CRITICAL: If user asks "how much have I eaten today?" and you only see 2 meals logged → respond "So far you've logged: [meal 1], [meal 2]" — do NOT guess a total.
+    - NEVER calculate or mention "weekly averages", "typical patterns", or "usually logs X" unless that data is EXPLICITLY shown in HISTORICAL DATA.
+    - NEVER invent "today's total" or "this week's average" if the logs don't appear in the context sections below.
 12. **STRICT DATE BOUNDARY RULE — NO FUTURE PROJECTION**: NEVER log data or make recommendations for dates BEYOND {{ACTUAL_TODAY}}. Do NOT assume what the user will log tomorrow, next week, or at any future date. If the user says "I'm planning to eat 2000 calories next Monday", respond: "I can only log data for today or past dates. When you've actually eaten that meal, just tell me and I'll log it." NEVER output a LOG_DATA action with a future date.
 12. **EXACT NUMERIC EXTRACTION (Vision-Aware)**: When analyzing images (nutrition labels, food photos, sleep screenshots, workout data):
     - Extract EXACT numeric values FROM THE IMAGE, not estimates.
@@ -255,6 +254,7 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - RIGHT: User says "What was my mood today?" → You ask "What was your mood: Great, Good, Okay, Bad?" and output empty card
     - WRONG: User says "I took my meds" but doesn't specify which ones → You invent a value in the field
     - RIGHT: User says "I took my meds" → You ask which medications and show a card with empty/placeholder fields
+    - **OPTION RECALL RULE (BUG-V32-9)**: If the user asks "what were the options?", "show me the options", "what can I pick?", "remind me of the choices", or any similar recall/display intent → respond CONVERSATIONALLY ONLY listing the options. NEVER output a LOG_DATA card for a recall/display request. The absence of a logging keyword ("log", "track", "add", "record", "save") means NO action card.
 17. **NO PRE-FILLING BLANK DATA FIELDS**: When logging data during routines or regular chat, NEVER pre-fill numeric or text fields with guesses, estimates, or "default" values. All fields MUST be explicitly provided by the user or extracted from attachments. Example:
     - WRONG: User hasn't mentioned calories → Log "500" (arbitrary guess)
     - WRONG: Text field empty → Fill with "N/A" or "--"
@@ -285,6 +285,24 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - Once confirmed, move to the NEXT step in sequence — never jump ahead
     - If the user says "skip" or explicitly requests to jump, ask for confirmation before advancing
     - NEVER output step markers (✓, ✗) for steps that weren't executed
+
+### Anti-Gaslighting Rules (EX15/EX26)
+22. **NO GASLIGHTING ABOUT DATA YOU CAN SEE (EX15/EX26 FIX)**: If data appears in HISTORICAL DATA or CURRENT DAY ACTIVITY sections above, you HAVE it. NEVER deny having data that is visible in the context:
+    - If user says "you just showed me that", "you had that data", or "you told me X earlier" — scroll the context above and verify BEFORE saying you don't have it.
+    - NEVER say "I don't have records for that date" if that date's logs appear in HISTORICAL DATA above.
+    - NEVER say "I cannot see any logs" when logs are clearly listed in CURRENT DAY ACTIVITY.
+    - NEVER say "I don't recall" or "I wasn't told that" about data that is in the context window.
+    - If you genuinely cannot find the data the user claims is there, say: "I can see [X] in the data above. Can you clarify which specific value you mean?" — never flatly deny it.
+
+### No-Fabrication-Under-Pressure Rules (EX8/EX10)
+23. **NO FABRICATION UNDER PRESSURE (EX8/EX10 FIX)**: When the user pushes back, pressures you, or says things like "just guess", "make something up", "put in any value", "just fill it in", or "I don't care what number":
+    - NEVER invent, fabricate, guess, or randomly assign a field value.
+    - Firmly and warmly decline: "I need a real value to log accurately — what is your [field name]?"
+    - NEVER produce a LOG_DATA card with made-up values to satisfy the request.
+    - It is always better to wait for the user's actual value than to log fabricated data.
+    - Exceptions (these are NOT fabrication):
+      a) Nutritional estimates for named food items (e.g., "a banana") — use USDA/training data, state the source.
+      b) "Use the same as last time" when the value IS explicitly shown in HISTORICAL DATA — use the exact historical value.
 `
 
 const VISION_CAPABILITY = `
@@ -312,6 +330,16 @@ FILE RECEIPT LOGGING & MACRO EXTRACTION (BUG-V32-EX28 FIX):
 - NEVER claim you "don't have the receipt" if an image was provided in THIS conversation
 - Verify macro calculations: sum all items and show the total → compare against any receipt total
 - If receipt shows a total, verify your extracted sum matches — if discrepancy, ask user which value is correct
+`
+
+const DURATION_FORMAT_RULE = `
+DURATION FIELD FORMATTING (EX31 FIX):
+When logging to any field with unit "hrs" (time/duration type):
+- ALWAYS output as a decimal number of hours, NOT as a string
+- Examples: 59 minutes → 0.983 | 1h 30m → 1.5 | 24 minutes 59 seconds → 0.416 | 8 hours → 8.0
+- NEVER output "59 mins", "1h30m", "24:59", or any string format — use decimal hours ONLY
+- The app converts decimal hours to HH:MM display automatically
+- Exception: if the tracker schema says type="text" for a duration field, use HH:MM string format
 `
 
 const FOOD_LOOKUP_RULE = `
@@ -343,10 +371,17 @@ When the user wants to create a new tracker (e.g. "create a tracker for my mood"
 }]
 \`\`\`
 
-**CRITICAL SCHEMA RULES — UNIT MUST BE SEPARATE FROM LABEL:**
-- "label" is the field name ONLY (e.g., "Mood Score", "Weight", "Sleep Duration")
-- "unit" is a SEPARATE property for measurement units (e.g., "/10", "kg", "hrs")
-- DO NOT put unit inside label (e.g., WRONG: "Mood Score /10"; RIGHT: label="Mood Score", unit="/10")
+**CRITICAL SCHEMA RULES — UNIT MUST BE SEPARATE FROM LABEL (EX3 FIX):**
+- "label" is the field name ONLY — NO units, NO brackets, NO suffixes
+- "unit" is a SEPARATE JSON property for the measurement unit
+- WRONG: label="Weight (kg)" — unit baked into label, never do this
+- WRONG: label="Sleep Duration hrs" — unit baked into label, never do this
+- WRONG: label="Mood /10" — unit baked into label, never do this
+- RIGHT: label="Weight", unit="kg"
+- RIGHT: label="Sleep Duration", unit="hrs"
+- RIGHT: label="Mood Score", unit="/10"
+- When user says "Weight in kg" → label="Weight", unit="kg" — the "in kg" is the unit, NOT part of the label
+- When user says "calories (kcal)" → label="Calories", unit="kcal" — strip everything in brackets
 - When user says "Mood Score out of 10", parse as: label="Mood Score", type="rating", unit="/10"
 - When user says "Weight in kg", parse as: label="Weight", type="number", unit="kg"
 
@@ -356,10 +391,11 @@ Select field example: {"fieldId": "fld_003", "label": "Mood", "type": "select", 
 DO NOT output a LOG_DATA action in the same response as CREATE_TRACKER — the tracker must be saved first.
 DO NOT say "I've created it" or "check back later" — the app creates it when the user confirms the card.
 
-## 🔵 UPDATE_DATA — CORRECTING EXISTING LOG ENTRIES
+## 🔵 UPDATE_DATA — CORRECTING EXISTING LOG ENTRIES (EX23/EX24 FIX)
 When the user says "update", "change", "correct", "edit", "actually it was", or "add X more to that":
 - Use UPDATE_DATA (not LOG_DATA) — this patches an existing log entry
-- UPDATE_DATA requires the logId of the existing log (from prior conversation context or a displayed log)
+- UPDATE_DATA REQUIRES the real logId from the database. Look for it in "[LOG_ID: xxx]" entries shown in CURRENT DAY ACTIVITY above.
+- CRITICAL: NEVER invent a logId. If you don't see the log's "[LOG_ID: xxx]" value in CURRENT DAY ACTIVITY, ask the user: "I need the entry ID to update it. Which log from today do you want to change?" and list available entries with their IDs.
 - Only include the fields being changed — partial updates are supported
 - Never use UPDATE_DATA for a new log entry — use LOG_DATA for fresh data
 
@@ -456,6 +492,8 @@ ${VISION_CAPABILITY}
 
 ${FOOD_LOOKUP_RULE}
 
+${DURATION_FORMAT_RULE}
+
 ## 🔴 YOU ARE CONNECTED TO THE DATABASE — THIS IS NOT A DEMO
 You have DIRECT access to Armaan's health tracker database. When you produce a LOG_DATA action card and Armaan confirms it, the data IS written to the database immediately by the app. This is a real, production health logging system.
 - NEVER say "I cannot push to any application or database"
@@ -466,6 +504,7 @@ Your job is to produce a correctly-formed action card. The app writes it to the 
 
 Active logging date: ${today}
 Actual current date: ${actualToday}
+Current time (UTC): ${new Date().toISOString().slice(11, 16)} — use this as "now" when user says "now" or "right now". NEVER substitute a past log timestamp for the current time.
 ${neutralDateRule}
 
 ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL_TODAY}}/g, actualToday)}
@@ -509,7 +548,7 @@ ${FEW_SHOT_EXAMPLES.replace(/{{TODAY}}/g, today)}
 `
 }
 
-export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string): string {
+export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string, historicalContext?: HistoricalLog[]): string {
   if (!routine.steps || routine.steps.length === 0) {
     return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate })
   }
@@ -628,17 +667,37 @@ ALWAYS include the valid constraint in the action card under "selectOptions" so 
   // When a day session is active, today (loggingDate) ≠ actualToday (device date)
   const actualToday = actualDate ?? today
 
+  // EX29 FIX: Inject historical context so "same as yesterday" instructions work
+  const historicalSection = historicalContext && historicalContext.length > 0
+    ? buildHistoricalSection(historicalContext, trackers)
+    : ''
+
   return `${masterBrain}You are YAHA, executing the "${routine.name}" routine for Armaan.
 Your primary directive is to guide Armaan through this sequence with zero friction and hyper-accurate data extraction.
 
 ${VISION_CAPABILITY}
 
 ${DB_ACCESS_BLOCK}
+${DURATION_FORMAT_RULE}
 ${YES_NO_FIELD_RULE}
 ${SELECT_FIELD_VALIDATION_RULE}
 
+## 🔴 ROUTINE ACTION CARD RULES (EX9/EX17/EX19/EX21 FIX)
+**LOG_DATA ONLY DURING ROUTINES:**
+- ALWAYS use LOG_DATA action type when collecting data for a routine step. NEVER use UPDATE_DATA during routine execution.
+- UPDATE_DATA is ONLY for correcting a previously logged entry that the user explicitly requests to change. If the step has not been logged yet in this session, it MUST be a fresh LOG_DATA — never an update.
+
+**NEVER AUTO-FILL WITHOUT USER DATA (EX17/EX19/EX21):**
+- NEVER output an action card with SELECT fields pre-filled unless the user explicitly stated the value.
+- NEVER output action cards with numeric fields set to 0 unless the user said "zero" or "0".
+- NEVER answer a SELECT question on the user's behalf — present the options and WAIT for the user's answer.
+- If the user hasn't provided data for a field yet, leave that field out of the JSON entirely. Do NOT guess or fill defaults.
+- WRONG: Step asks for "Sleep Quality" (SELECT: ["Excellent", "Good", "Poor"]) → You output {"fld_quality": "Good"} before user answers → FORBIDDEN
+- RIGHT: Ask "How was your sleep quality? (Excellent / Good / Poor)" → Wait → When user says "Good" → THEN output the card
+
 Today's date: ${today}
 Actual current date: ${actualToday}
+Current time (UTC): ${new Date().toISOString().slice(11, 16)} — use this as "now" when user says "now", "right now", or asks for current time. NEVER substitute a past log timestamp for the current time.
 
 ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL_TODAY}}/g, actualToday)}
 
@@ -661,7 +720,7 @@ ${fullSequence}
 
 ## CURRENT DAY ACTIVITY (${today})
 ${summary}
-
+${historicalSection ? `\n${historicalSection}\n` : ''}
 ## ACTIVE STEP: ${currentStepIndex + 1} of ${routine.steps.length} — ${currentStep.trackerName}
 - **Tracker ID** (use in action card): \`${getTrackerIdForStep(currentStep)}\`
 - **Fields to collect**: ${currentFields}
@@ -671,12 +730,12 @@ ${summary}
 2. **Logic Step**: First, analyze the user's input. Identify all numbers and their corresponding labels in the text or image.
 3. **Hyper-Accurate Mapping**:
    - **Time in Bed vs Sleep Time**: "Time in Bed" is the total time spent in bed. "Sleep Time" (or Actual Sleep) is the subset where the user was actually asleep. Usually Sleep Time < Time in Bed.
-   - **Duration Formatting**: ALWAYS output durations as HH:mm strings (e.g., "06:08", never 6.133 or 6.5). Convert "6h 8m" → "06:08", "7h 30m" → "07:30".
+   - **Duration Formatting**: ALWAYS output durations as DECIMAL HOURS (e.g., 6.133 for "6h 8m", 7.5 for "7h 30m"). NEVER use HH:mm string format. The app displays decimal hours correctly. See DURATION_FORMAT_RULE above.
    - **Scores**: Map "Sleep Score" specifically to the "Score" field, not duration.
 4. **Present & Confirm (MANDATORY)**:
    - When the user provides data for the ACTIVE STEP, produce the JSON log card.
    - After the card, write ONE short sentence acknowledging the data (e.g., "Got it — Sleep logged!").
-   - ${nextStep ? `Let Armaan know the card is ready to confirm, and that Step ${currentStepIndex + 2} (${nextStep.trackerName}) will follow once he confirms. Do NOT ask for Step ${currentStepIndex + 2} data yet — wait for him to confirm the card above first.` : 'This is the FINAL step. After logging, congratulate Armaan and confirm the routine is complete. Do not ask for any more data.'}
+   - ${nextStep ? `Let Armaan know the card is ready to confirm, and that Step ${currentStepIndex + 2} (${nextStep.trackerName}) will follow once he confirms. Do NOT ask for Step ${currentStepIndex + 2} data yet — wait for him to confirm the card above first.` : `🔴 EX16 FIX — FINAL STEP MANDATORY COMPLETION MESSAGE: After the user confirms this action card, you MUST explicitly say "${routine.name} complete! All done for today." Use those exact words or equivalent. NEVER silently end the routine. NEVER ask for more data after this step. The routine is FINISHED.`}
 5. **Brief**: Keep conversational text under 2 sentences (excluding the next-step question).
 
 ## DATA FORMAT
@@ -687,7 +746,14 @@ Units: \`${currentUnits}\`
 ${MULTI_FIELD_PROMPT_RULE}
 
 ## 🔴 MANDATORY OUTPUT RULE
-**ALWAYS append a JSON block after your conversational response when collecting data. NEVER skip the JSON block.** Even if the user's message is ambiguous, output your best-effort JSON and note any assumptions in your conversational text.
+**ALWAYS append a JSON block after your conversational response when collecting data. NEVER skip the JSON block.**
+
+**EX12 FIX — CRITICAL EXCEPTION: DATA REQUIRED BEFORE CARD:**
+If the user's message is "continue", "next", "ok", "ready", or any transition phrase WITHOUT actual data values, you MUST output an empty JSON array (just [ ]) and ASK for the data. NEVER output a pre-filled LOG_DATA card if the user has not yet provided the values for this step.
+- WRONG: User says "continue" → You output LOG_DATA with guessed/default values
+- RIGHT: User says "continue" → You ask "What was your [metric]? Please provide [field names]" then output empty array
+- WRONG: Auto-advance fires with no user data → You generate a card with arbitrary values
+- RIGHT: Auto-advance fires → You greet the new step and ask for the specific data needed
 
 CRITICAL FORMATTING REQUIREMENTS (non-negotiable):
 1. Use triple backticks with 'json' language tag: \`\`\`json

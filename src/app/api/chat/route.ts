@@ -189,7 +189,7 @@ export async function POST(req: Request): Promise<Response> {
       getTrackersBasic(supabase),
       import('@/lib/db/agents').then(m => m.getAgents()),
       getMasterBrainContext(),
-      getRecentMessagesForAI(session.id, 50, today),
+      getRecentMessagesForAI(session.id, 50),
       getLogsForDay(today, supabase),
       // Always try to fetch the currently active routine (null if none)
       session.active_routine_id ? fetchRoutine(session.active_routine_id) : Promise.resolve(null),
@@ -402,13 +402,17 @@ export async function POST(req: Request): Promise<Response> {
     const trackersMini = trackers.map(t => ({ id: t.id, name: t.name }))
     let historicalContext: TrackerLogWithName[] | undefined
 
-    if (!activeRoutine && message) {
+    if (message) {
       const HISTORICAL_INTENT_PATTERNS = [
         /\byesterday\b/i,
         /\bday\s+before\b/i,
+        /\bprevious\s+day\b/i,
         /\blast\s+(week|month)\b/i,
         /\blast\s+\d+\s+days?\b/i,
-        /\bsame\s+\S+\s+from\b/i,
+        /\b\d+\s+days?\s+ago\b/i,
+        /\bsame\s+.{0,30}(yesterday|last|previous|before)\b/i,  // EX29: "same stats as yesterday"
+        /\buse\s+same\b/i,                                        // EX29: "use same stats"
+        /\brepeat\s+(last|yesterday|same)\b/i,
         /\bpreviously\b/i,
         /\bwhat\s+did\s+i\b/i,
         /\bcheck\s+my\b/i,
@@ -425,19 +429,44 @@ export async function POST(req: Request): Promise<Response> {
 
       if (hasHistoricalIntent) {
         try {
-          // BUG-V32-1 FIX: Limit historical context to TODAY and YESTERDAY ONLY
-          // Prevent AI from fabricating data from dates before yesterday
+          // BUG-V32-1 FIX: Parse date range from message intent and query actual DB data.
+          // Previously hard-coded to yesterday+today, causing fabrication for any other dates.
           const actualDateObj = new Date(`${today}T00:00:00.000Z`)
           const getDateStr = (d: Date): string => d.toISOString().split('T')[0]
 
-          const yesterday = new Date(actualDateObj)
-          yesterday.setUTCDate(yesterday.getUTCDate() - 1)
-          const yesterdayStr = getDateStr(yesterday)
+          let rangeStart: string
+          const rangeEnd = today
 
-          // Only fetch from yesterday and today — no earlier dates allowed
-          historicalContext = await getLogsForDateRange(yesterdayStr, today, supabase, trackersMini)
+          if (/\blast\s+month\b/i.test(message)) {
+            const d = new Date(actualDateObj)
+            d.setUTCDate(d.getUTCDate() - 30)
+            rangeStart = getDateStr(d)
+          } else if (/\blast\s+week\b/i.test(message)) {
+            const d = new Date(actualDateObj)
+            d.setUTCDate(d.getUTCDate() - 7)
+            rangeStart = getDateStr(d)
+          } else if (/\blast\s+(\d+)\s+days?\b/i.test(message)) {
+            const match = message.match(/\blast\s+(\d+)\s+days?\b/i)
+            const days = match ? Math.min(parseInt(match[1]), 90) : 7
+            const d = new Date(actualDateObj)
+            d.setUTCDate(d.getUTCDate() - days)
+            rangeStart = getDateStr(d)
+          } else if (/\b(\d+)\s+days?\s+ago\b/i.test(message)) {
+            // P2-3.4 FIX: "7 days ago", "3 days ago"
+            const match = message.match(/\b(\d+)\s+days?\s+ago\b/i)
+            const days = match ? Math.min(parseInt(match[1]), 90) : 7
+            const d = new Date(actualDateObj)
+            d.setUTCDate(d.getUTCDate() - days)
+            rangeStart = getDateStr(d)
+          } else {
+            // Default (yesterday, "day before", "same as yesterday", "use same", etc.): yesterday + today
+            const d = new Date(actualDateObj)
+            d.setUTCDate(d.getUTCDate() - 1)
+            rangeStart = getDateStr(d)
+          }
 
-          console.log(`[ChatRoute] Historical context (TODAY + YESTERDAY): ${historicalContext?.length ?? 0} logs fetched`)
+          historicalContext = await getLogsForDateRange(rangeStart, rangeEnd, supabase, trackersMini)
+          console.log(`[ChatRoute] Historical context (${rangeStart} → ${rangeEnd}): ${historicalContext?.length ?? 0} logs`)
         } catch (err) {
           console.error('[ChatRoute] Historical context fetch failed:', err)
           historicalContext = []
@@ -452,7 +481,7 @@ export async function POST(req: Request): Promise<Response> {
     let systemPrompt: string
     if (activeRoutine) {
       console.log(`[ChatRoute] Using routine prompt: ${activeRoutine.name} (Step ${session.current_step_index + 1})`)
-      systemPrompt = buildRoutineSystemPrompt(activeRoutine, trackers, session.current_step_index, brainContext, dayLogs, loggingDate, today)
+      systemPrompt = buildRoutineSystemPrompt(activeRoutine, trackers, session.current_step_index, brainContext, dayLogs, loggingDate, today, historicalContext)
     } else if (activeAgent) {
       console.log(`[ChatRoute] Using agent prompt: ${activeAgent.name}`)
       const sessionMessagesForContext = historyMessages.map(msg => ({
@@ -595,17 +624,28 @@ export async function POST(req: Request): Promise<Response> {
           const fieldLabels: Record<string, string> = {}
           const fieldUnits: Record<string, string> = {}
           const fieldOrder: string[] = []
+          const fieldDefinitions: Record<string, import('@/types/action-card').SchemaFieldDef> = {}
           schema.forEach(f => {
             fieldLabels[f.fieldId] = f.label
             fieldOrder.push(f.fieldId)
             if (f.unit) fieldUnits[f.fieldId] = f.unit
             if (f.type === 'time' && !f.unit) fieldUnits[f.fieldId] = 'hrs'
+            // BUG-V32-5 FIX: Populate fieldDefinitions so ActionCard knows field types for layout decisions
+            fieldDefinitions[f.fieldId] = {
+              fieldId: f.fieldId,
+              label: f.label,
+              type: f.type,
+              ...(f.unit ? { unit: f.unit } : {}),
+              ...(f.selectOptions ? { selectOptions: f.selectOptions } : {}),
+              ...(f.multiSelect !== undefined ? { multiSelect: f.multiSelect } : {}),
+            }
           })
           return {
             ...actionWithDate,
             fieldLabels,
             fieldUnits,
             fieldOrder,
+            fieldDefinitions,
             fields: sanitizeFields(actionWithDate.fields, schema)
           }
         }

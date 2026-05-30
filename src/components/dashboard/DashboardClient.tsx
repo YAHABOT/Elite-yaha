@@ -76,14 +76,9 @@ export function DashboardClient({
   const sessionIsActive = dayState !== null
   const sessionIsNeutral = dayState === null
 
-  // Cross-day guard: ACTIVE session exists for a past date → locked state
+  // Cross-day guard: derive local today for skip actions (localToday) and date checks.
+  // EX2 FIX: The 7PM time gate has been removed — End Day shows whenever a session is ACTIVE.
   const localToday = getLocalDateStr()
-  const sessionIsForPastDate = sessionIsActive && dayState !== null && dayState.date < localToday
-
-  // End Day time gate: only show End Day when device clock >= 19:00 on the session's date
-  // OR when the session is for a past date (allow closing stale sessions any time)
-  const nowHour = new Date().getHours()
-  const endDayTimeGatePassed = sessionIsForPastDate || nowHour >= 19
 
   function handleDelete(id: string): void {
     startTransition(async () => {
@@ -162,10 +157,10 @@ export function DashboardClient({
         </div>
       )}
 
-      {/* End Day row: [End Day banner] [Skip button] — shown in ACTIVE state when time >= 19:00 OR session is for a past date.
-          The cross-day locked banner has been REMOVED from Dashboard — the chat route blocks starting
-          a new day and returns the appropriate error message instead. */}
-      {dayEndRoutine && sessionIsActive && endDayTimeGatePassed && (
+      {/* End Day row: [End Day banner] [Skip button] — shown whenever ACTIVE state exists.
+          EX2 FIX: Removed the 7PM time gate so End Day is always accessible after Start Day.
+          The chat route blocks starting a new day and returns the appropriate error message instead. */}
+      {dayEndRoutine && sessionIsActive && (
         <div className="flex flex-col gap-2">
           <RoutineBanner routine={dayEndRoutine} type="day_end" />
           <button

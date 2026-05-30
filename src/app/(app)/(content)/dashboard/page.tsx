@@ -17,13 +17,17 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   const supabase = await createServerClient()
 
   try {
-    // CRITICAL FIX: BUG-V32-2 & BUG-V32-8 — Filter logs to TODAY ONLY for accurate daily totals
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    // Fetch day state first to get the user's active logging date.
+    // BUG-V32-2 FIX: Use dayState.date (set by client's local date) rather than
+    // server UTC midnight — avoids missing logs for users in UTC+ timezones.
+    const dayState = await getActiveDayState(supabase)
 
-    const [widgets, trackers, routines, correlationRecords, allLogs, dayState] = await Promise.all([
+    // Use the active session date if present; otherwise fall back to UTC today.
+    const logDateStr = dayState?.date ?? new Date().toISOString().split('T')[0]
+    const rangeStart = `${logDateStr}T00:00:00.000Z`
+    const rangeEnd = `${logDateStr}T23:59:59.999Z`
+
+    const [widgets, trackers, routines, correlationRecords, allLogs] = await Promise.all([
       getWidgets(supabase),
       getTrackersBasic(supabase),
       getRoutines(supabase),
@@ -32,11 +36,10 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
         .from('tracker_logs')
         .select('id, tracker_id, fields, logged_at')
         .eq('user_id', user.id)
-        .gte('logged_at', today.toISOString())
-        .lt('logged_at', tomorrow.toISOString())
+        .gte('logged_at', rangeStart)
+        .lte('logged_at', rangeEnd)
         .order('logged_at', { ascending: false })
         .then(res => res.data || []),
-      getActiveDayState(supabase)
     ])
 
     const dayStartRoutine = routines.find(r => r.type === 'day_start') ?? null

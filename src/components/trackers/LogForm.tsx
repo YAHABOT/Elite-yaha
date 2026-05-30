@@ -236,6 +236,48 @@ function FieldInput({ field, value, onChange }: FieldInputProps): React.ReactEle
           className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-textPrimary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       )}
+
+      {field.type === 'select' && !field.multiSelect && (
+        <select
+          id={inputId}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-textPrimary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">Select...</option>
+          {(field.selectOptions ?? []).map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      )}
+
+      {field.type === 'select' && field.multiSelect && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {(field.selectOptions ?? []).map((opt) => {
+            const selected = value.split(',').filter(Boolean).includes(opt)
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  const current = value.split(',').filter(Boolean)
+                  const next = selected
+                    ? current.filter((v) => v !== opt)
+                    : [...current, opt]
+                  onChange(next.join(','))
+                }}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  selected
+                    ? 'bg-nutrition text-white'
+                    : 'bg-surfaceHighlight text-textMuted hover:text-textPrimary'
+                }`}
+              >
+                {opt}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -63,7 +63,7 @@ export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.
 
   return (
     <div
-      className="group relative flex min-h-[130px] flex-col rounded-2xl border bg-surface p-5 backdrop-blur-sm transition-all duration-300 hover:bg-surfaceHighlight"
+      className="group relative flex min-h-[130px] flex-col overflow-hidden rounded-2xl border bg-surface p-5 backdrop-blur-sm transition-all duration-300 hover:bg-surfaceHighlight"
       style={{
         borderColor: borderHex,
         background: `linear-gradient(135deg, ${glowHex} 0%, #0A0A0A 60%)`,
@@ -92,17 +92,17 @@ export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.
         )}
       </div>
 
-      {/* Value */}
-      <div className="flex-1">
+      {/* Value — EX13 FIX: responsive size + overflow guard for narrow 2-col mobile grid */}
+      <div className="flex-1 min-w-0 overflow-hidden">
         {displayValue !== null ? (
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-3xl font-black text-textPrimary leading-none">{displayValue}</span>
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-2xl font-black text-textPrimary leading-none truncate min-w-0 md:text-3xl">{displayValue}</span>
             {value.unit && (
-              <span className="text-xs font-medium text-textMuted">{value.unit}</span>
+              <span className="shrink-0 text-xs font-medium text-textMuted">{value.unit}</span>
             )}
           </div>
         ) : (
-          <span className="text-3xl font-black text-textMuted/40 leading-none">—</span>
+          <span className="text-2xl font-black text-textMuted/40 leading-none md:text-3xl">—</span>
         )}
       </div>
 

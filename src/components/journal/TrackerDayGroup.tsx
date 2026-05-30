@@ -96,6 +96,7 @@ export function TrackerDayGroup({ tracker, logs }: Props): React.ReactElement {
             </div>
 
             {/* Field values — ordered by tracker schema, not JSONB key order */}
+            {/* P2-2.6 FIX: text/select fields span full width to prevent narrow 2-3 word wrapping */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
               {tracker.schema
                 .filter((schemaField) => log.fields[schemaField.fieldId] !== undefined)
@@ -103,11 +104,14 @@ export function TrackerDayGroup({ tracker, logs }: Props): React.ReactElement {
                   const value = log.fields[schemaField.fieldId]
                   const label = schemaField.label
                   const unit = schemaField.unit
+                  // Text and select fields always span full width to prevent narrow wrapping
+                  const isWideField = schemaField.type === 'text' || schemaField.type === 'select'
+                    || (typeof value === 'string' && value.length > 20)
 
                   return (
-                    <div key={schemaField.fieldId}>
+                    <div key={schemaField.fieldId} className={isWideField ? 'col-span-full' : ''}>
                       <span className="block text-[10px] font-medium uppercase tracking-wider text-textMuted">{label}</span>
-                      <span className="text-sm font-semibold text-textPrimary">
+                      <span className={`text-sm font-semibold text-textPrimary ${isWideField ? 'break-words' : ''}`}>
                         {formatFieldValue(value, unit, label)}
                       </span>
                     </div>

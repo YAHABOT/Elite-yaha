@@ -209,16 +209,16 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
       </div>
 
       {/* Fields Grid */}
-      <div className={`grid gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 100px), 1fr))' }}>
+      <div className={`grid gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))' }}>
         {fieldEntries.map(([key, value]) => {
-          // Text fields and descriptions should take full width to avoid awkward wrapping
           const fieldLabel = card.fieldLabels?.[key] || key
-          const isTextField = fieldLabel.toLowerCase().includes('name') ||
-                              fieldLabel.toLowerCase().includes('item') ||
-                              fieldLabel.toLowerCase().includes('notes') ||
-                              fieldLabel.toLowerCase().includes('description')
+          const fieldType = card.fieldDefinitions?.[key]?.type
+          const isSelect = fieldType === 'select'
+          // Non-numeric, non-duration string values → always full width to prevent narrow wrapping
+          // BUG-V32-5 FIX: text type fields always span full width (even when empty initially)
+          const isTextField = fieldType === 'text'
           const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}$/)
-          const isLarge = isTextField || isStringValue || String(value || '').length > 15 || (fieldLabel.length ?? 0) > 16
+          const isLarge = isSelect || isTextField || isStringValue || String(value || '').length > 12 || fieldLabel.length > 14
           const label = fieldLabel
           const unit = card.fieldUnits?.[key]
 
@@ -233,30 +233,28 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                 </span>
               </div>
 
-              {isEditExpanded ? (
-                card.fieldDefinitions?.[key]?.type === 'select' ? (
-                  <select
-                    value={value ?? ''}
-                    onChange={(e) => handleFieldChange(key, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 cursor-pointer hover:border-white/20 transition-colors z-10 relative"
-                  >
-                    <option value="">Select option...</option>
-                    {(card.fieldDefinitions?.[key]?.selectOptions ?? []).map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={value ?? ''}
-                    onChange={(e) => handleFieldChange(key, e.target.value)}
-                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 focus:border-blue-500/40"
-                    placeholder="..."
-                  />
-                )
+              {isSelect ? (
+                /* SELECT fields are always interactive — can't pick from static text */
+                <select
+                  value={value ?? ''}
+                  onChange={(e) => handleFieldChange(key, e.target.value)}
+                  className="bg-background/60 text-sm font-bold text-foreground w-full rounded border border-white/10 px-2 py-1.5 cursor-pointer hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
+                >
+                  <option value="">Select option...</option>
+                  {(card.fieldDefinitions?.[key]?.selectOptions ?? []).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : isEditExpanded ? (
+                <input
+                  type="text"
+                  value={value ?? ''}
+                  onChange={(e) => handleFieldChange(key, e.target.value)}
+                  className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 focus:border-blue-500/40 px-2 py-1"
+                  placeholder="..."
+                />
               ) : (
                 <p className="text-sm font-bold text-foreground w-full leading-snug break-words whitespace-pre-wrap flex items-baseline gap-1.5 flex-wrap">
                   {value !== null && value !== undefined && value !== ''

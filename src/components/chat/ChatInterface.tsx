@@ -516,10 +516,11 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                   // Schedule auto-send of empty message to trigger Step 2 prompt, with a small delay
                   // to allow UI to render the completion message first
                   // BUG #4 fix: Set isAutoPrompting flag to prevent submit button from being blocked
+                  // EX6/EX20 FIX: Send 'continue' not '' — empty string causes a 400 (server rejects blank messages)
                   setIsAutoPrompting(true)
                   const timeoutId = setTimeout(() => {
                     if (isMountedRef.current) {
-                      void handleSendSilent('')
+                      void handleSendSilent('continue')
                       setIsAutoPrompting(false)
                     }
                   }, 600)
@@ -1085,13 +1086,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                             return { ...msg, actions: updatedActions }
                           }))
                         }}
-                        onConfirmed={
-                          // When a routine is active, silently send a continue signal so the
-                          // AI immediately prompts for the next step without user typing "next".
-                          session?.active_routine_id
-                            ? () => handleSendSilent('continue')
-                            : undefined
-                        }
+                        // EX6/EX20 FIX: onConfirmed removed — shouldAutoPromptNextStep now sends
+                        // 'continue' automatically (600ms after AI response), so this handler
+                        // was causing duplicate Step N prompts on every confirm click.
                       />
                     )
                   })}

@@ -344,7 +344,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
           </div>
         </div>
       ) : (
-        <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3" aria-label="Chat sessions">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-none px-2 py-3" aria-label="Chat sessions">
           <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.25em] text-textMuted/40">
             My Sessions
           </p>
