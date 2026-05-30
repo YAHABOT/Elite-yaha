@@ -1,6 +1,6 @@
 'use client' // needed for confirm/discard state management and server action calls
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Pencil } from 'lucide-react'
 import { confirmLogAction, updateLogAction } from '@/app/actions/chat'
 import type { ActionCard as ActionCardType, UpdateDataCard } from '@/types/action-card'
@@ -66,6 +66,15 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
   const [status, setStatus] = useState<ActionCardStatus>(card.confirmed ? 'confirmed' : 'pending')
   const [isEditExpanded, setIsEditExpanded] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Auto-clear error message after 5 seconds
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [errorMessage])
+
   const [editableFields, setEditableFields] = useState<Record<string, string | number | null>>(() => {
     // Include ALL fields from schema (fieldLabels), not just logged ones
     // Unlogged fields initialize as empty strings
@@ -323,6 +332,15 @@ type UpdateDataCardProps = {
 export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm, onDiscard }: UpdateDataCardProps): React.ReactElement {
   const [status, setStatus] = useState<ActionCardStatus>(card.confirmed ? 'confirmed' : 'pending')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Auto-clear error message after 5 seconds
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [errorMessage])
+
   const [editableFields, setEditableFields] = useState<Record<string, string | number | null>>(() =>
     Object.fromEntries(
       Object.entries(card.fields).map(([key, val]) => {

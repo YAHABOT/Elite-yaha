@@ -34,8 +34,9 @@ function getLocalDateStr(): string {
 
 const SESSION_TITLE_MAX_LENGTH = 30
 const ACCEPTED_IMAGE_TYPES = 'image/*'
-// Gemini inlineData only supports text/plain, text/csv, and application/pdf — Office formats excluded
-const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv'
+// Gemini inlineData supports images, audio, text, and PDF — Office formats excluded
+// Updated to match backend ALLOWED_MIME_TYPES (src/lib/ai/gemini.ts)
+const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv,application/pdf,text/plain,text/csv,image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/flac,audio/aac'
 const MAX_IMAGE_PX = 1280
 const IMAGE_QUALITY = 0.8
 

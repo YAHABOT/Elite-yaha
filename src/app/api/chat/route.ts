@@ -384,25 +384,9 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
-    // FIX: During active routines, process attachments normally through Gemini
-    // so LOG_DATA actions can be generated for current step advancement.
-    // Only queue attachments when NOT in a routine (non-routine chat mode).
-    if (!activeRoutine && attachments && attachments.length > 0) {
-      console.log(`[ChatRoute] Non-routine chat: ${attachments.length} file(s) queued for processing after current message completes`)
-      // Queue the attachment metadata for processing after current message completes
-      // Don't process immediately; respond to user that file has been queued
-      const queuedMsg = await addMessage({
-        session_id: session.id,
-        role: 'assistant',
-        content: `I've queued your attachment for processing. We'll extract the data after I process your current message.`,
-        actions: [],
-        attachments: attachments ?? null
-      })
-      return Response.json({
-        message: { id: queuedMsg.id, role: 'assistant' as const, content: queuedMsg.content, actions: [] },
-        sessionId: session.id,
-      } satisfies ChatResponse, { status: 200 })
-    }
+    // FIX: Process all attachments immediately through Gemini (both routine and non-routine)
+    // This ensures LOG_DATA actions are generated correctly for routine step advancement
+    // and attachments are processed without queueing delays in non-routine chat.
 
     // Save user message
     await addMessage({
@@ -792,12 +776,23 @@ export async function POST(req: Request): Promise<Response> {
           }
 
           // Save model response — capture the returned row to get the real DB UUID
-          const assistantMessage = await addMessage({
-            session_id: session.id,
-            role: 'assistant',
-            content: fullText,
-            actions: sanitizedActions.filter((a): a is AnyActionCard => a !== null),
-          })
+          let assistantMessage
+          try {
+            assistantMessage = await addMessage({
+              session_id: session.id,
+              role: 'assistant',
+              content: fullText,
+              actions: sanitizedActions.filter((a): a is AnyActionCard => a !== null),
+            })
+          } catch (persistError) {
+            console.error('[ChatRoute] Failed to persist assistant message:', persistError)
+            safeEnqueue(`data: ${JSON.stringify({
+              type: 'error',
+              error: 'Failed to save message to database'
+            })}\n\n`)
+            safeEnqueue('data: [DONE]\n\n')
+            return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } })
+          }
 
           // Send terminal metadata event (best-effort)
           safeEnqueue(`data: ${JSON.stringify({

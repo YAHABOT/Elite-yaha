@@ -60,6 +60,7 @@ export function DashboardClient({
   const [editMode, setEditMode] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [devMode, setDevMode] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   // EX13 FIX: Apply tracker type colors to widgets
@@ -103,15 +104,27 @@ export function DashboardClient({
   }
 
   function handleSkipStartDay(): void {
+    setError(null)
     startTransition(async () => {
-      await skipStartDayAction(localToday)
+      const result = await skipStartDayAction(localToday)
+      if (result.error) {
+        setError(result.error)
+        // Auto-clear error after 5 seconds
+        setTimeout(() => setError(null), 5000)
+      }
     })
   }
 
   function handleSkipEndDay(): void {
     if (!dayState) return
+    setError(null)
     startTransition(async () => {
-      await skipEndDayAction(dayState.date)
+      const result = await skipEndDayAction(dayState.date)
+      if (result.error) {
+        setError(result.error)
+        // Auto-clear error after 5 seconds
+        setTimeout(() => setError(null), 5000)
+      }
     })
   }
 
@@ -127,6 +140,13 @@ export function DashboardClient({
 
   return (
     <div className="flex flex-col gap-5 p-4 md:p-6">
+      {/* Error display */}
+      {error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
       {/* Start Day row: [Start Day banner] [Skip button] — only in NEUTRAL state */}
       {dayStartRoutine && sessionIsNeutral && (
         <div className="flex flex-col gap-2">

@@ -164,7 +164,7 @@ describe('extractFromImage', () => {
 // --- GEMINI_MODEL constant ---
 
 describe('GEMINI_MODEL', () => {
-  it('equals gemini-3.1-flash-lite-preview', () => {
-    expect(GEMINI_MODEL).toBe('gemini-3.1-flash-lite-preview')
+  it('equals gemini-2.0-flash', () => {
+    expect(GEMINI_MODEL).toBe('gemini-2.0-flash')
   })
 })

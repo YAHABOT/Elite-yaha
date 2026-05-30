@@ -83,7 +83,7 @@ vi.mock('@/lib/ai/gemini', () => ({
   streamHealthMessage: mockStreamHealthMessage,
   processHealthMessage: vi.fn(),
   extractFromImage: vi.fn(),
-  GEMINI_MODEL: 'gemini-3.1-flash-lite-preview',
+  GEMINI_MODEL: 'gemini-2.0-flash',
 }))
 
 vi.mock('@/lib/ai/prompt-builder', () => ({

@@ -26,8 +26,9 @@ const MAX_TEXTAREA_ROWS = 6
 // routine is still in progress. Legitimate re-starts work after the TTL expires.
 const ROUTINE_TRIGGER_TTL_MS = 30 * 60 * 1000
 const ACCEPTED_IMAGE_TYPES = 'image/*'
-// Gemini inlineData only supports text/plain, text/csv, and application/pdf — Office formats excluded
-const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv,application/pdf,text/plain,text/csv'
+// Gemini inlineData supports images, audio, text, and PDF — Office formats excluded
+// Updated to match backend ALLOWED_MIME_TYPES (src/lib/ai/gemini.ts)
+const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv,application/pdf,text/plain,text/csv,image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/flac,audio/aac'
 const ALLOWED_MIME_PREFIXES = ['image/', 'audio/']
 const ALLOWED_MIME_EXACT = new Set([
   'application/pdf',
@@ -88,6 +89,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   const [isSaveModalOpen, setIsSaveModalOpen] = useState<boolean>(false)
   const [saveTitle, setSaveTitle] = useState<string>('')
   const [isSaving, setIsSaving] = useState<boolean>(false)
+  // BUG #4 fix: separate auto-prompt delay state from network loading state
+  // allows user input during the 600ms auto-advance timeout
+  const [isAutoPrompting, setIsAutoPrompting] = useState<boolean>(false)
 
   // B8: streaming text accumulates here until the [DONE] event arrives
   const [streamingText, setStreamingText] = useState<string>('')
@@ -113,17 +117,37 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // NEW-CHAT POLL: When ChatInterface loads with only a user message (no AI response yet),
   // the user navigated here early while the server was still generating. Poll via
   // router.refresh() until the AI response appears in initialMessages.
+  // BUG #1 fix: Use ref to track interval ID for reliable cleanup
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   useEffect(() => {
     if (sessionId === 'new') return
-    const lastInit = initialMessages[initialMessages.length - 1]
-    if (!lastInit || lastInit.role !== 'user') return
+    // Messages arrive DESC (newest first). Index 0 is the most recent message.
+    // The old check used the last array item (oldest = always a user message),
+    // which caused the poll to fire on every existing session opened from sidebar.
+    const mostRecent = initialMessages[0]
+    if (!mostRecent || mostRecent.role !== 'user') return
+
+    // Only poll if the dangling user message is fresh (< 2 min) — guards against
+    // genuinely old sessions where the AI never responded.
+    const ageMs = Date.now() - new Date(mostRecent.created_at).getTime()
+    if (ageMs > 2 * 60 * 1000) return
 
     setIsLoading(true)
     let count = 0
     const interval = setInterval(() => {
       count++
+      // Re-check condition: if last message is no longer from user, stop polling
+      const current = initialMessages[initialMessages.length - 1]
+      if (!current || current.role !== 'user') {
+        clearInterval(interval)
+        pollingIntervalRef.current = null
+        serverPollStopRef.current = null
+        setIsLoading(false)
+        return
+      }
       if (count >= 20) { // 60 seconds max
         clearInterval(interval)
+        pollingIntervalRef.current = null
         serverPollStopRef.current = null
         setIsLoading(false)
       } else {
@@ -131,28 +155,39 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       }
     }, 3000)
 
+    pollingIntervalRef.current = interval
+
     serverPollStopRef.current = () => {
-      clearInterval(interval)
-      serverPollStopRef.current = null
-      setIsLoading(false)
+      if (pollingIntervalRef.current !== null) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+        serverPollStopRef.current = null
+        setIsLoading(false)
+      }
     }
 
     return () => {
-      clearInterval(interval)
-      serverPollStopRef.current = null
+      if (pollingIntervalRef.current !== null) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+        serverPollStopRef.current = null
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // only on mount — polling is a one-time startup concern
+  }, [initialMessages, sessionId, router])
 
   // Sync new assistant messages received from router.refresh() into local state
+  // BUG #1 fix: Ensure polling stops reliably when fresh assistant messages arrive
   useEffect(() => {
     if (!serverPollStopRef.current) return // no active poll, nothing to sync
     setMessages(prev => {
       const existingIds = new Set(prev.map(m => m.id))
       const fresh = initialMessages.filter(m => m.role === 'assistant' && !existingIds.has(m.id))
       if (fresh.length === 0) return prev
-      // AI response arrived — stop polling
-      serverPollStopRef.current?.()
+      // AI response arrived — stop polling immediately
+      const stopFn = serverPollStopRef.current
+      if (stopFn) {
+        stopFn()
+      }
       return [...prev, ...fresh]
     })
   }, [initialMessages]) // dep: only initialMessages (functional update avoids messages dep)
@@ -480,12 +515,18 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 if (shouldAutoPromptNextStep && finalSessionId && isMountedRef.current) {
                   // Schedule auto-send of empty message to trigger Step 2 prompt, with a small delay
                   // to allow UI to render the completion message first
+                  // BUG #4 fix: Set isAutoPrompting flag to prevent submit button from being blocked
+                  setIsAutoPrompting(true)
                   const timeoutId = setTimeout(() => {
                     if (isMountedRef.current) {
                       void handleSendSilent('')
+                      setIsAutoPrompting(false)
                     }
                   }, 600)
-                  return () => clearTimeout(timeoutId)
+                  return () => {
+                    clearTimeout(timeoutId)
+                    setIsAutoPrompting(false)
+                  }
                 }
               } else if (event.type === 'error') {
                 throw new Error(event.error ?? 'Streaming error')
@@ -1094,7 +1135,61 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             <p className="text-[10px] font-black uppercase tracking-widest text-nutrition/70">Active Ritual</p>
             <h4 className="text-sm font-black text-foreground">Step {session.current_step_index + 1} In Progress</h4>
           </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground/40" />
+          <button
+            type="button"
+            onClick={async () => {
+              setIsLoading(true)
+              abortControllerRef.current?.abort()
+              const controller = new AbortController()
+              abortControllerRef.current = controller
+              try {
+                const res = await fetch('/api/chat', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: 'skip',
+                    sessionId: currentSessionId,
+                    routineId: session?.active_routine_id,
+                    agentId: activeAgentId,
+                    attachments: [],
+                    date: getLocalDateStr(),
+                  }),
+                  signal: controller.signal,
+                })
+                if (!res.ok) throw new Error('Failed to skip step')
+                const attachContentType = res.headers.get('content-type') ?? ''
+                if (attachContentType.includes('text/event-stream') && res.body) {
+                  const reader = res.body.getReader()
+                  const decoder = new TextDecoder()
+                  let buffer = ''
+                  for (;;) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+                    buffer += decoder.decode(value, { stream: true })
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() ?? ''
+                    for (const line of lines) {
+                      if (!line.startsWith('data: ')) continue
+                      try {
+                        const event = JSON.parse(line.slice(6)) as { type: string; sessionId?: string; content?: string }
+                        if (event.type === 'done') {
+                          if (event.sessionId) setCurrentSessionId(event.sessionId)
+                        }
+                      } catch { /* ignore parse errors */ }
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error('Skip failed:', e)
+              } finally {
+                setIsLoading(false)
+              }
+            }}
+            disabled={isLoading}
+            className="px-3 py-2 rounded-xl bg-nutrition/20 hover:bg-nutrition/30 text-nutrition text-xs font-bold uppercase transition-colors disabled:opacity-50"
+          >
+            Skip
+          </button>
         </div>
       )}
 

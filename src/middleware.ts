@@ -15,6 +15,8 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
+  console.log(`[MW] ${new Date().toISOString()} - Processing: ${request.method} ${request.nextUrl.pathname}`)
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -40,9 +42,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // Refresh session — this is NOT a security boundary.
   // Auth is verified again in the Data Access Layer and App Layout.
+  console.log(`[MW] Calling supabase.auth.getUser()...`)
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  console.log(`[MW] getUser() completed. User: ${user?.id || 'none'}`)
 
   // Redirect unauthenticated users away from protected routes
   if (!user && isProtectedPath(request.nextUrl.pathname)) {
