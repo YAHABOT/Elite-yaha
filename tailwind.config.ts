@@ -7,7 +7,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#050505',
+        background: '#050c1a',
         foreground: 'hsl(var(--foreground))',
         card: {
           DEFAULT: 'hsl(var(--card))',
@@ -40,17 +40,17 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
-        // OLED Surface Tokens (used by all Pro Max components)
-        surface: '#0A0A0A',
-        surfaceHighlight: '#121212',
-        textPrimary: '#F5F5F5',
-        textMuted: '#6B7280',
-        // Health Category Tokens (hardcoded hex so Tailwind JIT generates opacity variants)
-        nutrition: '#10b981',
-        sleep: '#3b82f6',
-        workout: '#f97316',
-        mood: '#a855f7',
-        water: '#06b6d4',
+        // MasterLog Surface Tokens
+        surface: '#091424',
+        surfaceHighlight: '#0e1d34',
+        textPrimary: '#e2e8f0',
+        textMuted: '#94a3b8',
+        // Health Category Tokens — MasterLog palette
+        nutrition: '#00ff9d',
+        sleep: '#a855f7',
+        workout: '#ff6b35',
+        mood: '#ffd700',
+        water: '#00d4ff',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -59,6 +59,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['var(--font-orbitron)', 'monospace'],
       },
     },
   },

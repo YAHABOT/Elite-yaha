@@ -3,42 +3,36 @@
 @tailwind utilities;
 
 :root {
-  --background: 240 10% 2%;
-  --foreground: 210 40% 98%;
-  
-  --card: 240 10% 4%;
-  --card-foreground: 210 40% 98%;
-  
-  --popover: 240 10% 4%;
-  --popover-foreground: 210 40% 98%;
-  
-  --primary: 270 91% 65%;
-  --primary-foreground: 210 40% 98%;
-  
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
-  
-  --muted: 240 10% 6%;
-  --muted-foreground: 215 20% 65%;
-  
-  --accent: 240 10% 6%;
-  --accent-foreground: 210 40% 98%;
-  
+  /* MasterLog Navy Theme */
+  --background: 210 57% 7%;          /* #050c1a — deepest navy */
+  --foreground: 210 30% 91%;         /* #e2e8f0 — primary text */
+
+  --card: 210 62% 9%;                /* #091424 — card/sidebar bg */
+  --card-foreground: 210 30% 91%;
+
+  --popover: 210 55% 13%;            /* #0e1d34 — slightly lighter */
+  --popover-foreground: 210 30% 91%;
+
+  --primary: 191 100% 50%;           /* #00d4ff — cyan */
+  --primary-foreground: 210 100% 4%; /* dark text on cyan */
+
+  --secondary: 210 55% 13%;          /* #0e1d34 */
+  --secondary-foreground: 210 30% 91%;
+
+  --muted: 210 55% 10%;
+  --muted-foreground: 215 19% 65%;   /* #94a3b8 */
+
+  --accent: 191 100% 50%;            /* cyan */
+  --accent-foreground: 210 100% 4%;
+
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-  
-  --border: 0 0% 15%;
-  --input: 0 0% 15%;
-  --ring: 270 91% 65%;
 
-  /* Health Tokens */
-  --nutrition: 161 72% 39%;
-  --sleep: 217 91% 60%;
-  --workout: 0 84% 60%;
-  --mood: 38 92% 50%;
-  --water: 199 89% 48%;
-  
-  --radius: 0.75rem;
+  --border: 200 50% 12%;             /* subtle cyan-tinted border */
+  --input: 210 62% 9%;
+  --ring: 191 100% 50%;              /* cyan ring */
+
+  --radius: 1rem;                    /* 16px — matches MasterLog cards */
 }
 
 @layer base {
@@ -49,11 +43,17 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     background-image:
-      radial-gradient(circle at 50% -20%, #a855f715, transparent),
-      radial-gradient(circle at 0% 100%, #10b98105, transparent);
+      radial-gradient(circle at 50% -20%, rgba(0,212,255,0.05), transparent),
+      radial-gradient(circle at 0% 100%, rgba(0,255,157,0.03), transparent);
     background-attachment: fixed;
     min-height: 100vh;
     overscroll-behavior: none;
+  }
+
+  /* Orbitron for display labels — uppercase tracking-widest elements */
+  .font-display,
+  [class~="tracking-widest"] {
+    font-family: var(--font-orbitron), monospace;
   }
 }
 
