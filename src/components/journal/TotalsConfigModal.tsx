@@ -42,7 +42,7 @@ export function loadTotalsConfig(trackerId: string, schema: SchemaField[]): Trac
 
   const result: TrackerTotalsConfig = {}
   for (const field of schema) {
-    if (field.type === 'text' || field.type === 'select') continue
+    if (field.type === 'text' || field.type === 'time' || field.type === 'select') continue
     result[field.fieldId] = stored[trackerId]?.[field.fieldId] ?? {
       hidden: false,
       aggregation: getDefaultAggregation(field),
@@ -82,7 +82,7 @@ export function TotalsConfigModal({
   onClose,
   onSave,
 }: Props): React.ReactElement {
-  const numericFields = schema.filter((f) => f.type !== 'text' && f.type !== 'select')
+  const numericFields = schema.filter((f) => f.type !== 'text' && f.type !== 'time' && f.type !== 'select')
 
   const [config, setConfig] = useState<TrackerTotalsConfig>(() =>
     loadTotalsConfig(trackerId, schema)

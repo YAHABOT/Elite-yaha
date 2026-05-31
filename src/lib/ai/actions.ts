@@ -2,7 +2,7 @@ import type { ActionCard, CreateTrackerCard, UpdateDataCard, AnyActionCard, Sche
 
 const VALID_SOURCES = new Set(['chat', 'telegram', 'manual'])
 const VALID_TRACKER_TYPES = new Set(['nutrition', 'sleep', 'workout', 'mood', 'water', 'custom'])
-const VALID_FIELD_TYPES = new Set(['number', 'text', 'rating', 'duration', 'select'])
+const VALID_FIELD_TYPES = new Set(['number', 'text', 'rating', 'duration', 'time', 'select'])
 
 export function parseActionCards(responseText: string): AnyActionCard[] {
   const cards: AnyActionCard[] = []
@@ -106,7 +106,7 @@ export function validateCreateTrackerCard(c: Record<string, unknown>): CreateTra
     .filter((f): f is Record<string, unknown> => !!f && typeof f === 'object')
     .map(f => {
       const fieldType = VALID_FIELD_TYPES.has(f.type as string)
-        ? (f.type as 'number' | 'text' | 'rating' | 'duration' | 'select')
+        ? (f.type as 'number' | 'text' | 'rating' | 'duration' | 'time' | 'select')
         : 'text'
       return {
         fieldId: typeof f.fieldId === 'string' ? f.fieldId : `fld_${Math.random().toString(36).slice(2, 7)}`,

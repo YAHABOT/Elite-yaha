@@ -1,4 +1,4 @@
-export type FieldType = 'number' | 'text' | 'rating' | 'duration' | 'select'
+export type FieldType = 'number' | 'text' | 'rating' | 'duration' | 'time' | 'select'
 
 export type SelectFieldDef = {
   type: 'select'

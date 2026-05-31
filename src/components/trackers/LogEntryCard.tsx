@@ -339,8 +339,8 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
           {filledFields.map((field) => {
             const rawValue = log.fields[field.fieldId]
-            // text/select fields or long string values span full width (P2-2.6 FIX)
-            const isWide = field.type === 'text' || field.type === 'select' ||
+            // text/time/select fields or long string values span full width (P2-2.6 FIX)
+            const isWide = field.type === 'text' || field.type === 'time' || field.type === 'select' ||
               (typeof rawValue === 'string' && isNaN(Number(rawValue)) && String(rawValue).length > 15)
             // Strip parenthetical unit suffixes from legacy labels like "Magnesium Citrate (g)" (EX3 cleanup)
             const displayLabel = field.label.replace(/\s*\([^)]+\)\s*$/, '').trim()
@@ -371,8 +371,8 @@ function EditFieldInput({ field, value, onChange }: EditFieldInputProps): React.
   const inputId = `edit-${field.fieldId}`
   const inputClasses =
     'w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-textPrimary focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20'
-  // text/select fields span the full 2-column grid (P2-2.6 FIX)
-  const isWide = field.type === 'text' || field.type === 'select'
+  // text/time/select fields span the full 2-column grid (P2-2.6 FIX)
+  const isWide = field.type === 'text' || field.type === 'time' || field.type === 'select'
 
   return (
     <div className={isWide ? 'col-span-2' : ''}>
@@ -421,6 +421,16 @@ function EditFieldInput({ field, value, onChange }: EditFieldInputProps): React.
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="e.g. 44:25 · 1:23:45 · 90m"
+          className={inputClasses}
+        />
+      )}
+
+      {field.type === 'time' && (
+        <input
+          id={inputId}
+          type="time"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           className={inputClasses}
         />
       )}

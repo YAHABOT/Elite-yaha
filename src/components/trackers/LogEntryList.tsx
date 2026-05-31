@@ -320,6 +320,16 @@ function EditFieldInput({ field, value, onChange }: EditFieldInputProps): React.
           className={inputClasses}
         />
       )}
+
+      {fieldType === 'time' && (
+        <input
+          id={inputId}
+          type="time"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={inputClasses}
+        />
+      )}
     </div>
   )
 }

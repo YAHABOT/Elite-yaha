@@ -279,6 +279,16 @@ function FieldInput({ field, value, onChange }: FieldInputProps): React.ReactEle
         />
       )}
 
+      {field.type === 'time' && (
+        <input
+          id={inputId}
+          type="time"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-textPrimary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      )}
+
       {field.type === 'select' && !field.multiSelect && (
         <select
           id={inputId}

@@ -402,7 +402,7 @@ When the user wants to create a new tracker (e.g. "create a tracker for my mood"
 - When user says "Weight in kg", parse as: label="Weight", type="number", unit="kg"
 
 Valid trackerType values: nutrition, sleep, workout, mood, water, custom
-Valid field types: number, text, rating, duration, select
+Valid field types: number, text, rating, duration, time, select
 Select field example: {"fieldId": "fld_003", "label": "Mood", "type": "select", "selectOptions": ["Great", "Good", "Okay", "Bad"], "multiSelect": false}
 DO NOT output a LOG_DATA action in the same response as CREATE_TRACKER — the tracker must be saved first.
 DO NOT say "I've created it" or "check back later" — the app creates it when the user confirms the card.
