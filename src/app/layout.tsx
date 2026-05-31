@@ -40,8 +40,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>): React.ReactElement {
   return (
-    <html lang="en" className={`${inter.variable} ${orbitron.variable} h-full`}>
-      <body className="bg-background text-foreground h-full overflow-hidden overscroll-none antialiased font-sans">
+    <html lang="en" className={`${inter.variable} ${orbitron.variable}`}>
+      <body className="bg-background text-foreground overflow-hidden overscroll-none antialiased font-sans">
         {children}
       </body>
     </html>

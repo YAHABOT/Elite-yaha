@@ -38,7 +38,11 @@ export default async function AppLayout({
   const confirmOnRefresh = await getConfirmOnRefresh(user.id)
 
   return (
-    <div className="h-dvh overflow-hidden bg-background">
+    // EX11 FIX (v2): Use fixed inset-0 instead of h-dvh. On Android Chrome, overflow:hidden
+    // on body only prevents body-element scroll, not window-level scroll triggered by touch
+    // chaining. position:fixed + inset:0 pins the shell to exact viewport bounds regardless
+    // of body height, making window scroll impossible.
+    <div className="fixed inset-0 overflow-hidden bg-background">
       <RefreshGuard confirmOnRefresh={confirmOnRefresh} />
       <DesktopSidebar user={{ email: user.email ?? null }} />
       <MobileBottomNav />
