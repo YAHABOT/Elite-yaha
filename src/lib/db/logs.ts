@@ -3,6 +3,7 @@ import { getSafeUser } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
 import type { TrackerLog, CreateLogInput, UpdateLogInput } from '@/types/log'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { recomputeDayStats } from '@/lib/db/daily-stats'
 
 const DEFAULT_LIMIT = 50
 const DEFAULT_SOURCE = 'manual'
@@ -34,6 +35,10 @@ export async function createLog(input: CreateLogInput): Promise<TrackerLog> {
     .single()
 
   if (error) throw new Error(`Failed to create log: ${error.message}`)
+
+  // Persist daily aggregates + correlation values for this date
+  const logDate = ((input.logged_at ?? data.logged_at) as string).split('T')[0]
+  try { await recomputeDayStats(logDate, supabase, user.id) } catch { /* non-fatal */ }
 
   // EX11 FIX: Invalidate dashboard cache when a log is added (correlator metrics depend on logs)
   try {
@@ -175,6 +180,10 @@ export async function updateLog(
 
   if (error) throw new Error(`Failed to update log: ${error.message}`)
 
+  // Persist daily aggregates + correlation values for this date
+  const logDate = (data.logged_at as string).split('T')[0]
+  try { await recomputeDayStats(logDate, supabase, user.id) } catch { /* non-fatal */ }
+
   // EX11 FIX: Invalidate dashboard cache when a log is updated (correlator metrics depend on logs)
   try {
     revalidatePath('/dashboard')
@@ -191,6 +200,15 @@ export async function deleteLog(id: string): Promise<void> {
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
+  // Capture the log date before deleting so we can recompute stats afterward
+  const { data: logRow } = await supabase
+    .from('tracker_logs')
+    .select('logged_at')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+  const logDate = logRow ? (logRow.logged_at as string).split('T')[0] : null
+
   const { error } = await supabase
     .from('tracker_logs')
     .delete()
@@ -198,6 +216,11 @@ export async function deleteLog(id: string): Promise<void> {
     .eq('user_id', user.id)
 
   if (error) throw new Error(`Failed to delete log: ${error.message}`)
+
+  // Persist daily aggregates + correlation values for this date
+  if (logDate) {
+    try { await recomputeDayStats(logDate, supabase, user.id) } catch { /* non-fatal */ }
+  }
 
   // EX11 FIX: Invalidate dashboard cache when a log is deleted (correlator metrics depend on logs)
   try {
