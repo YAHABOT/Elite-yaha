@@ -579,6 +579,27 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
   const masterBrain = userContext ? `${userContext}\n---\n` : ''
   const summary = buildDaySummary(dayLogs, trackers)
 
+  // Build explicit field ID templates so the AI cannot hallucinate field IDs from other trackers.
+  // Using actual fld_* IDs + labels prevents the AI from copying field names from step history.
+  const stepTracker = trackers.find(t => t.id === currentStep.trackerId)
+  const fieldsJsonTemplate = currentStep.targetFields
+    .map(fid => {
+      const field = stepTracker?.schema.find(f => f.fieldId === fid)
+      if (!field) return `"${fid}": <value_from_user>`
+      const typeHint = field.type === 'select'
+        ? `"${field.selectOptions?.[0] ?? 'option'}" /* ONLY valid values: ${field.selectOptions?.join(' | ') ?? ''} */`
+        : (field.type === 'number' || field.type === 'time' || field.type === 'rating') ? '<number_from_user>'
+        : '"<text_from_user>"'
+      return `"${fid}": ${typeHint}`
+    })
+    .join(',\n      ')
+  const fieldLabelsJsonTemplate = currentStep.targetFields
+    .map(fid => {
+      const field = stepTracker?.schema.find(f => f.fieldId === fid)
+      return `"${fid}": "${field?.label ?? fid}"`
+    })
+    .join(', ')
+
   const getFieldsInfo = (step: RoutineStep) => {
     const tracker = trackers.find(t => t.id === step.trackerId)
     return step.targetFields.map(fid => {
@@ -774,15 +795,17 @@ CRITICAL FORMATTING REQUIREMENTS (non-negotiable):
 4. DO NOT output explanatory text inside the code block
 5. DO NOT format JSON across multiple separate blocks — use ONE block per response
 
-REQUIRED JSON FORMAT:
+REQUIRED JSON FORMAT (use EXACTLY these field IDs — do NOT substitute field IDs from any other step or tracker):
 \`\`\`json
 [
   {
     "type": "LOG_DATA",
     "trackerId": "${currentStep.trackerId}",
     "trackerName": "${currentStep.trackerName}",
-    "fields": { "fieldId": value },
-    "fieldLabels": { "fieldId": "Label" },
+    "fields": {
+      ${fieldsJsonTemplate}
+    },
+    "fieldLabels": { ${fieldLabelsJsonTemplate} },
     "fieldUnits": ${currentUnits},
     "date": "${today}"
   }

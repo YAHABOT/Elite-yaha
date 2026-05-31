@@ -669,6 +669,19 @@ export async function POST(req: Request): Promise<Response> {
           }
         }
 
+        // SC2 FIX: During a routine, if the AI used the wrong trackerId but the trackerName
+        // matches the current step, correct the trackerId so (a) the right schema is used for
+        // fieldLabels/sanitization and (b) the step advancement check passes.
+        if (action.type === 'LOG_DATA' && activeRoutine) {
+          const currentStep = activeRoutine.steps[session.current_step_index]
+          if (currentStep &&
+              actionWithDate.trackerId !== currentStep.trackerId &&
+              actionWithDate.trackerName === currentStep.trackerName) {
+            console.warn(`[ChatRoute] SC2 FIX: AI used wrong trackerId (${actionWithDate.trackerId}) for step "${currentStep.trackerName}" — correcting to ${currentStep.trackerId}`)
+            actionWithDate = { ...actionWithDate, trackerId: currentStep.trackerId }
+          }
+        }
+
         const tracker = trackers.find(t => t.id === actionWithDate.trackerId)
         if (tracker) {
           const schema = tracker.schema
