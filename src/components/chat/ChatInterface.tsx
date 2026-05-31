@@ -115,19 +115,23 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   useEffect(() => { setIsHydrated(true) }, [])
 
   // NEW-CHAT POLL: When ChatInterface loads with only a user message (no AI response yet),
-  // the user navigated here early while the server was still generating. Poll via
-  // router.refresh() until the AI response appears in initialMessages.
-  // BUG #1 fix: Use ref to track interval ID for reliable cleanup
+  // the user navigated here early (from MobileChatHome) while the server was still generating.
+  // Poll via router.refresh() until the AI response appears in initialMessages.
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   useEffect(() => {
     if (sessionId === 'new') return
-    // Messages are now ASC (oldest first). The last item is the most recent.
-    // Poll only when the most recent message is a dangling user msg with no AI reply yet.
+    // Messages are ASC (oldest first). The last item is the most recent.
     const mostRecent = initialMessages[initialMessages.length - 1]
-    if (!mostRecent || mostRecent.role !== 'user') return
 
-    // Only poll if the dangling user message is fresh (< 2 min) — guards against
-    // genuinely old sessions where the AI never responded.
+    // AI has already responded (or no messages) — ensure loading is off and bail.
+    // This branch runs when router.refresh() brings back the assistant message, which
+    // changes initialMessages, re-runs this effect, and we correctly clear loading here.
+    if (!mostRecent || mostRecent.role !== 'user') {
+      setIsLoading(false) // FIX: clear loading when effect re-runs after AI responds
+      return
+    }
+
+    // Don't poll for genuinely stale sessions (AI never responded, old message)
     const ageMs = Date.now() - new Date(mostRecent.created_at).getTime()
     if (ageMs > 2 * 60 * 1000) return
 
@@ -135,22 +139,13 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     let count = 0
     const interval = setInterval(() => {
       count++
-      // Re-check condition: stop polling when AI has responded (last msg is no longer user)
-      const current = initialMessages[initialMessages.length - 1]
-      if (!current || current.role !== 'user') {
-        clearInterval(interval)
-        pollingIntervalRef.current = null
-        serverPollStopRef.current = null
-        setIsLoading(false)
-        return
-      }
-      if (count >= 20) { // 60 seconds max
+      if (count >= 20) { // 60 seconds max — give up
         clearInterval(interval)
         pollingIntervalRef.current = null
         serverPollStopRef.current = null
         setIsLoading(false)
       } else {
-        router.refresh()
+        router.refresh() // triggers re-render → initialMessages updates → effect re-runs
       }
     }, 3000)
 
@@ -160,33 +155,35 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       if (pollingIntervalRef.current !== null) {
         clearInterval(pollingIntervalRef.current)
         pollingIntervalRef.current = null
-        serverPollStopRef.current = null
-        setIsLoading(false)
       }
+      serverPollStopRef.current = null
+      setIsLoading(false)
     }
 
     return () => {
+      // Cleanup: clear interval when deps change (i.e. initialMessages got new data).
+      // Do NOT setIsLoading(false) here — the effect immediately re-runs and will either
+      // restart the poll (AI still pending) or call setIsLoading(false) above (AI responded).
       if (pollingIntervalRef.current !== null) {
         clearInterval(pollingIntervalRef.current)
         pollingIntervalRef.current = null
-        serverPollStopRef.current = null
       }
+      serverPollStopRef.current = null
     }
   }, [initialMessages, sessionId, router])
 
-  // Sync new assistant messages received from router.refresh() into local state
-  // BUG #1 fix: Ensure polling stops reliably when fresh assistant messages arrive
+  // Sync new assistant messages received from router.refresh() into local state.
+  // FIX: Removed the `if (!serverPollStopRef.current) return` guard — the cleanup runs
+  // BEFORE this effect fires, which nulls serverPollStopRef. Without the guard, messages
+  // are always synced. Loading is cleared by the poll effect re-run or the stop function.
   useEffect(() => {
-    if (!serverPollStopRef.current) return // no active poll, nothing to sync
     setMessages(prev => {
       const existingIds = new Set(prev.map(m => m.id))
       const fresh = initialMessages.filter(m => m.role === 'assistant' && !existingIds.has(m.id))
       if (fresh.length === 0) return prev
-      // AI response arrived — stop polling immediately
+      // Stop the poll interval if still running (belt-and-suspenders — effect re-run also stops it)
       const stopFn = serverPollStopRef.current
-      if (stopFn) {
-        stopFn()
-      }
+      if (stopFn) stopFn()
       return [...prev, ...fresh]
     })
   }, [initialMessages]) // dep: only initialMessages (functional update avoids messages dep)

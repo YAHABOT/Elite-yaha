@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, GitBranch, Eye, Plus, Menu, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, GitBranch, Eye, EyeOff, Plus, Menu, X } from 'lucide-react'
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import type { Correlation } from '@/types/correlator'
@@ -73,6 +73,8 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
   const router = useRouter()
   const [correlatorOpen, setCorrelatorOpen] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  // showTotals: controls the daily totals row at the bottom of each tracker group
+  const [showTotals, setShowTotals] = useState(true)
   const today = getLocalDateStr()
   const isToday = date === today
 
@@ -155,11 +157,15 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
             <div className="flex items-center justify-between border-b border-white/[0.04] px-3 py-3">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => { router.push('/journal/correlations'); setMobileSidebarOpen(false) }}
-                  className="flex items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-textMuted transition-all duration-300 hover:bg-white/[0.05] hover:text-textPrimary"
+                  onClick={() => { setShowTotals((v) => !v); setMobileSidebarOpen(false) }}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all duration-300 ${
+                    showTotals
+                      ? 'border-white/10 bg-white/[0.06] text-textPrimary'
+                      : 'border-white/5 bg-white/[0.02] text-textMuted hover:bg-white/[0.05] hover:text-textPrimary'
+                  }`}
                 >
-                  <Eye className="h-3 w-3" />
-                  View
+                  {showTotals ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                  Totals
                 </button>
                 <button
                   onClick={() => { setCorrelatorOpen(true); setMobileSidebarOpen(false) }}
@@ -224,11 +230,16 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
           {/* Desktop-only action buttons — hidden on mobile (moved to drawer) */}
           <div className="hidden md:flex items-center gap-2">
             <button
-              onClick={() => router.push('/journal/correlations')}
-              className="flex items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-textMuted backdrop-blur-md transition-all duration-300 hover:bg-white/[0.05] hover:text-textPrimary"
+              onClick={() => setShowTotals((v) => !v)}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium backdrop-blur-md transition-all duration-300 ${
+                showTotals
+                  ? 'border-white/10 bg-white/[0.06] text-textPrimary'
+                  : 'border-white/5 bg-white/[0.02] text-textMuted hover:bg-white/[0.05] hover:text-textPrimary'
+              }`}
+              title={showTotals ? 'Hide daily totals' : 'Show daily totals'}
             >
-              <Eye className="h-3 w-3" />
-              View
+              {showTotals ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              Totals
             </button>
             <button
               onClick={() => setCorrelatorOpen(true)}
@@ -296,6 +307,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
                     key={tracker.id}
                     tracker={tracker}
                     logs={trackerLogs}
+                    showTotals={showTotals}
                   />
                 )
               })}

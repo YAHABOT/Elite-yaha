@@ -151,14 +151,14 @@ describe('DayView', () => {
 describe('TrackerDayGroup', () => {
   it('shows the tracker name', () => {
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} showTotals={false} />
     )
     expect(screen.getByText('Daily Nutrition')).toBeInTheDocument()
   })
 
   it('maps fieldId to label using tracker schema', () => {
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} showTotals={false} />
     )
     expect(screen.getByText('Calories')).toBeInTheDocument()
     expect(screen.getByText('Protein')).toBeInTheDocument()
@@ -166,7 +166,7 @@ describe('TrackerDayGroup', () => {
 
   it('shows field values with units', () => {
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} showTotals={false} />
     )
     expect(screen.getByText('350 kcal')).toBeInTheDocument()
     expect(screen.getByText('28 g')).toBeInTheDocument()
@@ -178,7 +178,7 @@ describe('TrackerDayGroup', () => {
       fields: { unknown_field_xyz: 99 },
     }
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[logWithUnknownField]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[logWithUnknownField]} showTotals={false} />
     )
     // Component renders only schema-defined fields — unknown fields are silently ignored
     expect(screen.queryByText('unknown_field_xyz')).not.toBeInTheDocument()
@@ -190,14 +190,14 @@ describe('TrackerDayGroup', () => {
       fields: { fld_001: null, fld_002: 28 },
     }
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[logWithNullField]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[logWithNullField]} showTotals={false} />
     )
     expect(screen.getByText('---')).toBeInTheDocument()
   })
 
   it('shows logged_at time for each log entry', () => {
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} showTotals={false} />
     )
     // Time should be present (formatted as e.g. "2:30 PM")
     // We check for AM or PM to avoid timezone-specific matching
@@ -207,7 +207,7 @@ describe('TrackerDayGroup', () => {
 
   it('shows correct entry count label (singular)', () => {
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} showTotals={false} />
     )
     expect(screen.getByText('1 entry')).toBeInTheDocument()
   })
@@ -221,6 +221,7 @@ describe('TrackerDayGroup', () => {
       <TrackerDayGroup
         tracker={MOCK_TRACKER_NUTRITION}
         logs={[MOCK_LOG_NUTRITION, secondLog]}
+        showTotals={false}
       />
     )
     expect(screen.getByText('2 entries')).toBeInTheDocument()
@@ -228,14 +229,14 @@ describe('TrackerDayGroup', () => {
 
   it('shows source badge for each log', () => {
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} showTotals={false} />
     )
     expect(screen.getByText('manual')).toBeInTheDocument()
   })
 
   it('shows the color dot with the tracker color', () => {
     render(
-      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} />
+      <TrackerDayGroup tracker={MOCK_TRACKER_NUTRITION} logs={[MOCK_LOG_NUTRITION]} showTotals={false} />
     )
     const dot = screen.getByTestId('tracker-color-dot')
     expect(dot).toHaveStyle({ backgroundColor: '#10b981' })
