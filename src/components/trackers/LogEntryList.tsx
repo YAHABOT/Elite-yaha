@@ -310,12 +310,13 @@ function EditFieldInput({ field, value, onChange }: EditFieldInputProps): React.
         />
       )}
 
-      {fieldType === 'time' && (
+      {fieldType === 'duration' && (
         <input
           id={inputId}
-          type="time"
+          type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. 44:25 · 1:23:45 · 90m"
           className={inputClasses}
         />
       )}

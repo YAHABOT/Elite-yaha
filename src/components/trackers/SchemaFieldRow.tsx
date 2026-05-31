@@ -8,7 +8,7 @@ const FIELD_TYPE_OPTIONS: { value: FieldType; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'text', label: 'Text' },
   { value: 'rating', label: 'Rating' },
-  { value: 'time', label: 'Time' },
+  { value: 'duration', label: 'Duration' },
   { value: 'select', label: 'Select' },
 ]
 

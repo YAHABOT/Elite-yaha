@@ -3,7 +3,7 @@ export type ActionCardType = 'LOG_DATA' | 'UPDATE_DATA' | 'CREATE_TRACKER'
 export type SchemaFieldDef = {
   fieldId: string
   label: string
-  type: 'number' | 'text' | 'rating' | 'time' | 'select'
+  type: 'number' | 'text' | 'rating' | 'duration' | 'select'
   unit?: string
   selectOptions?: string[]
   multiSelect?: boolean

@@ -79,7 +79,7 @@ function getFieldOptions(trackers: Tracker[]): Array<{ label: string; trackerId:
   const opts: Array<{ label: string; trackerId: string; fieldId: string }> = []
   for (const t of trackers) {
     for (const f of t.schema) {
-      if (f.type === 'number' || f.type === 'rating' || f.type === 'time') {
+      if (f.type === 'number' || f.type === 'rating' || f.type === 'duration') {
         opts.push({ label: `${t.name}: ${f.label}`, trackerId: t.id, fieldId: f.fieldId })
       }
     }

@@ -26,6 +26,7 @@ type StatItem = {
   unit?: string
   value: number
   aggregation: 'sum' | 'avg'
+  fieldType: string
 }
 
 function computeDailyStats(
@@ -56,7 +57,7 @@ function computeDailyStats(
         ? values.reduce((a, b) => a + b, 0) / values.length
         : values.reduce((a, b) => a + b, 0)
 
-    results.push({ fieldId: field.fieldId, label: field.label, unit: field.unit, value, aggregation: cfg.aggregation })
+    results.push({ fieldId: field.fieldId, label: field.label, unit: field.unit, value, aggregation: cfg.aggregation, fieldType: field.type })
   }
 
   return results
@@ -260,7 +261,7 @@ export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement
                               {stat.label}
                             </span>
                             <span className="text-sm font-black text-textPrimary">
-                              {formatFieldValue(stat.value, stat.unit, stat.label)}
+                              {formatFieldValue(stat.value, stat.unit, stat.label, stat.fieldType)}
                             </span>
                             <span className="text-[9px] font-black uppercase tracking-widest text-textMuted/30">
                               {stat.aggregation === 'avg' ? 'Average' : 'Total'}

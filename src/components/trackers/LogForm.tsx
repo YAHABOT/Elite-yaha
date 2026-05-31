@@ -27,6 +27,45 @@ function buildInitialValues(schema: SchemaField[]): Record<string, string> {
   return values
 }
 
+// Parse a duration string to total seconds. Accepts HH:MM:SS, MM:SS, or written ("44m 25s").
+// Returns null if the input cannot be parsed or exceeds 24 hours.
+function parseDurationInput(raw: string): number | null {
+  const s = raw.trim()
+  if (s === '') return null
+
+  // HH:MM:SS (3 parts) — always unambiguous
+  const hmsMatch = s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/)
+  if (hmsMatch) {
+    const total = parseInt(hmsMatch[1]) * 3600 + parseInt(hmsMatch[2]) * 60 + parseInt(hmsMatch[3])
+    return total <= 86400 ? total : null
+  }
+
+  // MM:SS or HH:MM (2 parts) — treat as MM:SS (most natural for workout durations; user types HH:MM:SS for hours)
+  const msMatch = s.match(/^(\d{1,3}):(\d{2})$/)
+  if (msMatch) {
+    const total = parseInt(msMatch[1]) * 60 + parseInt(msMatch[2])
+    return total <= 86400 ? total : null
+  }
+
+  // Written: "1h 23m", "44m 25s", "2h 30m 15s", "90m", "45 min"
+  const hMatch = s.match(/(\d+)\s*h/i)
+  const mMatch = s.match(/(\d+)\s*m(?!s)/i)
+  const secMatch = s.match(/(\d+)\s*s(?:ec)?/i)
+  if (hMatch || mMatch || secMatch) {
+    const total =
+      (hMatch ? parseInt(hMatch[1]) * 3600 : 0) +
+      (mMatch ? parseInt(mMatch[1]) * 60 : 0) +
+      (secMatch ? parseInt(secMatch[1]) : 0)
+    return total <= 86400 ? total : null
+  }
+
+  // Plain number — treat as seconds
+  const n = parseFloat(s)
+  if (!isNaN(n)) return Math.round(n) <= 86400 ? Math.round(n) : null
+
+  return null
+}
+
 function parseFieldValues(
   schema: SchemaField[],
   rawValues: Record<string, string>
@@ -41,6 +80,8 @@ function parseFieldValues(
     if (field.type === 'number' || field.type === 'rating') {
       const parsed = Number(raw)
       fields[field.fieldId] = Number.isNaN(parsed) ? null : parsed
+    } else if (field.type === 'duration') {
+      fields[field.fieldId] = parseDurationInput(raw)
     } else {
       fields[field.fieldId] = raw
     }
@@ -227,13 +268,14 @@ function FieldInput({ field, value, onChange }: FieldInputProps): React.ReactEle
         </div>
       )}
 
-      {field.type === 'time' && (
+      {field.type === 'duration' && (
         <input
           id={inputId}
-          type="time"
+          type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-textPrimary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="e.g. 44:25 · 1:23:45 · 90m · 2h 30m"
+          className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-textPrimary placeholder-textMuted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       )}
 

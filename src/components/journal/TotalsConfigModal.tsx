@@ -26,8 +26,8 @@ type StoredConfig = {
 const STORAGE_KEY = 'journal_totals_config'
 
 export function getDefaultAggregation(field: SchemaField): FieldAggregation {
-  // Ratings and time values should be averaged — summing scores / timestamps is meaningless
-  if (field.type === 'rating' || field.type === 'time') return 'avg'
+  // Ratings and durations default to avg — summing heart rates / scores / durations is rarely useful
+  if (field.type === 'rating' || field.type === 'duration') return 'avg'
   return 'sum'
 }
 

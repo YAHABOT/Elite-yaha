@@ -2,7 +2,7 @@ import type { ActionCard, CreateTrackerCard, UpdateDataCard, AnyActionCard, Sche
 
 const VALID_SOURCES = new Set(['chat', 'telegram', 'manual'])
 const VALID_TRACKER_TYPES = new Set(['nutrition', 'sleep', 'workout', 'mood', 'water', 'custom'])
-const VALID_FIELD_TYPES = new Set(['number', 'text', 'rating', 'time', 'select'])
+const VALID_FIELD_TYPES = new Set(['number', 'text', 'rating', 'duration', 'select'])
 
 export function parseActionCards(responseText: string): AnyActionCard[] {
   const cards: AnyActionCard[] = []
@@ -106,7 +106,7 @@ export function validateCreateTrackerCard(c: Record<string, unknown>): CreateTra
     .filter((f): f is Record<string, unknown> => !!f && typeof f === 'object')
     .map(f => {
       const fieldType = VALID_FIELD_TYPES.has(f.type as string)
-        ? (f.type as 'number' | 'text' | 'rating' | 'time' | 'select')
+        ? (f.type as 'number' | 'text' | 'rating' | 'duration' | 'select')
         : 'text'
       return {
         fieldId: typeof f.fieldId === 'string' ? f.fieldId : `fld_${Math.random().toString(36).slice(2, 7)}`,
@@ -201,7 +201,7 @@ export function sanitizeFields(
   const consumed = new Set<string>()
 
   for (const schemaDef of schema) {
-    let raw = resolveField(schemaDef.fieldId, schemaDef.label, fields)
+    const raw = resolveField(schemaDef.fieldId, schemaDef.label, fields)
 
     // Track which key was matched so we don't re-use it
     if (raw !== undefined) {
@@ -217,25 +217,45 @@ export function sanitizeFields(
 
     if (raw === undefined) continue
 
-    // Handle duration strings like "06:08", "7h 13m", "1:05" — ONLY for time fields.
-    // Never run on text fields: "500ml", "morning", etc. all contain 'm' or 'h' and
-    // would otherwise get corrupted into decimal hours.
-    if (schemaDef.type === 'time' && typeof raw === 'string' && (raw.includes(':') || /\d+\s*h/i.test(raw) || /\d+\s*m(?!l)/i.test(raw))) {
-      const match = raw.match(/(\d+)\s*h?[:\s]\s*(\d+)\s*m?/)
-      if (match) {
-        const h = parseInt(match[1], 10)
-        const m = parseInt(match[2], 10)
-        raw = h + m / 60
-      } else {
-        const hMatch = raw.match(/(\d+)\s*h/i)
-        const mMatch = raw.match(/(\d+)\s*m(?!l)/i)
-        if (hMatch || mMatch) {
-          raw = (hMatch ? parseInt(hMatch[1], 10) : 0) + (mMatch ? parseInt(mMatch[1], 10) / 60 : 0)
+    // DURATION field: parse any format → total seconds (integer).
+    // AI prompt instructs output as total seconds, but we handle string fallbacks robustly.
+    // Formats accepted: HH:MM:SS, MM:SS, "44m 25s", "1h 30m", "2665" (plain seconds).
+    // Key rule for 2-part (MM:SS): first part ≥ 24 → definitely minutes (no workout is 24+ hours).
+    // First part < 24 → treat as minutes too (most workout durations are < 24min, and user can type HH:MM:SS for hour+ workouts).
+    if (schemaDef.type === 'duration') {
+      let seconds: number | null = null
+      if (typeof raw === 'number') {
+        seconds = Number.isNaN(raw) ? null : Math.round(raw)
+      } else if (typeof raw === 'string') {
+        const str = raw.trim()
+        const hmsMatch = str.match(/^(\d{1,2}):(\d{2}):(\d{2})$/)
+        if (hmsMatch) {
+          seconds = parseInt(hmsMatch[1]) * 3600 + parseInt(hmsMatch[2]) * 60 + parseInt(hmsMatch[3])
+        } else {
+          const msMatch = str.match(/^(\d{1,3}):(\d{2})$/)
+          if (msMatch) {
+            // 2-part always MM:SS for workout durations
+            seconds = parseInt(msMatch[1]) * 60 + parseInt(msMatch[2])
+          } else {
+            const hMatch = str.match(/(\d+)\s*h/i)
+            const mMatch = str.match(/(\d+)\s*m(?!s)/i)
+            const sMatch = str.match(/(\d+)\s*s(?:ec)?/i)
+            if (hMatch || mMatch || sMatch) {
+              seconds = (hMatch ? parseInt(hMatch[1]) * 3600 : 0) +
+                        (mMatch ? parseInt(mMatch[1]) * 60 : 0) +
+                        (sMatch ? parseInt(sMatch[1]) : 0)
+            } else {
+              const n = parseFloat(str)
+              if (!isNaN(n)) seconds = Math.round(n)
+            }
+          }
         }
       }
+      result[schemaDef.fieldId] = (seconds !== null && seconds >= 0 && seconds <= 86400) ? seconds : null
+      continue
     }
 
-    if (schemaDef.type === 'number' || schemaDef.type === 'rating' || schemaDef.type === 'time') {
+    if (schemaDef.type === 'number' || schemaDef.type === 'rating') {
       const num = Number(raw)
 
       if (Number.isNaN(num)) {

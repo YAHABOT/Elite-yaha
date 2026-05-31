@@ -1,4 +1,4 @@
-export function formatFieldValue(value: number | string | string[] | null, unit?: string, label?: string): string {
+export function formatFieldValue(value: number | string | string[] | null, unit?: string, label?: string, fieldType?: string): string {
   if (value === null || value === undefined || value === '') return '---'
 
   // Handle multi-select arrays — join with comma separator
@@ -10,6 +10,19 @@ export function formatFieldValue(value: number | string | string[] | null, unit?
   let val = value
   if (typeof val === 'string' && !isNaN(Number(val)) && val.trim() !== '') {
     val = Number(val)
+  }
+
+  // duration field type — value is total seconds (integer)
+  if (fieldType === 'duration' && typeof val === 'number') {
+    const totalSecs = Math.round(Math.abs(val))
+    const h = Math.floor(totalSecs / 3600)
+    const m = Math.floor((totalSecs % 3600) / 60)
+    const s = totalSecs % 60
+    if (h > 0 && s === 0) return `${h}h ${m}m`
+    if (h > 0) return `${h}h ${m}m ${s}s`
+    if (m > 0 && s === 0) return `${m}m`
+    if (m > 0) return `${m}m ${s}s`
+    return `${s}s`
   }
 
   const cleanLabel = (label || '').toLowerCase().trim()

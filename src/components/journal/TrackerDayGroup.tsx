@@ -48,6 +48,7 @@ type TotalItem = {
   value: number
   unit?: string
   aggregation: 'sum' | 'avg'
+  fieldType: string
 }
 
 function computeTotals(
@@ -84,6 +85,7 @@ function computeTotals(
       value,
       unit: field.unit,
       aggregation: cfg.aggregation,
+      fieldType: field.type,
     })
   }
 
@@ -192,7 +194,7 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
                         <span
                           className={`text-sm font-semibold text-textPrimary ${isWideField ? 'break-words' : ''}`}
                         >
-                          {formatFieldValue(value, unit, label)}
+                          {formatFieldValue(value, unit, label, schemaField.type)}
                         </span>
                       </div>
                     )
@@ -231,7 +233,7 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
                     {item.aggregation === 'avg' ? 'Avg ' : ''}{item.label}
                   </span>
                   <span className="text-sm font-bold text-textPrimary">
-                    {formatFieldValue(item.value, item.unit, item.label)}
+                    {formatFieldValue(item.value, item.unit, item.label, item.fieldType)}
                   </span>
                 </div>
               ))}

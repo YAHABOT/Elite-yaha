@@ -337,21 +337,25 @@ FILE RECEIPT LOGGING & MACRO EXTRACTION (BUG-V32-EX28 FIX):
 `
 
 const DURATION_FORMAT_RULE = `
-DURATION FIELD FORMATTING:
-Match the unit shown in the tracker schema EXACTLY. Two different duration units are used:
+DURATION FIELD TYPE — CRITICAL RULES:
+Fields with type="duration" store elapsed time as TOTAL SECONDS (plain integer). Always output a single integer.
 
-**Unit = "hrs"** (sleep, recovery, time-in-bed, session durations measured in hours):
-  → Log as DECIMAL HOURS: 7h 30m → 7.5 | 6h 8m → 6.133 | 45 minutes → 0.75 | 8 hours → 8.0
-  → The app displays these as "Xh Ym" automatically
-  → NEVER write "7:30" or "6h8m" — always a plain decimal number
+**How to convert what you see on screen:**
+- Samsung Health / Garmin / Fitbit / Amazfit show durations as MM:SS (< 1 hour) or HH:MM:SS (≥ 1 hour)
+- "44:25" on Samsung Health = 44 minutes 25 seconds = 44×60 + 25 = **2665**
+- "1:23:45" = 1 hour 23 minutes 45 seconds = 3600 + 23×60 + 45 = **5025**
+- "02:12" (short workout) = 2 minutes 12 seconds = **132** (NOT 2 hours 12 minutes)
+- "2h 30m" = 2 hours 30 minutes = 2×3600 + 30×60 = **9000**
 
-**Unit = "mins"** (performance times, run splits, benchmark durations measured in minutes):
-  → Log as DECIMAL MINUTES: 4m 3s → 4.05 | 12m 30s → 12.5 | 1m 45s → 1.75 | 59s → 0.983
-  → The app displays these as "M:SS" automatically
-  → NEVER write "4:03" or "1:45" — always a plain decimal number of minutes
+**CRITICAL disambiguation rule for 2-part MM:SS format:**
+- If the first number ≥ 60, it is definitely minutes (e.g. "75:00" = 75 min = 4500 sec)
+- If the first number < 24, it could be HH:MM or MM:SS — use CONTEXT:
+  - Workout/run/swim durations of a few minutes → MM:SS → "12:30" = 12 min 30 sec = 750
+  - Workout/run over 1 hour → the app will show HH:MM:SS → "1:23:45"
+  - Sleep/recovery → likely HH:MM → "7:30" = 7 hours 30 min = 27000
+- When in doubt for a workout context, prefer MM:SS
 
-**Exception**: if the field type is "text", write a human-readable string (e.g. "4:03", "7:30:00").
-**Quick rule**: look at the unit. "hrs" → decimal hours. "mins" → decimal minutes. No string formats.
+**Other number fields with unit "hrs" or "mins" are NOT duration type — follow existing rules for those.**
 `
 
 const FOOD_LOOKUP_RULE = `
@@ -398,7 +402,7 @@ When the user wants to create a new tracker (e.g. "create a tracker for my mood"
 - When user says "Weight in kg", parse as: label="Weight", type="number", unit="kg"
 
 Valid trackerType values: nutrition, sleep, workout, mood, water, custom
-Valid field types: number, text, rating, time, select
+Valid field types: number, text, rating, duration, select
 Select field example: {"fieldId": "fld_003", "label": "Mood", "type": "select", "selectOptions": ["Great", "Good", "Okay", "Bad"], "multiSelect": false}
 DO NOT output a LOG_DATA action in the same response as CREATE_TRACKER — the tracker must be saved first.
 DO NOT say "I've created it" or "check back later" — the app creates it when the user confirms the card.
@@ -588,7 +592,7 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
       if (!field) return `"${fid}": <value_from_user>`
       const typeHint = field.type === 'select'
         ? `"${field.selectOptions?.[0] ?? 'option'}" /* ONLY valid values: ${field.selectOptions?.join(' | ') ?? ''} */`
-        : (field.type === 'number' || field.type === 'time' || field.type === 'rating') ? '<number_from_user>'
+        : (field.type === 'number' || field.type === 'duration' || field.type === 'rating') ? '<number_from_user>'
         : '"<text_from_user>"'
       return `"${fid}": ${typeHint}`
     })
@@ -763,7 +767,7 @@ ${historicalSection ? `\n${historicalSection}\n` : ''}
 2. **Logic Step**: First, analyze the user's input. Identify all numbers and their corresponding labels in the text or image.
 3. **Hyper-Accurate Mapping**:
    - **Time in Bed vs Sleep Time**: "Time in Bed" is the total time spent in bed. "Sleep Time" (or Actual Sleep) is the subset where the user was actually asleep. Usually Sleep Time < Time in Bed.
-   - **Duration Formatting**: ALWAYS output durations as DECIMAL HOURS (e.g., 6.133 for "6h 8m", 7.5 for "7h 30m"). NEVER use HH:mm string format. The app displays decimal hours correctly. See DURATION_FORMAT_RULE above.
+   - **Duration Formatting**: For fields with type="duration", output TOTAL SECONDS as a plain integer (e.g., "6h 8m" → 22080, "44:25" MM:SS from Samsung → 2665). See DURATION_FORMAT_RULE above.
    - **Scores**: Map "Sleep Score" specifically to the "Score" field, not duration.
 4. **Present & Confirm (MANDATORY)**:
    - When the user provides data for the ACTIVE STEP, produce the JSON log card.

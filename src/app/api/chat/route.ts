@@ -693,7 +693,7 @@ export async function POST(req: Request): Promise<Response> {
             fieldLabels[f.fieldId] = f.label
             fieldOrder.push(f.fieldId)
             if (f.unit) fieldUnits[f.fieldId] = f.unit
-            if (f.type === 'time' && !f.unit) fieldUnits[f.fieldId] = 'hrs'
+            // duration fields store seconds — no unit override needed; display handled by fieldType
             // BUG-V32-5 FIX: Populate fieldDefinitions so ActionCard knows field types for layout decisions
             fieldDefinitions[f.fieldId] = {
               fieldId: f.fieldId,

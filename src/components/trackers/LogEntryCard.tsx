@@ -31,6 +31,35 @@ function toDatetimeLocal(isoUTC: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// Parse a duration string to total seconds (shared with LogForm logic)
+function parseDurationToSeconds(raw: string): number | null {
+  const s = raw.trim()
+  if (s === '') return null
+  const hmsMatch = s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/)
+  if (hmsMatch) {
+    const total = parseInt(hmsMatch[1]) * 3600 + parseInt(hmsMatch[2]) * 60 + parseInt(hmsMatch[3])
+    return total <= 86400 ? total : null
+  }
+  const msMatch = s.match(/^(\d{1,3}):(\d{2})$/)
+  if (msMatch) {
+    const total = parseInt(msMatch[1]) * 60 + parseInt(msMatch[2])
+    return total <= 86400 ? total : null
+  }
+  const hMatch = s.match(/(\d+)\s*h/i)
+  const mMatch = s.match(/(\d+)\s*m(?!s)/i)
+  const secMatch = s.match(/(\d+)\s*s(?:ec)?/i)
+  if (hMatch || mMatch || secMatch) {
+    const total =
+      (hMatch ? parseInt(hMatch[1]) * 3600 : 0) +
+      (mMatch ? parseInt(mMatch[1]) * 60 : 0) +
+      (secMatch ? parseInt(secMatch[1]) : 0)
+    return total <= 86400 ? total : null
+  }
+  const n = parseFloat(s)
+  if (!isNaN(n)) return Math.round(n) <= 86400 ? Math.round(n) : null
+  return null
+}
+
 function getSourceBadgeStyle(source: string): string {
   if (source === 'telegram') return 'bg-sleep/10 text-sleep border border-sleep/20'
   if (source === 'web') return 'bg-nutrition/10 text-nutrition border border-nutrition/20'
@@ -73,13 +102,17 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
       const val = log.fields[field.fieldId]
       original[field.fieldId] = val
       if (val !== null && val !== undefined) {
-        if (field.type === 'time' && typeof val === 'number') {
-          // DB stores duration as decimal hours (e.g. 6.133 = 6h 8m).
-          // <input type="time"> requires exactly "HH:MM" — decimal is invalid and shows "--:--".
-          const totalMinutes = Math.round(val * 60)
-          const h = Math.floor(totalMinutes / 60) % 24
-          const m = totalMinutes % 60
-          raw[field.fieldId] = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+        if (field.type === 'duration' && typeof val === 'number') {
+          // DB stores duration as total seconds. Display as HH:MM:SS or MM:SS for editing.
+          const totalSecs = Math.round(val)
+          const h = Math.floor(totalSecs / 3600)
+          const m = Math.floor((totalSecs % 3600) / 60)
+          const s = totalSecs % 60
+          if (h > 0) {
+            raw[field.fieldId] = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+          } else {
+            raw[field.fieldId] = `${m}:${String(s).padStart(2, '0')}`
+          }
         } else if (field.type === 'number' || field.type === 'rating') {
           // Use the raw numeric value directly. formatFieldValue appends the unit suffix
           // (e.g. "94 %", "72 bpm") which <input type="number"> treats as NaN → blank field.
@@ -121,15 +154,9 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
           if (field.type === 'number' || field.type === 'rating') {
             const parsed = Number(raw)
             newValue = Number.isNaN(parsed) ? null : parsed
-          } else if (field.type === 'time') {
-            // If the original DB value was a decimal number (duration in hours),
-            // convert the edited "HH:MM" string back to decimal for consistent storage.
-            if (typeof original === 'number' && /^\d{1,2}:\d{2}$/.test(raw)) {
-              const [h, m] = raw.split(':').map(Number)
-              newValue = h + m / 60
-            } else {
-              newValue = raw || null
-            }
+          } else if (field.type === 'duration') {
+            // Parse the edited string back to total seconds
+            newValue = parseDurationToSeconds(raw)
           } else {
             newValue = raw
           }
@@ -321,7 +348,7 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
               <div key={field.fieldId} className={isWide ? 'col-span-2' : ''}>
                 <dt className="text-[10px] font-medium uppercase tracking-wider text-textMuted">{displayLabel}</dt>
                 <dd className="mt-0.5 text-sm font-semibold text-textPrimary break-words">
-                  {formatFieldValue(rawValue ?? null, field.unit, field.label)}
+                  {formatFieldValue(rawValue ?? null, field.unit, field.label, field.type)}
                 </dd>
               </div>
             )
@@ -387,12 +414,13 @@ function EditFieldInput({ field, value, onChange }: EditFieldInputProps): React.
         />
       )}
 
-      {field.type === 'time' && (
+      {field.type === 'duration' && (
         <input
           id={inputId}
-          type="time"
+          type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. 44:25 · 1:23:45 · 90m"
           className={inputClasses}
         />
       )}
