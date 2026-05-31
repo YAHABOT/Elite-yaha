@@ -1,66 +1,71 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ClipboardList, TrendingUp } from 'lucide-react'
+import { ArrowLeft, ClipboardList, TrendingUp, Settings } from 'lucide-react'
 import type { Tracker, SchemaField } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import { LogEntryCard } from '@/components/trackers/LogEntryCard'
 import { formatFieldValue } from '@/lib/utils/format'
+import {
+  TotalsConfigModal,
+  loadTotalsConfig,
+  type TrackerTotalsConfig,
+} from '@/components/journal/TotalsConfigModal'
 
 type Props = {
   tracker: Tracker
   logs: TrackerLog[]
 }
 
-type DailyStats = {
-  [fieldId: string]: {
-    sum: number
-    count: number
-    label: string
-    unit?: string
-    type: 'sum' | 'avg'
-  }
+// ── Stats helpers ─────────────────────────────────────────────────────────────
+
+type StatItem = {
+  fieldId: string
+  label: string
+  unit?: string
+  value: number
+  aggregation: 'sum' | 'avg'
 }
 
-function calculateDailyStats(logs: TrackerLog[], schema: SchemaField[]): DailyStats {
-  const stats: DailyStats = {}
+function computeDailyStats(
+  entries: TrackerLog[],
+  schema: SchemaField[],
+  config: TrackerTotalsConfig,
+): StatItem[] {
+  const results: StatItem[] = []
 
-  logs.forEach(log => {
-    Object.entries(log.fields).forEach(([fId, val]) => {
-      if (typeof val !== 'number') return
-      
-      const field = schema.find(s => s.fieldId === fId)
-      if (!field) return
+  for (const field of schema) {
+    if (field.type === 'text' || field.type === 'select') continue
+    const cfg = config[field.fieldId]
+    if (!cfg || cfg.hidden) continue
 
-      if (!stats[fId]) {
-        let aggType: 'sum' | 'avg' = 'sum'
-        const labelL = field.label.toLowerCase()
-        if (labelL.includes('hr') || labelL.includes('rate') || labelL.includes('avg') || labelL.includes('score') || labelL.includes('weight')) {
-          aggType = 'avg'
-        }
-
-        stats[fId] = {
-          sum: 0,
-          count: 0,
-          label: field.label,
-          unit: field.unit,
-          type: aggType
-        }
+    const values: number[] = []
+    for (const log of entries) {
+      const raw = log.fields[field.fieldId]
+      if (raw !== undefined && raw !== null && raw !== '') {
+        const num = typeof raw === 'number' ? raw : Number(raw)
+        if (!isNaN(num)) values.push(num)
       }
+    }
 
-      stats[fId].sum += val
-      stats[fId].count += 1
-    })
-  })
+    if (values.length === 0) continue
 
-  return stats
+    const value =
+      cfg.aggregation === 'avg'
+        ? values.reduce((a, b) => a + b, 0) / values.length
+        : values.reduce((a, b) => a + b, 0)
+
+    results.push({ fieldId: field.fieldId, label: field.label, unit: field.unit, value, aggregation: cfg.aggregation })
+  }
+
+  return results
 }
 
 type GroupedLogs = {
   heading: string
   date: string
   entries: TrackerLog[]
-  stats: DailyStats
 }
 
 function formatDateHeading(isoDate: string): string {
@@ -87,7 +92,7 @@ function formatDateHeading(isoDate: string): string {
   }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
-function groupLogsByDate(logs: TrackerLog[], schema: SchemaField[]): GroupedLogs[] {
+function groupLogsByDate(logs: TrackerLog[]): GroupedLogs[] {
   const groups = new Map<string, TrackerLog[]>()
 
   for (const log of logs) {
@@ -109,12 +114,20 @@ function groupLogsByDate(logs: TrackerLog[], schema: SchemaField[]): GroupedLogs
         (a, b) =>
           new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime()
       ),
-      stats: calculateDailyStats(entries, schema)
     }))
 }
 
 export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement {
-  const groups = groupLogsByDate(logs, tracker.schema)
+  const groups = groupLogsByDate(logs)
+
+  const [totalsConfig, setTotalsConfig] = useState<TrackerTotalsConfig>({})
+  const [configLoaded, setConfigLoaded] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
+
+  useEffect(() => {
+    setTotalsConfig(loadTotalsConfig(tracker.id, tracker.schema))
+    setConfigLoaded(true)
+  }, [tracker.id, tracker.schema])
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -209,40 +222,73 @@ export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement
                 ))}
               </div>
 
-              {/* Daily Stats Footer */}
-              {Object.keys(group.stats).length > 0 && (group.entries.length > 1 || tracker.name.toLowerCase().includes('food') || tracker.name.toLowerCase().includes('weight')) && (
-                <div
-                  className="mt-4 rounded-2xl p-5"
-                  style={{
-                    backgroundColor: `${tracker.color}08`,
-                    border: `1px solid ${tracker.color}20`,
-                  }}
-                >
-                  <h3
-                    className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                    style={{ color: `${tracker.color}99` }}
+              {/* Daily Stats Footer — only when 2+ entries and config loaded */}
+              {group.entries.length > 1 && configLoaded && (() => {
+                const stats = computeDailyStats(group.entries, tracker.schema, totalsConfig)
+                return (
+                  <div
+                    className="mt-4 rounded-2xl p-5"
+                    style={{
+                      backgroundColor: `${tracker.color}08`,
+                      border: `1px solid ${tracker.color}20`,
+                    }}
                   >
-                    <TrendingUp className="h-3 w-3" />
-                    Daily Totals & Averages
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    {Object.values(group.stats).map((stat) => (
-                      <div key={stat.label} className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-textMuted/50">{stat.label}</span>
-                        <span className="text-sm font-black text-textPrimary">
-                          {formatFieldValue(stat.type === 'avg' ? stat.sum / stat.count : stat.sum, stat.unit, stat.label)}
-                        </span>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-textMuted/30">
-                          {stat.type === 'avg' ? 'Average' : 'Total'}
-                        </span>
+                    {/* Header + Configure button */}
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3
+                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                        style={{ color: `${tracker.color}99` }}
+                      >
+                        <TrendingUp className="h-3 w-3" />
+                        Daily Totals & Averages
+                      </h3>
+                      <button
+                        onClick={() => setConfigOpen(true)}
+                        className="flex items-center gap-1 rounded-lg border border-white/[0.04] px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-textMuted transition-colors hover:border-white/[0.10] hover:text-textPrimary"
+                        title="Configure totals"
+                      >
+                        <Settings className="h-2.5 w-2.5" />
+                        Configure
+                      </button>
+                    </div>
+
+                    {stats.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        {stats.map((stat) => (
+                          <div key={stat.fieldId} className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-textMuted/50 truncate">
+                              {stat.label}
+                            </span>
+                            <span className="text-sm font-black text-textPrimary">
+                              {formatFieldValue(stat.value, stat.unit, stat.label)}
+                            </span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-textMuted/30">
+                              {stat.aggregation === 'avg' ? 'Average' : 'Total'}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      <p className="text-[10px] italic text-textMuted">All fields hidden — tap Configure to show them.</p>
+                    )}
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </section>
           ))}
         </div>
+      )}
+
+      {/* Totals config modal */}
+      {configOpen && (
+        <TotalsConfigModal
+          trackerId={tracker.id}
+          trackerName={tracker.name}
+          trackerColor={tracker.color}
+          schema={tracker.schema}
+          onClose={() => setConfigOpen(false)}
+          onSave={(newConfig) => setTotalsConfig(newConfig)}
+        />
       )}
     </div>
   )
