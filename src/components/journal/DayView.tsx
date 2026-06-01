@@ -97,7 +97,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
   const dateList = (
     <>
       <div className="px-3 pb-2 pt-4">
-        <p className="text-[10px] font-black uppercase tracking-widest text-textMuted">Log Days</p>
+        <p className="font-ui text-[10px] uppercase tracking-widest text-textMuted">Log Days</p>
         <p className="mt-0.5 text-xs text-textMuted">{loggedDates.length} days</p>
       </div>
       <div className="flex-1 overflow-y-auto overscroll-y-none">
@@ -215,8 +215,8 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
               <ChevronLeft className="h-4 w-4" />
             </button>
             <div className="flex-1 min-w-0 px-2 flex flex-col items-center">
-              <span className="text-[10px] font-black uppercase tracking-widest text-textMuted/60 leading-none">{formatHeaderDateParts(date).weekday}</span>
-              <span className="text-sm font-semibold text-textPrimary leading-tight whitespace-nowrap">{formatHeaderDateParts(date).date}</span>
+              <span className="font-ui text-[10px] uppercase tracking-widest text-textMuted/60 leading-none">{formatHeaderDateParts(date).weekday}</span>
+              <span className="text-sm font-bold text-textPrimary leading-tight whitespace-nowrap">{formatHeaderDateParts(date).date}</span>
             </div>
             <button
               onClick={() => goTo(addDays(date, 1))}
@@ -258,7 +258,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
             <div className="mb-8">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-textMuted">Correlations</p>
+                  <p className="font-ui text-[10px] uppercase tracking-widest text-textMuted">Correlations</p>
                   <div className="h-px flex-1 bg-gradient-to-r from-white/5 to-transparent w-16" />
                 </div>
                 <button
@@ -279,7 +279,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
           {/* Tracker entries section header */}
           {trackersWithLogs.length > 0 && (
             <div className="mb-4 flex items-center gap-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-textMuted">Entries</p>
+              <p className="font-ui text-[10px] uppercase tracking-widest text-textMuted">Entries</p>
               <div className="h-px flex-1 bg-gradient-to-r from-white/5 to-transparent" />
               <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-textMuted border border-white/5">
                 {trackersWithLogs.length} tracker{trackersWithLogs.length !== 1 ? 's' : ''}

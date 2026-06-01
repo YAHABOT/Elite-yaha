@@ -199,12 +199,12 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className={`h-2 w-2 rounded-full ${typeColors.text.replace('text-', 'bg-')} opacity-80`} />
-          <h3 className="text-base font-black tracking-tight text-foreground">
+          <h3 className="font-display-heading text-base text-foreground">
             {card.trackerName}
           </h3>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
+          <span className={`font-ui rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
             {isEditExpanded ? 'Editing' : 'Pending Log'}
           </span>
           <button
@@ -237,7 +237,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
               className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border transition-all duration-200 overflow-visible ${isEditExpanded ? 'border-blue-500/20 bg-blue-500/[0.03]' : 'border-white/[0.05]'} focus-within:border-blue-500/40 focus-within:bg-white/[0.05] ${isLarge ? 'col-span-2' : ''}`}
             >
               <div className="flex flex-wrap items-start gap-1 min-w-0">
-                <span className="min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                <span className="font-ui-label min-w-0 flex-1 text-muted-foreground/60">
                   {label}
                 </span>
               </div>
@@ -265,13 +265,13 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                   placeholder="..."
                 />
               ) : (
-                <p className="text-sm font-bold text-foreground w-full leading-snug break-words whitespace-pre-wrap flex items-baseline gap-1.5 flex-wrap">
+                <p className="font-data-value text-sm text-foreground w-full leading-snug break-words whitespace-pre-wrap flex items-baseline gap-1.5 flex-wrap">
                   {value !== null && value !== undefined && value !== ''
                     ? (
                       <>
                         <span>{String(value)}</span>
                         {unit && (
-                          <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/40 select-none">
+                          <span className="font-ui text-[9px] uppercase tracking-wider text-muted-foreground/40 select-none">
                             {unit}
                           </span>
                         )}
@@ -416,9 +416,9 @@ export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm,
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className={`h-2 w-2 rounded-full ${typeColors.text.replace('text-', 'bg-')} opacity-80`} />
-          <h3 className="text-base font-black tracking-tight text-foreground">{card.trackerName}</h3>
+          <h3 className="font-display-heading text-base text-foreground">{card.trackerName}</h3>
         </div>
-        <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
+        <span className={`font-ui rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
           Pending Update
         </span>
       </div>
@@ -431,7 +431,7 @@ export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm,
           const isLarge = isStringValue || String(value || '').length > 15 || (fieldLabel.length ?? 0) > 16
           return (
             <div key={key} className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border border-white/[0.05] overflow-visible ${isLarge ? 'col-span-2' : ''}`}>
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{fieldLabel}</span>
+              <span className="font-ui-label text-muted-foreground/60">{fieldLabel}</span>
               <input
                 type="text"
                 value={value ?? ''}

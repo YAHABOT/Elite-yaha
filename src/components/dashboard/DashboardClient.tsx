@@ -221,8 +221,8 @@ export function DashboardClient({
       {/* Dashboard header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-textPrimary">Dashboard</h1>
-          <p className="mt-0.5 text-[11px] font-medium text-textMuted">{today}</p>
+          <h1 className="font-display-heading text-2xl text-textPrimary">Dashboard</h1>
+          <p className="font-ui mt-0.5 text-[11px] text-textMuted">{today}</p>
         </div>
         <div className="flex items-center gap-2">
           {(editMode || hasWidgets) && (

@@ -76,7 +76,7 @@ export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.
             className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
             style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}80` }}
           />
-          <span className="min-w-0 text-[10px] font-black uppercase tracking-[0.15em] text-textMuted leading-tight break-words">
+          <span className="font-ui min-w-0 text-[10px] uppercase tracking-[0.15em] text-textMuted leading-tight break-words">
             {value.label}
           </span>
         </div>
@@ -96,13 +96,24 @@ export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.
       <div className="flex-1 min-w-0 overflow-hidden">
         {displayValue !== null ? (
           <div className="flex items-baseline gap-1.5 min-w-0">
-            <span className="text-2xl font-black text-textPrimary leading-none truncate min-w-0 md:text-3xl">{displayValue}</span>
+            <span
+              className="font-mono text-2xl leading-none truncate min-w-0 md:text-3xl"
+              style={{
+                fontFamily: 'var(--font-share-mono)',
+                background: 'linear-gradient(135deg, #00d4ff, rgba(255,255,255,0.75))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              {displayValue}
+            </span>
             {value.unit && (
-              <span className="shrink-0 text-xs font-medium text-textMuted">{value.unit}</span>
+              <span className="font-ui shrink-0 text-xs text-[#94a3b8]">{value.unit}</span>
             )}
           </div>
         ) : (
-          <span className="text-2xl font-black text-textMuted/40 leading-none md:text-3xl">—</span>
+          <span className="font-mono text-2xl text-textMuted/40 leading-none md:text-3xl">—</span>
         )}
       </div>
 

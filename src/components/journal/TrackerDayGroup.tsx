@@ -33,11 +33,11 @@ function formatTime(isoString: string): string {
   })
 }
 
-function getSourceBadgeClass(source: LogSource): string {
-  if (source === 'telegram') return 'bg-sleep/10 text-sleep border border-sleep/20'
-  if (source === 'web') return 'bg-nutrition/10 text-nutrition border border-nutrition/20'
-  if (source === 'chat') return 'bg-mood/10 text-mood border border-mood/20'
-  return 'bg-white/[0.04] text-textMuted border border-white/5'
+function getSourceBadgeStyle(source: LogSource): React.CSSProperties {
+  if (source === 'telegram') return { background: 'rgba(168,85,247,0.18)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.30)' }
+  if (source === 'chat') return { background: 'rgba(0,212,255,0.18)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.30)' }
+  if (source === 'web') return { background: 'rgba(0,212,255,0.18)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.30)' }
+  return { background: '#0f2040', color: '#94a3b8', border: '1px solid rgba(0,212,255,0.13)' }
 }
 
 // ── Totals helpers ────────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
               />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-textPrimary leading-tight">
+              <h3 className="font-display-heading text-sm text-textPrimary leading-tight">
                 {tracker.name}
               </h3>
             </div>
@@ -161,11 +161,20 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
             >
               {/* Log entry header */}
               <div className="mb-2.5 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-textMuted">
+                <span className="font-data-value text-[11px] text-textMuted">
                   {formatTime(log.logged_at)}
                 </span>
                 <span
-                  className={`rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${getSourceBadgeClass(log.source)}`}
+                  style={{
+                    ...getSourceBadgeStyle(log.source),
+                    borderRadius: '6px',
+                    padding: '3px 7px',
+                    fontSize: '10px',
+                    fontFamily: 'var(--font-audiowide)',
+                    letterSpacing: '0.10em',
+                    textTransform: 'uppercase',
+                    fontWeight: 900,
+                  }}
                 >
                   {SOURCE_LABELS[log.source] ?? log.source}
                 </span>
@@ -188,11 +197,11 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
 
                     return (
                       <div key={schemaField.fieldId} className={isWideField ? 'col-span-full' : ''}>
-                        <span className="block text-[10px] font-medium uppercase tracking-wider text-textMuted">
+                        <span className="font-ui-label block text-textMuted">
                           {label}
                         </span>
                         <span
-                          className={`text-sm font-semibold text-textPrimary ${isWideField ? 'break-words' : ''}`}
+                          className={`font-data-value text-sm text-textPrimary ${isWideField ? 'break-words' : ''}`}
                         >
                           {formatFieldValue(value, unit, label, schemaField.type)}
                         </span>
@@ -209,7 +218,7 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
           <div className="mt-4 border-t border-white/[0.04] pt-4">
             {/* Section label + configure button */}
             <div className="mb-2.5 flex items-center justify-between">
-              <span className="text-[9px] font-black uppercase tracking-widest text-textMuted">
+              <span className="font-ui text-[9px] uppercase tracking-widest text-textMuted">
                 Daily totals
               </span>
               <button
@@ -229,10 +238,10 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
                   key={item.fieldId}
                   className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2"
                 >
-                  <span className="block text-[9px] font-medium uppercase tracking-wider text-textMuted truncate">
+                  <span className="font-ui-label block text-textMuted truncate">
                     {item.aggregation === 'avg' ? 'Avg ' : ''}{item.label}
                   </span>
-                  <span className="text-sm font-bold text-textPrimary">
+                  <span className="font-data-value text-sm text-textPrimary">
                     {formatFieldValue(item.value, item.unit, item.label, item.fieldType)}
                   </span>
                 </div>
