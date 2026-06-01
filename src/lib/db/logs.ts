@@ -278,7 +278,9 @@ export async function searchLogsByFieldText(
   query: string,
   supabaseClient: SupabaseClient,
   trackers: Array<{ id: string; name: string }>,
-  limit: number = 10
+  limit: number = 10,
+  startDate?: string,
+  endDate?: string
 ): Promise<TrackerLogWithName[]> {
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
@@ -286,10 +288,23 @@ export async function searchLogsByFieldText(
   // Sanitize query to prevent injection via ILIKE pattern — only allow safe characters
   const safeQuery = query.replace(/[%_\\]/g, char => `\\${char}`)
 
-  const { data, error } = await supabaseClient
+  let dbQuery = supabaseClient
     .from('tracker_logs')
     .select('tracker_id, fields, logged_at')
     .ilike('fields::text', `%${safeQuery}%`)
+
+  if (startDate) {
+    dbQuery = dbQuery.gte('logged_at', `${startDate}T00:00:00.000Z`)
+  }
+
+  if (endDate) {
+    const endNext = new Date(endDate)
+    endNext.setUTCDate(endNext.getUTCDate() + 1)
+    const rangeEnd = endNext.toISOString().split('T')[0] + 'T00:00:00.000Z'
+    dbQuery = dbQuery.lt('logged_at', rangeEnd)
+  }
+
+  const { data, error } = await dbQuery
     .order('logged_at', { ascending: false })
     .limit(limit)
 

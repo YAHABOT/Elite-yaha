@@ -3,7 +3,7 @@ export const maxDuration = 60 // extend Vercel function timeout for AI streaming
 import { createServerClient } from '@/lib/supabase/server'
 import { createSession, getSession, addMessage, updateSession, getRecentMessagesForAI } from '@/lib/db/chat'
 import { getTrackersBasic } from '@/lib/db/trackers'
-import { getLogsForDay, getLogsForDateRange } from '@/lib/db/logs'
+import { getLogsForDay, getLogsForDateRange, searchLogsByFieldText } from '@/lib/db/logs'
 import type { TrackerLogWithName } from '@/lib/db/logs'
 import { getRoutine as fetchRoutine } from '@/lib/db/routines'
 import { streamHealthMessage } from '@/lib/ai/gemini'
@@ -18,6 +18,19 @@ import type { Routine } from '@/types/routine'
 import type { Agent } from '@/types/agent'
 
 const MAX_MESSAGE_LENGTH = 4000
+
+function extractSearchKeyword(message: string): string | null {
+  let text = message
+  // Strip time expressions
+  text = text.replace(/\b(last\s+(week|month|year|\d+\s+days?)|yesterday|today|this\s+week|\d+\s+days?\s+ago|in\s+[a-z]+\s+\d{4})\b/gi, '')
+  // Strip search verb phrases
+  text = text.replace(/\b(find\s+(all\s+)?|search(\s+(my|for|through))?(\s+records?)?|show\s+me(\s+all)?|pull\s+(up|out)(\s+(my|all))?|have\s+i\s+(ever\s+)?(logged?|tracked?|eaten?|had)|do\s+i\s+have|all\s+(my\s+)?(logs?|records?|entries))\b/gi, '')
+  // Strip filler words
+  text = text.replace(/\b(i|i've|my|the|in|of|for|from|with|that|a|an|some|any|all|logs?|records?|history|database|entries?|ever|previously|logged?|tracked?|recorded?|eaten?|had|ever)\b/gi, '')
+  // Clean punctuation and whitespace
+  text = text.replace(/[?.,!]/g, '').replace(/\s+/g, ' ').trim()
+  return text.length >= 2 ? text : null
+}
 
 // Must stay in sync with ALLOWED_MIME_TYPES in src/lib/ai/gemini.ts — only accept types Gemini can process.
 // Office formats (docx/xlsx/xls) are removed because Gemini's inlineData API does not support them.
@@ -603,8 +616,14 @@ export async function POST(req: Request): Promise<Response> {
                   rangeStart = getDateStr(d)
                 }
 
-                historicalContext = await getLogsForDateRange(rangeStart, rangeEnd, supabase, trackersMini)
-                console.log(`[ChatRoute] Historical context (${rangeStart} → ${rangeEnd}): ${historicalContext?.length ?? 0} logs`)
+                const searchKeyword = extractSearchKeyword(message)
+                if (searchKeyword) {
+                  historicalContext = await searchLogsByFieldText(searchKeyword, supabase, trackersMini, 100, rangeStart, rangeEnd)
+                  console.log(`[ChatRoute] Keyword search "${searchKeyword}" (${rangeStart} → ${rangeEnd}): ${historicalContext?.length ?? 0} logs`)
+                } else {
+                  historicalContext = await getLogsForDateRange(rangeStart, rangeEnd, supabase, trackersMini)
+                  console.log(`[ChatRoute] Historical context (${rangeStart} → ${rangeEnd}): ${historicalContext?.length ?? 0} logs`)
+                }
               } catch (err) {
                 console.error('[ChatRoute] Historical context fetch failed:', err)
                 historicalContext = []
