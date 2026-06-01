@@ -535,6 +535,7 @@ export async function POST(req: Request): Promise<Response> {
 
                 let rangeStart: string
                 let rangeEnd = today
+                let isGeneralSearch = false // true only when no explicit time ref — enables keyword filtering
 
                 if (/\blast\s+month\b/i.test(message)) {
                   const d = new Date(actualDateObj)
@@ -618,6 +619,7 @@ export async function POST(req: Request): Promise<Response> {
                   // General search intent with no specific time — fetch all history
                   // (getLogsForDateRange caps at 200 logs ordered DESC anyway, so this is safe)
                   rangeStart = '2020-01-01'
+                  isGeneralSearch = true
                 } else {
                   // Default (yesterday, "day before", "same as yesterday", "use same", "tell me all", etc.): yesterday + today
                   const d = new Date(actualDateObj)
@@ -625,13 +627,16 @@ export async function POST(req: Request): Promise<Response> {
                   rangeStart = getDateStr(d)
                 }
 
-                const searchKeyword = extractSearchKeyword(message)
+                // Keyword search only when there's NO explicit time reference (general searches like
+                // "find protein bars ever"). Time-specific queries ("last week", "yesterday") get a
+                // full date-range dump so the AI can do semantic matching across all that day's logs.
+                const searchKeyword = isGeneralSearch ? extractSearchKeyword(message) : null
                 if (searchKeyword) {
                   historicalContext = await searchLogsByFieldText(searchKeyword, supabase, trackersMini, 100, rangeStart, rangeEnd)
-                  console.log(`[ChatRoute] Keyword search "${searchKeyword}" (${rangeStart} → ${rangeEnd}): ${historicalContext?.length ?? 0} logs`)
+                  console.log(`[ChatRoute] Keyword search "${searchKeyword}" (all-time): ${historicalContext?.length ?? 0} logs`)
                 } else {
                   historicalContext = await getLogsForDateRange(rangeStart, rangeEnd, supabase, trackersMini)
-                  console.log(`[ChatRoute] Historical context (${rangeStart} → ${rangeEnd}): ${historicalContext?.length ?? 0} logs`)
+                  console.log(`[ChatRoute] Date-range fetch (${rangeStart} → ${rangeEnd}): ${historicalContext?.length ?? 0} logs`)
                 }
               } catch (err) {
                 console.error('[ChatRoute] Historical context fetch failed:', err)
