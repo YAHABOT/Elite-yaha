@@ -12,7 +12,7 @@ import {
 
 type TabItem = {
   href: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>
   label: string
   primary?: boolean
 }
@@ -30,8 +30,12 @@ export function MobileBottomNav(): React.ReactElement {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#050c1a]/88 backdrop-blur-2xl border-t border-[rgba(0,212,255,0.18)]"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl"
+      style={{
+        backgroundColor: 'rgba(5,12,26,0.90)',
+        borderTop: '1px solid rgba(0,212,255,0.18)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
     >
       <div className="flex items-stretch">
         {TABS.map((tab) => {
@@ -42,33 +46,34 @@ export function MobileBottomNav(): React.ReactElement {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex-1 flex flex-col items-center pt-2.5 pb-2 gap-[3px] transition-all duration-300 group ${
-                isActive ? 'text-[#00d4ff]' : 'text-[#475569] hover:text-[#94a3b8]'
-              }`}
+              className="flex-1 flex flex-col items-center pt-2.5 pb-2 gap-[3px] transition-all duration-300"
             >
               <div className="relative flex items-center justify-center px-3 py-1 rounded-full">
-                {/* Active glow pill behind icon */}
+                {/* Active glow pill */}
                 {isActive && (
                   <span
                     className="absolute inset-0 rounded-full"
-                    style={{ background: 'color-mix(in oklch, #00d4ff 14%, transparent)' }}
+                    style={{ background: 'rgba(0,212,255,0.12)' }}
                   />
                 )}
                 <Icon
-                  className={`relative z-10 transition-all duration-300 ${
-                    tab.primary ? 'w-6 h-6' : 'w-5 h-5'
-                  } ${
-                    isActive
-                      ? 'text-[#00d4ff] drop-shadow-[0_0_5px_rgba(0,212,255,0.55)] stroke-[2.2]'
-                      : 'stroke-[1.6]'
-                  }`}
+                  className="relative z-10 transition-all duration-300"
+                  strokeWidth={isActive ? 2.2 : 1.6}
+                  style={{
+                    width: tab.primary ? 24 : 20,
+                    height: tab.primary ? 24 : 20,
+                    color: isActive ? '#00d4ff' : '#475569',
+                    filter: isActive ? 'drop-shadow(0 0 5px rgba(0,212,255,0.60))' : 'none',
+                  }}
                 />
               </div>
               <span
-                className={`font-ui leading-none transition-all duration-300 ${
-                  isActive ? 'text-[#a855f7]' : 'text-[#475569]'
-                }`}
-                style={{ fontSize: '9px', letterSpacing: '0.12em' }}
+                className="font-ui leading-none transition-all duration-300"
+                style={{
+                  fontSize: '9px',
+                  letterSpacing: '0.12em',
+                  color: isActive ? '#a855f7' : '#475569',
+                }}
               >
                 {tab.label}
               </span>
