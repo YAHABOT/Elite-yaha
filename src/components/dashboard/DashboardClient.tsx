@@ -2,8 +2,7 @@
 // needed for edit mode toggle state + add widget modal state + skip actions
 
 import { useState, useTransition } from 'react'
-import { Plus, Pencil, Check, RotateCcw, FlaskConical } from 'lucide-react'
-import { RoutineBanner } from '@/components/dashboard/RoutineBanner'
+import { Plus, Pencil, Check, RotateCcw, FlaskConical, Sunrise, Moon, ChevronRight } from 'lucide-react'
 import { WidgetCard } from '@/components/dashboard/WidgetCard'
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal'
 import { deleteWidgetAction } from '@/app/actions/dashboard'
@@ -27,6 +26,22 @@ type Props = {
   dayStartRoutine: Routine | null
   dayEndRoutine: Routine | null
   dayState: UserDayState | null
+  userName: string
+}
+
+function getTimeGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Morning'
+  if (h < 17) return 'Afternoon'
+  return 'Evening'
+}
+
+function getShortDate(): string {
+  const d = new Date()
+  const day = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
+  const month = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
+  const date = d.getDate()
+  return `${day} · ${month} ${date}`
 }
 
 /**
@@ -56,6 +71,7 @@ export function DashboardClient({
   dayStartRoutine,
   dayEndRoutine,
   dayState,
+  userName,
 }: Props): React.ReactElement {
   const [editMode, setEditMode] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -131,14 +147,8 @@ export function DashboardClient({
     setShowAddModal(false)
   }
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
-
   return (
-    <div className="flex flex-col gap-5 p-4 md:p-6">
+    <div className="flex flex-col gap-4 p-4 md:p-6">
       {/* Error display */}
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -146,101 +156,148 @@ export function DashboardClient({
         </div>
       )}
 
-      {/* Start Day row: [Start Day banner] [Skip button] — only in NEUTRAL state */}
+      {/* ── Greeting header ── */}
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="font-ui text-textMuted/60" style={{ fontSize: '10px', letterSpacing: '0.18em' }}>
+            {getShortDate()}
+          </p>
+          <h1 className="font-display-heading text-2xl text-textPrimary leading-tight mt-0.5">
+            {getTimeGreeting()}, {userName.toUpperCase()}
+          </h1>
+        </div>
+        {/* Dev mode toggle — hidden until needed */}
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            type="button"
+            onClick={() => setDevMode(prev => !prev)}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1 border transition-all duration-300 ${
+              devMode
+                ? 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400'
+                : 'border-white/5 bg-transparent text-white/10 hover:text-white/20 hover:border-white/10'
+            }`}
+            style={{ fontSize: '8px', letterSpacing: '0.18em' }}
+            title="Toggle Developer Mode"
+          >
+            <FlaskConical className="h-2 w-2" />
+          </button>
+          {devMode && (
+            <>
+              <button
+                type="button"
+                onClick={handleResetDayState}
+                disabled={isPending}
+                className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-400 transition-all duration-300 hover:border-amber-500/50 disabled:opacity-40"
+                style={{ fontSize: '8px', letterSpacing: '0.14em' }}
+                title="Clear day_started_at — makes Morning banner reappear"
+              >
+                <RotateCcw className="h-2 w-2" />
+                Reset AM
+              </button>
+              <button
+                type="button"
+                onClick={handleResetEndDayState}
+                disabled={isPending}
+                className="flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-indigo-400 transition-all duration-300 hover:border-indigo-500/50 disabled:opacity-40"
+                style={{ fontSize: '8px', letterSpacing: '0.14em' }}
+                title="Clear day_ended_at — makes End Day banner reappear"
+              >
+                <RotateCcw className="h-2 w-2" />
+                Reset PM
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Compact Start Day banner ── */}
       {dayStartRoutine && sessionIsNeutral && (
-        <div className="flex flex-col gap-2">
-          <RoutineBanner routine={dayStartRoutine} type="day_start" />
+        <div className="flex flex-col gap-1.5">
+          <div
+            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            style={{ border: '1px solid rgba(245,158,11,0.22)', background: 'rgba(245,158,11,0.07)' }}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              style={{ background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.28)' }}>
+              <Sunrise className="h-4 w-4" style={{ color: '#f59e0b' }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-display-heading text-xs text-textPrimary leading-tight">{dayStartRoutine.name}</p>
+              <p className="font-ui text-textMuted/60 mt-0.5" style={{ fontSize: '9px', letterSpacing: '0.08em' }}>
+                {dayStartRoutine.steps.length} step{dayStartRoutine.steps.length !== 1 ? 's' : ''} · ~{Math.max(1, Math.round(dayStartRoutine.steps.length * 0.7))} min to log
+              </p>
+            </div>
+            <a
+              href={`/chat/new?routine=${dayStartRoutine.id}`}
+              className="flex items-center gap-1 rounded-xl px-3 py-2 font-ui shrink-0 transition-all duration-200 hover:brightness-110"
+              style={{ fontSize: '10px', letterSpacing: '0.10em', background: 'rgba(245,158,11,0.18)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b' }}
+            >
+              Start <ChevronRight className="h-3 w-3" />
+            </a>
+          </div>
           <button
             type="button"
             onClick={handleSkipStartDay}
             disabled={isPending}
-            className="w-full rounded-2xl border border-white/5 bg-white/[0.02] py-2.5 text-[10px] font-black uppercase tracking-widest text-textMuted transition-all hover:border-white/10 hover:bg-white/[0.04] hover:text-textPrimary disabled:opacity-40"
+            className="self-center rounded-full px-4 py-1 font-ui text-textMuted/40 transition-all hover:text-textMuted/70 disabled:opacity-40"
+            style={{ fontSize: '9px', letterSpacing: '0.12em', border: '1px solid rgba(255,255,255,0.04)' }}
           >
-            Skip Morning Routine
+            Skip Morning
           </button>
         </div>
       )}
 
-      {/* End Day row: [End Day banner] [Skip button] — only after 7 PM (or for past-date sessions). */}
+      {/* ── Compact End Day banner ── */}
       {dayEndRoutine && sessionIsActive && endDayTimeGatePassed && (
-        <div className="flex flex-col gap-2">
-          <RoutineBanner routine={dayEndRoutine} type="day_end" />
+        <div className="flex flex-col gap-1.5">
+          <div
+            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            style={{ border: '1px solid rgba(168,85,247,0.22)', background: 'rgba(168,85,247,0.07)' }}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              style={{ background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.28)' }}>
+              <Moon className="h-4 w-4" style={{ color: '#a855f7' }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-display-heading text-xs text-textPrimary leading-tight">{dayEndRoutine.name}</p>
+              <p className="font-ui text-textMuted/60 mt-0.5" style={{ fontSize: '9px', letterSpacing: '0.08em' }}>
+                {dayEndRoutine.steps.length} step{dayEndRoutine.steps.length !== 1 ? 's' : ''} · ~{Math.max(1, Math.round(dayEndRoutine.steps.length * 0.7))} min to log
+              </p>
+            </div>
+            <a
+              href={`/chat/new?routine=${dayEndRoutine.id}`}
+              className="flex items-center gap-1 rounded-xl px-3 py-2 font-ui shrink-0 transition-all duration-200 hover:brightness-110"
+              style={{ fontSize: '10px', letterSpacing: '0.10em', background: 'rgba(168,85,247,0.14)', border: '1px solid rgba(168,85,247,0.32)', color: '#a855f7' }}
+            >
+              Start <ChevronRight className="h-3 w-3" />
+            </a>
+          </div>
           <button
             type="button"
             onClick={handleSkipEndDay}
             disabled={isPending}
-            className="w-full rounded-2xl border border-white/5 bg-white/[0.02] py-2.5 text-[10px] font-black uppercase tracking-widest text-textMuted transition-all hover:border-white/10 hover:bg-white/[0.04] hover:text-textPrimary disabled:opacity-40"
+            className="self-center rounded-full px-4 py-1 font-ui text-textMuted/40 transition-all hover:text-textMuted/70 disabled:opacity-40"
+            style={{ fontSize: '9px', letterSpacing: '0.12em', border: '1px solid rgba(255,255,255,0.04)' }}
           >
-            Skip Evening Routine
+            Skip Evening
           </button>
         </div>
       )}
 
-      {/* Dev Mode strip — force-reset routine state for testing */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setDevMode(prev => !prev)}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] border transition-all duration-300 ${
-            devMode
-              ? 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400'
-              : 'border-white/5 bg-transparent text-white/10 hover:text-white/20 hover:border-white/10'
-          }`}
-          title="Toggle Developer Mode"
-        >
-          <FlaskConical className="h-2.5 w-2.5" />
-          Dev
-        </button>
-
-        {devMode && (
-          <>
-            <button
-              type="button"
-              onClick={handleResetDayState}
-              disabled={isPending}
-              className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-amber-400 transition-all duration-300 hover:border-amber-500/50 hover:bg-amber-500/20 disabled:opacity-40"
-              title="Clear day_started_at — makes Morning banner reappear"
-            >
-              <RotateCcw className="h-2.5 w-2.5" />
-              Reset Morning
-            </button>
-            <button
-              type="button"
-              onClick={handleResetEndDayState}
-              disabled={isPending}
-              className="flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-indigo-400 transition-all duration-300 hover:border-indigo-500/50 hover:bg-indigo-500/20 disabled:opacity-40"
-              title="Clear day_ended_at — makes End Day banner reappear"
-            >
-              <RotateCcw className="h-2.5 w-2.5" />
-              Reset End Day
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Dashboard header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display-heading text-2xl text-textPrimary">Dashboard</h1>
-          <p className="font-ui mt-0.5 text-[11px] text-textMuted">{today}</p>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* ── Widget header row (Edit / Add) ── */}
+      {(editMode || hasWidgets || !hasWidgets) && (
+        <div className="flex items-center justify-end gap-2">
           {(editMode || hasWidgets) && (
             <button
               type="button"
               onClick={() => setEditMode(prev => !prev)}
-              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-textMuted backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:text-textPrimary"
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-2 font-ui text-textMuted backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:text-textPrimary"
+              style={{ fontSize: '10px', letterSpacing: '0.10em' }}
             >
               {editMode ? (
-                <>
-                  <Check className="h-3 w-3" />
-                  Done
-                </>
+                <><Check className="h-3 w-3" />Done</>
               ) : (
-                <>
-                  <Pencil className="h-3 w-3" />
-                  Edit
-                </>
+                <><Pencil className="h-3 w-3" />Edit</>
               )}
             </button>
           )}
@@ -248,14 +305,15 @@ export function DashboardClient({
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1.5 rounded-full border border-nutrition/30 bg-nutrition/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-nutrition transition-all duration-300 hover:border-nutrition/50 hover:bg-nutrition/20 hover:shadow-[0_0_16px_rgba(16,185,129,0.15)]"
+              className="flex items-center gap-1.5 rounded-full px-4 py-2 font-ui transition-all duration-300"
+              style={{ fontSize: '10px', letterSpacing: '0.10em', border: '1px solid rgba(0,212,255,0.25)', background: 'rgba(0,212,255,0.08)', color: '#00d4ff' }}
             >
               <Plus className="h-3 w-3" />
               Add Widget
             </button>
           )}
         </div>
-      </div>
+      )}
 
       {/* Widget grid or empty state */}
       {!hasWidgets ? (
