@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Paperclip, Send, X, Bot, Zap, CheckCircle2, Menu, Image as ImageIcon, FileText, Camera } from 'lucide-react'
+import Link from 'next/link'
+import { Paperclip, Send, X, Bot, Zap, CheckCircle2, Menu, Image as ImageIcon, FileText, Camera, Plus } from 'lucide-react'
 import { ActionCard, UpdateDataCardComponent } from '@/components/chat/ActionCard'
 import { CreateTrackerCard } from '@/components/chat/CreateTrackerCard'
 import { AgentSelector } from '@/components/chat/AgentSelector'
@@ -896,7 +897,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       {/* Dynamic Header — shrink-0 keeps it pinned at top while messages scroll */}
       <div className="shrink-0 bg-card/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 py-3 md:px-6">
         <div className="flex items-center gap-3">
-          {/* BUG 3: Hamburger button — mobile only */}
+          {/* Hamburger — mobile only */}
           <button
             type="button"
             onClick={() => setIsMobileSidebarOpen(true)}
@@ -905,35 +906,23 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className={`flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-300 ${
-            currentRoutine
-              ? 'bg-nutrition/10 shadow-[0_0_16px_rgba(16,185,129,0.2)]'
-              : activeAgent
-              ? 'bg-primary/10 shadow-[0_0_16px_rgba(168,85,247,0.2)]'
-              : 'bg-white/[0.03]'
-          }`}>
-            {activeAgent
-              ? <Zap className="h-5 w-5 text-primary" />
-              : <Bot className="h-5 w-5 text-muted-foreground/60" />
-            }
-          </div>
           <div>
-            <h2 className="font-display-heading text-sm text-foreground">
-              {currentRoutine ? currentRoutine.name : activeAgent ? activeAgent.name : 'YAHA Assistant'}
+            <h2 className="font-display-heading text-base text-textPrimary leading-tight">
+              {currentRoutine ? currentRoutine.name.toUpperCase() : activeAgent ? activeAgent.name.toUpperCase() : 'YAHA ASSISTANT'}
             </h2>
-            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${
-              currentRoutine ? 'text-nutrition' : activeAgent ? 'text-primary' : 'text-muted-foreground/40'
-            }`}>
+            <div className="flex items-center gap-1.5 mt-0.5">
               <span className={`h-1.5 w-1.5 rounded-full ${
-                currentRoutine ? 'bg-nutrition animate-pulse' : activeAgent ? 'bg-primary animate-pulse' : 'bg-muted-foreground/20'
+                currentRoutine ? 'bg-nutrition animate-pulse' : activeAgent ? 'bg-[#a855f7] animate-pulse' : 'bg-[rgba(0,212,255,0.50)]'
               }`} />
-              {currentRoutine ? 'Ritual Active' : activeAgent ? 'Agent Active' : 'Neutral Protocol'}
+              <span className="font-ui text-textMuted/50" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>
+                {currentRoutine ? 'RITUAL ACTIVE' : activeAgent ? 'AGENT ACTIVE' : 'LOGGING SESSION'}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3">
-          {/* BUG 4: Save Chat button — shown when session is unnamed */}
+        <div className="flex items-center gap-2">
+          {/* Save Chat — shown when session is unnamed */}
           {(!session || session.title === 'New Chat') && currentSessionId !== 'new' && (
             <button
               type="button"
@@ -943,33 +932,32 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 setIsSaveModalOpen(true)
               }}
               className="rounded-full px-3 py-1 font-ui transition-all"
-              style={{ fontSize: '10px', letterSpacing: '0.12em', border: '1px solid rgba(0,212,255,0.25)', background: 'rgba(0,212,255,0.07)', color: 'rgba(0,212,255,0.80)' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,212,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#00d4ff' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,212,255,0.07)'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,212,255,0.80)' }}
+              style={{ fontSize: '9px', letterSpacing: '0.12em', border: '1px solid rgba(0,212,255,0.20)', background: 'rgba(0,212,255,0.06)', color: 'rgba(0,212,255,0.70)' }}
             >
-              Save Chat
+              Save
             </button>
-          )}
-          {activeAgentId ? (
-            <div className="hidden rounded-full px-3 py-1 font-ui sm:block" style={{ fontSize: '10px', letterSpacing: '0.12em', background: 'rgba(168,85,247,0.10)', border: '1px solid rgba(168,85,247,0.20)', color: '#a855f7', boxShadow: '0 0 12px rgba(168,85,247,0.15)' }}>
-              Persistent Mode
-            </div>
-          ) : (
-            <div className="hidden rounded-full px-3 py-1 font-ui text-textMuted/30 sm:block" style={{ fontSize: '10px', letterSpacing: '0.12em', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              Temporary Mode
-            </div>
           )}
 
           {session?.active_routine_id && (
-            <div className="hidden items-center gap-2 rounded-2xl bg-nutrition/5 border border-nutrition/20 pl-3 pr-2 py-1.5 md:flex shadow-[0_0_12px_rgba(16,185,129,0.1)]">
-              <span className="text-[10px] font-black text-nutrition/70 uppercase tracking-widest truncate max-w-[100px]">
+            <div className="hidden items-center gap-2 rounded-2xl pl-3 pr-2 py-1.5 md:flex" style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.20)' }}>
+              <span className="font-ui text-textMuted/60 uppercase truncate max-w-[100px]" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>
                 {currentRoutine?.name || 'Ritual'}
               </span>
               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-nutrition text-black">
-                <span className="text-[9px] font-black">{session.current_step_index + 1}</span>
+                <span className="font-ui" style={{ fontSize: '9px' }}>{session.current_step_index + 1}</span>
               </div>
             </div>
           )}
+
+          {/* + New Chat — always visible */}
+          <Link
+            href="/chat/new"
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 font-ui transition-all duration-200"
+            style={{ fontSize: '9px', letterSpacing: '0.12em', border: '1px solid rgba(0,212,255,0.30)', background: 'rgba(0,212,255,0.09)', color: '#00d4ff' }}
+          >
+            <Plus className="h-2.5 w-2.5" />
+            New Chat
+          </Link>
         </div>
       </div>
 
@@ -1250,7 +1238,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             className="hidden"
           />
 
-          <div className="relative flex items-end gap-2 rounded-[28px] bg-white/[0.03] border border-white/[0.08] p-2 pl-3 transition-all duration-300 focus-within:border-nutrition/30 focus-within:bg-white/[0.05] focus-within:shadow-[0_0_24px_rgba(16,185,129,0.08)]">
+          <div className="relative flex items-end gap-2 rounded-[28px] bg-white/[0.03] border border-white/[0.08] p-2 pl-3 transition-all duration-300 focus-within:border-[rgba(0,212,255,0.25)] focus-within:bg-white/[0.05] focus-within:shadow-[0_0_24px_rgba(0,212,255,0.08)]">
             <div className="mb-1 flex items-center gap-0.5 relative">
               {/* Attach menu popover */}
               {isAttachMenuOpen && (
@@ -1315,14 +1303,15 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 }
               }}
               data-testid="message-input"
-              placeholder="Speak to YAHA..."
+              placeholder="Log something..."
               className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none md:text-base resize-none"
             />
 
             <button
               type="submit"
               disabled={isLoading || (!input.trim() && attachedFiles.length === 0)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-nutrition text-black transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 disabled:opacity-30 disabled:shadow-none disabled:scale-100"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:shadow-none disabled:scale-100"
+              style={{ background: 'linear-gradient(135deg, #00d4ff, #0090cc)', boxShadow: '0 0 16px rgba(0,212,255,0.30)', color: '#000d1a' }}
             >
               <Send className="h-4 w-4" />
             </button>

@@ -64,13 +64,8 @@ export function TrackerCard({ tracker, dragHandleProps }: Props): React.ReactEle
       <div className="flex shrink-0 flex-col gap-1.5">
         <Link
           href={`/trackers/${tracker.id}/log`}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 font-ui transition-all duration-200 hover:brightness-110"
-          style={{
-            fontSize: '9px', letterSpacing: '0.10em',
-            backgroundColor: `${tracker.color}18`,
-            border: `1px solid ${tracker.color}35`,
-            color: tracker.color,
-          }}
+          className="flex items-center gap-1.5 rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 font-ui text-textMuted transition-all duration-200 hover:border-white/15 hover:text-textPrimary"
+          style={{ fontSize: '9px', letterSpacing: '0.10em' }}
         >
           <ClipboardList className="h-2.5 w-2.5 shrink-0" />
           Log Entry
