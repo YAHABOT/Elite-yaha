@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings } from 'lucide-react'
+import { Settings, ChevronDown } from 'lucide-react'
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog, LogSource } from '@/types/log'
 import { formatFieldValue } from '@/lib/utils/format'
@@ -96,6 +96,7 @@ function computeTotals(
 
 export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.ReactElement {
   const logCount = logs.length
+  const [isOpen, setIsOpen] = useState(true)
   const [totalsConfig, setTotalsConfig] = useState<TrackerTotalsConfig>({})
   const [configLoaded, setConfigLoaded] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
@@ -115,8 +116,13 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
         className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md transition-all duration-300"
         style={{ boxShadow: `0 0 0 1px ${tracker.color}18, inset 0 0 24px ${tracker.color}06` }}
       >
-        {/* Tracker header */}
-        <div className="mb-4 flex items-center justify-between">
+        {/* Tracker header — clickable to collapse/expand */}
+        <button
+          type="button"
+          onClick={() => setIsOpen((o) => !o)}
+          className="mb-4 flex w-full items-center justify-between text-left"
+          aria-expanded={isOpen}
+        >
           <div className="flex items-center gap-3">
             {/* Colored icon badge */}
             <div
@@ -133,27 +139,35 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
                 data-testid="tracker-color-dot"
               />
             </div>
-            <div>
-              <h3 className="font-display-heading text-sm text-textPrimary leading-tight">
-                {tracker.name}
-              </h3>
-            </div>
+            <h3 className="font-display-heading text-sm text-textPrimary leading-tight">
+              {tracker.name}
+            </h3>
           </div>
-          {/* Log count badge */}
-          <span
-            className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest"
-            style={{
-              backgroundColor: `${tracker.color}15`,
-              color: tracker.color,
-              border: `1px solid ${tracker.color}25`,
-            }}
-          >
-            {logCount} {logCount === 1 ? 'entry' : 'entries'}
-          </span>
-        </div>
+          <div className="flex items-center gap-2">
+            {/* Log count badge */}
+            <span
+              className="rounded-full px-2.5 py-1 font-ui"
+              style={{
+                fontSize: '10px', letterSpacing: '0.10em',
+                backgroundColor: `${tracker.color}15`,
+                color: tracker.color,
+                border: `1px solid ${tracker.color}25`,
+              }}
+            >
+              {logCount} {logCount === 1 ? 'entry' : 'entries'}
+            </span>
+            {/* Chevron toggle */}
+            <span
+              className="flex h-[26px] w-[26px] items-center justify-center rounded-full transition-transform duration-200"
+              style={{ background: '#0f2040', color: '#94a3b8', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </button>
 
-        {/* Log entries */}
-        <div className="space-y-2.5">
+        {/* Log entries — hidden when collapsed */}
+        {isOpen && <div className="space-y-2.5">
           {logs.map((log) => (
             <div
               key={log.id}
@@ -211,10 +225,10 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
               </div>
             </div>
           ))}
-        </div>
+        </div>}
 
         {/* ── Totals row — only when 2+ entries and showTotals is on ── */}
-        {showTotalsRow && totals.length > 0 && (
+        {isOpen && showTotalsRow && totals.length > 0 && (
           <div className="mt-4 border-t border-white/[0.04] pt-4">
             {/* Section label + configure button */}
             <div className="mb-2.5 flex items-center justify-between">
@@ -251,7 +265,7 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
         )}
 
         {/* Totals row is on but no fields to show — offer configure */}
-        {showTotalsRow && totals.length === 0 && configLoaded && (
+        {isOpen && showTotalsRow && totals.length === 0 && configLoaded && (
           <div className="mt-4 border-t border-white/[0.04] pt-3 flex items-center justify-between">
             <span className="text-[10px] text-textMuted italic">All fields hidden</span>
             <button

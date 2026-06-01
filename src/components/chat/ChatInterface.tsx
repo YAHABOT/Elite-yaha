@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Paperclip, Send, X, Bot, Zap, CheckCircle2, ChevronRight, Menu, Image as ImageIcon, FileText, Camera } from 'lucide-react'
+import { Paperclip, Send, X, Bot, Zap, CheckCircle2, Menu, Image as ImageIcon, FileText, Camera } from 'lucide-react'
 import { ActionCard, UpdateDataCardComponent } from '@/components/chat/ActionCard'
 import { CreateTrackerCard } from '@/components/chat/CreateTrackerCard'
 import { AgentSelector } from '@/components/chat/AgentSelector'
@@ -942,17 +942,20 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 setSaveTitle(suggestion)
                 setIsSaveModalOpen(true)
               }}
-              className="rounded-full border border-nutrition/30 bg-nutrition/[0.08] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-nutrition/80 transition-all hover:bg-nutrition/20 hover:text-nutrition"
+              className="rounded-full px-3 py-1 font-ui transition-all"
+              style={{ fontSize: '10px', letterSpacing: '0.12em', border: '1px solid rgba(0,212,255,0.25)', background: 'rgba(0,212,255,0.07)', color: 'rgba(0,212,255,0.80)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,212,255,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#00d4ff' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,212,255,0.07)'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,212,255,0.80)' }}
             >
               Save Chat
             </button>
           )}
           {activeAgentId ? (
-            <div className="hidden rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary shadow-[0_0_12px_rgba(168,85,247,0.15)] sm:block">
+            <div className="hidden rounded-full px-3 py-1 font-ui sm:block" style={{ fontSize: '10px', letterSpacing: '0.12em', background: 'rgba(168,85,247,0.10)', border: '1px solid rgba(168,85,247,0.20)', color: '#a855f7', boxShadow: '0 0 12px rgba(168,85,247,0.15)' }}>
               Persistent Mode
             </div>
           ) : (
-            <div className="hidden rounded-full bg-white/[0.03] border border-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/30 sm:block">
+            <div className="hidden rounded-full px-3 py-1 font-ui text-textMuted/30 sm:block" style={{ fontSize: '10px', letterSpacing: '0.12em', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
               Temporary Mode
             </div>
           )}
@@ -987,12 +990,13 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
         {messages.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center gap-5 py-24 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-nutrition/20 via-primary/10 to-transparent border border-white/5 shadow-[0_0_40px_rgba(16,185,129,0.15)]">
-              <Bot className="h-9 w-9 text-nutrition/80" />
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-white/5"
+              style={{ background: 'linear-gradient(135deg, rgba(0,212,255,0.12), rgba(168,85,247,0.08), transparent)', boxShadow: '0 0 40px rgba(0,212,255,0.12)' }}>
+              <Bot className="h-9 w-9" style={{ color: 'rgba(0,212,255,0.80)' }} />
             </div>
             <div className="space-y-2">
-              <p className="text-base font-black tracking-widest uppercase text-foreground/80">YAHA Assistant</p>
-              <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">Log health data, start a ritual, or ask anything about your wellbeing.</p>
+              <p className="font-display-heading text-sm text-textPrimary/80">YAHA Assistant</p>
+              <p className="font-ui text-textMuted max-w-xs leading-relaxed" style={{ fontSize: '10px', letterSpacing: '0.06em' }}>Log health data, start a ritual, or ask anything about your wellbeing.</p>
             </div>
           </div>
         )}

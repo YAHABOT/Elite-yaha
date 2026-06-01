@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Trash2, Loader2, Pencil, Check, X, RotateCcw } from 'lucide-react'
+import { Trash2, Loader2, Pencil, Check, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { deleteLogAction, updateLogAction } from '@/app/actions/logs'
 import { formatFieldValue } from '@/lib/utils/format'
@@ -314,11 +314,10 @@ export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): Re
               <button
                 type="button"
                 onClick={handleLogAgain}
-                className="rounded-lg p-1 text-textMuted transition-all duration-300 hover:bg-white/[0.04] hover:text-textPrimary"
+                className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-textMuted transition-all duration-200 hover:border-[rgba(0,212,255,0.3)] hover:bg-[rgba(0,212,255,0.08)] hover:text-[#00d4ff]"
                 aria-label="Log again"
-                title="Log again"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
+                Log Again
               </button>
               <button
                 type="button"

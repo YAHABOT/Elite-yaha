@@ -148,7 +148,8 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
               <button
                 type="button"
                 onClick={handleNewChat}
-                className="flex items-center justify-center gap-2 w-full rounded-2xl bg-nutrition px-4 py-3 text-sm font-black text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)] active:scale-[0.98] shadow-[0_4px_16px_rgba(16,185,129,0.2)]"
+                className="flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 font-ui text-black transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{ fontSize: '11px', letterSpacing: '0.12em', background: 'linear-gradient(135deg, #00d4ff, #0099cc)', boxShadow: '0 4px 16px rgba(0,212,255,0.28)' }}
               >
                 <Plus className="h-4 w-4 stroke-[3px]" />
                 New Chat
@@ -156,14 +157,15 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
             ) : (
               <Link
                 href="/chat/new"
-                className="flex items-center justify-center gap-2 w-full rounded-2xl bg-nutrition px-4 py-3 text-sm font-black text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)] active:scale-[0.98] shadow-[0_4px_16px_rgba(16,185,129,0.2)]"
+                className="flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 font-ui text-black transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{ fontSize: '11px', letterSpacing: '0.12em', background: 'linear-gradient(135deg, #00d4ff, #0099cc)', boxShadow: '0 4px 16px rgba(0,212,255,0.28)' }}
               >
                 <Plus className="h-4 w-4 stroke-[3px]" />
                 New Chat
               </Link>
             )}
             <div className="flex items-center justify-between px-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/40">
+              <p className="font-ui text-textMuted/40" style={{ fontSize: '9px', letterSpacing: '0.25em' }}>
                 My Sessions
               </p>
               {sessions.length > 0 && (
@@ -222,10 +224,10 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
               <MessageSquare className="h-6 w-6 text-muted-foreground/30" />
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/40">
+              <p className="font-display-heading text-[10px] text-textMuted/40">
                 Empty Archives
               </p>
-              <p className="text-[10px] text-muted-foreground/25 font-medium">
+              <p className="font-ui text-textMuted/25" style={{ fontSize: '9px', letterSpacing: '0.08em' }}>
                 Start a new conversation
               </p>
             </div>
@@ -304,24 +306,25 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
                     prefetch={true}
                     className={`flex flex-col gap-1 rounded-xl px-3.5 py-3 transition-all duration-200 ${
                       isActive
-                        ? 'bg-nutrition/[0.08] border border-nutrition/20 text-foreground shadow-[0_0_16px_rgba(16,185,129,0.08)]'
+                        ? 'border text-foreground'
                         : 'text-muted-foreground hover:bg-white/[0.03] hover:text-foreground border border-transparent'
                     } ${isProcessing ? 'opacity-40 pointer-events-none' : ''}`}
+                    style={isActive ? { backgroundColor: 'rgba(0,212,255,0.06)', borderColor: 'rgba(0,212,255,0.22)', boxShadow: '0 0 16px rgba(0,212,255,0.06)' } : {}}
                   >
                     <div className="flex items-center justify-between">
-                      <span className={`text-[9px] font-black uppercase tracking-[0.2em] transition-opacity ${
-                        isActive ? 'text-nutrition opacity-100' : 'opacity-25 group-hover:opacity-60'
-                      }`}>
+                      <span className={`font-ui transition-opacity ${
+                        isActive ? 'opacity-100' : 'opacity-25 group-hover:opacity-60'
+                      }`} style={{ fontSize: '9px', letterSpacing: '0.18em', color: isActive ? '#00d4ff' : undefined }}>
                         {session.active_agent_id ? 'Agent' : 'Neutral'}
                       </span>
-                      <span className={`text-[10px] font-medium tabular-nums transition-opacity ${
-                        isActive ? 'text-muted-foreground opacity-70' : 'opacity-25 group-hover:opacity-50'
+                      <span className={`font-data-value text-[10px] tabular-nums transition-opacity ${
+                        isActive ? 'text-textMuted opacity-70' : 'opacity-25 group-hover:opacity-50'
                       }`}>
                         {mounted ? formatRelativeTime(session.updated_at) : ''}
                       </span>
                     </div>
                     <span className={`truncate text-sm font-bold tracking-tight pr-12 ${
-                      isActive ? 'text-foreground' : 'text-foreground/70'
+                      isActive ? 'text-textPrimary' : 'text-textPrimary/70'
                     }`}>
                       {session.title}
                     </span>

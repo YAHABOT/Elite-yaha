@@ -53,7 +53,7 @@ export function TrackerCard({ tracker }: Props): React.ReactElement {
             <Activity className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-base font-black text-textPrimary break-words">
+            <h3 className="font-display-heading text-base text-textPrimary break-words">
               {tracker.name}
             </h3>
           </div>
@@ -62,8 +62,9 @@ export function TrackerCard({ tracker }: Props): React.ReactElement {
         {/* Badges */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span
-            className="rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest"
+            className="rounded-full px-2.5 py-0.5 font-ui"
             style={{
+              fontSize: '10px', letterSpacing: '0.12em',
               backgroundColor: `${tracker.color}18`,
               color: tracker.color,
               border: `1px solid ${tracker.color}30`,
@@ -71,14 +72,14 @@ export function TrackerCard({ tracker }: Props): React.ReactElement {
           >
             {tracker.type}
           </span>
-          <span className="rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-textMuted">
+          <span className="rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-0.5 font-ui text-textMuted" style={{ fontSize: '10px', letterSpacing: '0.12em' }}>
             {fieldCount} {fieldCount === 1 ? 'field' : 'fields'}
           </span>
         </div>
 
         {/* Footer row */}
         <div className="flex items-center justify-between border-t border-white/5 pt-3">
-          <span className="text-[10px] font-black uppercase tracking-widest text-textMuted/40">
+          <span className="font-ui text-textMuted/40" style={{ fontSize: '10px', letterSpacing: '0.12em' }}>
             View History
           </span>
           <div className="text-textMuted opacity-20 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100">
@@ -93,14 +94,21 @@ export function TrackerCard({ tracker }: Props): React.ReactElement {
       <div className="relative flex items-center gap-2">
         <Link
           href={`/trackers/${tracker.id}/log`}
-          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-textPrimary transition-all duration-300 hover:border-white/20 hover:bg-white/[0.08]"
+          className="flex items-center gap-1.5 rounded-full px-4 py-1.5 font-ui text-textPrimary transition-all duration-300"
+          style={{
+            fontSize: '10px', letterSpacing: '0.10em',
+            backgroundColor: `${tracker.color}14`,
+            border: `1px solid ${tracker.color}35`,
+            color: tracker.color,
+          }}
         >
           <ClipboardList className="h-3 w-3" />
-          Log
+          Log Entry
         </Link>
         <Link
           href={`/trackers/${tracker.id}/schema`}
-          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-textPrimary transition-all duration-300 hover:border-white/20 hover:bg-white/[0.08]"
+          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 font-ui text-textPrimary transition-all duration-300 hover:border-white/20 hover:bg-white/[0.08]"
+          style={{ fontSize: '10px', letterSpacing: '0.10em' }}
         >
           <Pencil className="h-3 w-3" />
           Edit Schema
