@@ -356,13 +356,17 @@ Fields with type="duration" store elapsed time as TOTAL SECONDS (plain integer).
 - "02:12" (short workout) = 2 minutes 12 seconds = **132** (NOT 2 hours 12 minutes)
 - "2h 30m" = 2 hours 30 minutes = 2×3600 + 30×60 = **9000**
 
-**CRITICAL disambiguation rule for 2-part MM:SS format:**
-- If the first number ≥ 60, it is definitely minutes (e.g. "75:00" = 75 min = 4500 sec)
-- If the first number < 24, it could be HH:MM or MM:SS — use CONTEXT:
-  - Workout/run/swim durations of a few minutes → MM:SS → "12:30" = 12 min 30 sec = 750
-  - Workout/run over 1 hour → the app will show HH:MM:SS → "1:23:45"
-  - Sleep/recovery → likely HH:MM → "7:30" = 7 hours 30 min = 27000
-- When in doubt for a workout context, prefer MM:SS
+**CRITICAL disambiguation rule for 2-part XX:YY format:**
+- A value shown as exactly TWO colon-separated parts (e.g. "23:40", "07:15") with NO third part has a single correct interpretation:
+  - **If context is exercise, workout, run, swim, HR zone, or recovery time → ALWAYS MM:SS**
+    - "23:40" in a workout or HR zone = 23 min 40 sec = **1420 seconds** — NOT 23 hours
+    - "07:15" in a run split = 7 min 15 sec = **435 seconds** — NOT 7 hours
+  - **If context is sleep total duration → HH:MM**
+    - "7:30" for total sleep = 7 hours 30 min = **27000 seconds**
+  - If first number ≥ 60, it is definitely MM (e.g. "75:00" = 75 min = **4500 sec**)
+- A value shown as THREE colon-separated parts (HH:MM:SS) is always hours:minutes:seconds
+  - "1:23:45" = 1×3600 + 23×60 + 45 = **5025 seconds**
+- **Default rule:** when unsure, a 2-part value in any fitness/activity screen = MM:SS
 
 **Other number fields with unit "hrs" or "mins" are NOT duration type — follow existing rules for those.**
 
