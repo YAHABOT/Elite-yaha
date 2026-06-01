@@ -31,6 +31,8 @@ type BuildHealthSystemPromptParams = {
   sessionMessages?: Array<{ role: 'user' | 'model'; content: string }>
   /** Attachments received in this session — filename + type */
   attachmentsReceived?: Array<{ filename: string; type: string }>
+  /** Display name for the user — personalises AI prompts. Defaults to 'you'. */
+  userName?: string
 }
 
 function formatTrackerSchema(tracker: Tracker): string {
@@ -476,6 +478,7 @@ export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): 
   // Physical current date — used for relative date arithmetic ("yesterday", "5 days ago")
   // When a day session is active, today ≠ actualToday (e.g. locked on 7/3 but it's now 8/3)
   const actualToday = params.actualDate ?? today
+  const name = params.userName ?? 'you'
   const daySessionActive = params.daySessionActive ?? false
   const trackerSection = buildTrackerSection(params.trackers)
   const masterBrain = params.userContext ? `${params.userContext}\n---\n` : ''
@@ -502,7 +505,7 @@ When the user provides health data to log and has NOT specified a date:
 If the user HAS explicitly named a date (e.g. "log this for yesterday", "log for March 5th"), produce the action card directly with that computed date — no confirmation question needed. The action card IS the confirmation.
 `
 
-  return `${masterBrain}You are YAHA, Armaan's executive health manager. Help Armaan log his life with zero friction.
+  return `${masterBrain}You are YAHA, ${name}'s executive health manager. Help ${name} log their life with zero friction.
 
 ${VISION_CAPABILITY}
 
@@ -511,7 +514,7 @@ ${FOOD_LOOKUP_RULE}
 ${DURATION_FORMAT_RULE}
 
 ## 🔴 YOU ARE CONNECTED TO THE DATABASE — THIS IS NOT A DEMO
-You have DIRECT access to Armaan's health tracker database. When you produce a LOG_DATA action card and Armaan confirms it, the data IS written to the database immediately by the app. This is a real, production health logging system.
+You have DIRECT access to ${name}'s health tracker database. When you produce a LOG_DATA action card and ${name} confirms it, the data IS written to the database immediately by the app. This is a real, production health logging system.
 - NEVER say "I cannot push to any application or database"
 - NEVER say "I can only present the confirmation in our chat"
 - NEVER say "I don't have the ability to log or save data"
@@ -564,20 +567,21 @@ ${FEW_SHOT_EXAMPLES.replace(/{{TODAY}}/g, today)}
 `
 }
 
-export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string, historicalContext?: HistoricalLog[]): string {
+export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string, historicalContext?: HistoricalLog[], userName?: string): string {
   if (!routine.steps || routine.steps.length === 0) {
-    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate })
+    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate, userName })
   }
 
   // FIX: BUG-V33-RT01 — Bounds check currentStepIndex to prevent undefined step errors
   // If currentStepIndex is out of bounds, fall back to health system prompt (routine is complete)
   if (currentStepIndex < 0 || currentStepIndex >= routine.steps.length) {
     console.error(`[PromptBuilder] Routine step index ${currentStepIndex} out of bounds (total: ${routine.steps.length})`)
-    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate })
+    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate, userName })
   }
 
   // Use client-supplied local date so routine logs land on the user's correct calendar day
   const today = date ?? new Date().toISOString().split('T')[0]
+  const name = userName ?? 'you'
   const currentStep = routine.steps[currentStepIndex]
   const nextStep = routine.steps[currentStepIndex + 1]
   const masterBrain = userContext ? `${userContext}\n---\n` : ''
@@ -709,8 +713,8 @@ ALWAYS include the valid constraint in the action card under "selectOptions" so 
     ? buildHistoricalSection(historicalContext, trackers)
     : ''
 
-  return `${masterBrain}You are YAHA, executing the "${routine.name}" routine for Armaan.
-Your primary directive is to guide Armaan through this sequence with zero friction and hyper-accurate data extraction.
+  return `${masterBrain}You are YAHA, executing the "${routine.name}" routine for ${name}.
+Your primary directive is to guide ${name} through this sequence with zero friction and hyper-accurate data extraction.
 
 ${VISION_CAPABILITY}
 
@@ -741,14 +745,14 @@ ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL
 ## ⚠️ ROUTINE STEP IDENTITY RULE
 The word "Step" in this routine ALWAYS refers to an item in the numbered sequence below.
 It NEVER means "walking steps", "footsteps", or any other fitness metric.
-If Armaan says "step 2" or "what's step 2", he is asking about item #2 in the sequence — nothing else.
+If ${name} says "step 2" or "what's step 2", they are asking about item #2 in the sequence — nothing else.
 
 ## 🛑 ANTI-HALLUCINATION: NO INVENTED HISTORICAL DATA
 You are executing this routine RIGHT NOW in a SINGLE SESSION. Do NOT:
 - Claim you have completed previous steps that haven't been confirmed yet in THIS conversation
-- Reference data from "earlier" or "yesterday" unless Armaan explicitly mentioned it in THIS session
+- Reference data from "earlier" or "yesterday" unless ${name} explicitly mentioned it in THIS session
 - Fabricate past confirmations or logs that the user did not actually provide
-- Make up details about what Armaan "usually" logs — stick only to what he tells you in THIS session
+- Make up details about what ${name} "usually" logs — stick only to what they tell you in THIS session
 - Output completed steps in the sequence marking (✓ done) unless the user has actually confirmed logging for them
 You ONLY proceed based on data provided in the current conversation. Every step requires the user to provide data and the user to confirm the action card.
 
@@ -772,7 +776,7 @@ ${historicalSection ? `\n${historicalSection}\n` : ''}
 4. **Present & Confirm (MANDATORY)**:
    - When the user provides data for the ACTIVE STEP, produce the JSON log card.
    - After the card, write ONE short sentence acknowledging the data (e.g., "Got it — Sleep logged!").
-   - ${nextStep ? `Let Armaan know the card is ready to confirm, and that Step ${currentStepIndex + 2} (${nextStep.trackerName}) will follow once he confirms. Do NOT ask for Step ${currentStepIndex + 2} data yet — wait for him to confirm the card above first.` : `🔴 EX16 FIX — FINAL STEP MANDATORY COMPLETION MESSAGE: After the user confirms this action card, you MUST explicitly say "${routine.name} complete! All done for today." Use those exact words or equivalent. NEVER silently end the routine. NEVER ask for more data after this step. The routine is FINISHED.`}
+   - ${nextStep ? `Let ${name} know the card is ready to confirm, and that Step ${currentStepIndex + 2} (${nextStep.trackerName}) will follow once they confirm. Do NOT ask for Step ${currentStepIndex + 2} data yet — wait for them to confirm the card above first.` : `🔴 EX16 FIX — FINAL STEP MANDATORY COMPLETION MESSAGE: After the user confirms this action card, you MUST explicitly say "${routine.name} complete! All done for today." Use those exact words or equivalent. NEVER silently end the routine. NEVER ask for more data after this step. The routine is FINISHED.`}
 5. **Brief**: Keep conversational text under 2 sentences (excluding the next-step question).
 
 ## DATA FORMAT
