@@ -101,7 +101,7 @@ export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): Re
       fields: log.fields,
     }
     sessionStorage.setItem('yaha_log_again', JSON.stringify(payload))
-    router.push('/chat')
+    router.push('/chat/new')
   }
 
   const handleDelete = (): void => {
