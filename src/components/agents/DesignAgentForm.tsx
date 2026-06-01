@@ -61,12 +61,14 @@ export function DesignAgentForm({ agent, onClose, onSuccess }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-12">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Centering wrapper */}
+      <div className="flex min-h-full items-end sm:items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-4xl rounded-[40px] border border-white/10 bg-[#0A0A0A] p-1 shadow-2xl animate-in zoom-in-95 fade-in duration-300">
+      <div className="relative w-full max-w-4xl rounded-[40px] border border-white/10 bg-[#0A0A0A] p-1 shadow-2xl animate-in zoom-in-95 fade-in duration-300 my-auto">
         <div className="p-8 md:p-10 space-y-10">
           <div className="flex items-center justify-between">
             <h2 className="text-3xl font-black tracking-tight text-white">Design New Persona</h2>
@@ -169,6 +171,7 @@ export function DesignAgentForm({ agent, onClose, onSuccess }: Props) {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </div>
   )

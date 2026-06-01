@@ -178,9 +178,11 @@ function buildHistoricalSection(logs: HistoricalLog[], trackers?: Tracker[]): st
         (tracker?.schema ?? []).map(f => [f.fieldId, f.label])
       )
       const fields = Object.entries(log.fields || {})
+        .filter(([, v]) => v !== null && v !== undefined)
         .map(([k, v]) => {
           const label = fieldLabelMap.get(k) || k
-          return `${label}: ${v}`
+          const displayVal = (typeof v === 'string' && v.trim() === '') ? '(no notes)' : v
+          return `${label}: ${displayVal}`
         })
         .join(', ')
       const entry = `[${date} ${time}] ${log.tracker_name} — ${fields}`
@@ -228,6 +230,11 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - CRITICAL: If user asks "how much have I eaten today?" and you only see 2 meals logged → respond "So far you've logged: [meal 1], [meal 2]" — do NOT guess a total.
     - NEVER calculate or mention "weekly averages", "typical patterns", or "usually logs X" unless that data is EXPLICITLY shown in HISTORICAL DATA.
     - NEVER invent "today's total" or "this week's average" if the logs don't appear in the context sections below.
+11b. **TEXT FIELD INTEGRITY — CRITICAL**: For text fields in historical data (notes, item names, descriptions):
+    - ONLY output the EXACT stored text from the HISTORICAL DATA section.
+    - If a text field is absent from a log entry, it means the user never entered a value — say "No notes recorded" or simply omit it.
+    - NEVER invent, fabricate, or suggest ingredients, meal descriptions, or any text content that is not explicitly present in the data.
+    - NEVER DENY DATA YOU HAVE ALREADY SHOWN: If you have already presented macros/calories for an entry in this conversation, those records exist. Do NOT say "I don't have records for those entries" after having just shown them. Acknowledge what you showed and be honest about what additional data (e.g., notes) is or isn't available.
 12. **STRICT DATE BOUNDARY RULE — NO FUTURE PROJECTION**: NEVER log data or make recommendations for dates BEYOND {{ACTUAL_TODAY}}. Do NOT assume what the user will log tomorrow, next week, or at any future date. If the user says "I'm planning to eat 2000 calories next Monday", respond: "I can only log data for today or past dates. When you've actually eaten that meal, just tell me and I'll log it." NEVER output a LOG_DATA action with a future date.
 12. **EXACT NUMERIC EXTRACTION (Vision-Aware)**: When analyzing images (nutrition labels, food photos, sleep screenshots, workout data):
     - Extract EXACT numeric values FROM THE IMAGE, not estimates.
@@ -358,6 +365,13 @@ Fields with type="duration" store elapsed time as TOTAL SECONDS (plain integer).
 - When in doubt for a workout context, prefer MM:SS
 
 **Other number fields with unit "hrs" or "mins" are NOT duration type — follow existing rules for those.**
+
+**Heart rate zone times (Samsung Health, Garmin, Fitbit):**
+- Zone display shows two columns: time | percentage. Example: "Zone 2: 23:40 | 34.1%"
+- The FIRST value (e.g., 23:40) is the time in MM:SS format → 23×60+40 = **1420** seconds
+- The SECOND value (e.g., 34.1%) is a percentage — it is NOT a time and must NEVER be used as one
+- "Zone 1: 33:00" → 33×60+0 = **1980** seconds
+- "Zone 3: 00:20" → 0×60+20 = **20** seconds
 `
 
 const FOOD_LOOKUP_RULE = `

@@ -321,14 +321,17 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // Silent variant — sends a message to the API without adding a visible user bubble.
   // Used by the routine auto-advance flow so the UI doesn't show an awkward hidden prompt.
   // Also refreshes session + routine state so the step badge advances correctly (Fix 5).
-  async function handleSendSilent(text: string): Promise<void> {
+  // sessionIdOverride: pass the finalSessionId from the done handler to avoid stale closure
+  // capturing currentSessionId='new' on the very first message of a new session.
+  async function handleSendSilent(text: string, sessionIdOverride?: string): Promise<void> {
     if (isLoading) return
     setIsLoading(true)
+    const sessId = sessionIdOverride ?? currentSessionId
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId: currentSessionId, agentId: activeAgentId, date: getLocalDateStr() }),
+        body: JSON.stringify({ message: text, sessionId: sessId, agentId: activeAgentId, date: getLocalDateStr() }),
         signal: abortControllerRef.current?.signal
       })
       if (!res.ok) return
@@ -513,17 +516,18 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                   // to allow UI to render the completion message first
                   // BUG #4 fix: Set isAutoPrompting flag to prevent submit button from being blocked
                   // EX6/EX20 FIX: Send 'continue' not '' — empty string causes a 400 (server rejects blank messages)
+                  // SC2 FIX: Capture finalSessionId before any re-render — the closure in setTimeout
+                  // would otherwise read currentSessionId='new' on the very first message.
+                  const capturedSessionId = finalSessionId
+                  setIsLoading(false)   // unblock handleSendSilent before the timer fires
                   setIsAutoPrompting(true)
-                  const timeoutId = setTimeout(() => {
+                  setTimeout(() => {
                     if (isMountedRef.current) {
-                      void handleSendSilent('continue')
+                      void handleSendSilent('continue', capturedSessionId)
                       setIsAutoPrompting(false)
                     }
                   }, 600)
-                  return () => {
-                    clearTimeout(timeoutId)
-                    setIsAutoPrompting(false)
-                  }
+                  // DO NOT return here — let the outer for(;;) reader loop continue to natural end
                 }
               } else if (event.type === 'error') {
                 throw new Error(event.error ?? 'Streaming error')

@@ -88,6 +88,16 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
         if (value === null || value === undefined || value === '') return [key, '']
         // Multi-select array: join as comma-separated string for editing
         if (Array.isArray(value)) return [key, value.join(', ')]
+        const fieldType = card.fieldDefinitions?.[key]?.type
+        // Duration fields (type === 'duration'): DB stores raw seconds → convert to HH:MM:SS for display.
+        // Sleep tracker fields (Awake, REM, Light, Deep, Time in Bed, Actual Sleep Time) use this path.
+        if (fieldType === 'duration' && typeof value === 'number') {
+          const totalSecs = Math.round(value)
+          const h = Math.floor(totalSecs / 3600)
+          const m = Math.floor((totalSecs % 3600) / 60)
+          const s = totalSecs % 60
+          return [key, `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`]
+        }
         const unit = card.fieldUnits?.[key]
         // Duration fields (unit = HRS): convert decimal hours to HH:MM for the input.
         // The unit pill is outside the input so we never embed "HRS" in the value string.
@@ -216,7 +226,7 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
           const isSelect = fieldType === 'select'
           // text-type fields, select fields, long strings, or long labels → span full row
           const isTextField = fieldType === 'text'
-          const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}$/)
+          const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}(:\d{2})?$/)
           const isLarge = isSelect || isTextField || isStringValue || String(value || '').length > 12 || fieldLabel.length > 14
           const label = fieldLabel
           const unit = card.fieldUnits?.[key]
