@@ -21,14 +21,23 @@ const MAX_MESSAGE_LENGTH = 4000
 
 function extractSearchKeyword(message: string): string | null {
   let text = message
+  // Strip conversation starters
+  text = text.replace(/^(okay|ok|right|alright|so|hey)[,\s]*/gi, '')
   // Strip time expressions
   text = text.replace(/\b(last\s+(week|month|year|\d+\s+days?)|yesterday|today|this\s+week|\d+\s+days?\s+ago|in\s+[a-z]+\s+\d{4})\b/gi, '')
-  // Strip search verb phrases
-  text = text.replace(/\b(find\s+(all\s+)?|search(\s+(my|for|through))?(\s+records?)?|show\s+me(\s+all)?|pull\s+(up|out)(\s+(my|all))?|have\s+i\s+(ever\s+)?(logged?|tracked?|eaten?|had)|do\s+i\s+have|all\s+(my\s+)?(logs?|records?|entries))\b/gi, '')
-  // Strip filler words
-  text = text.replace(/\b(i|i've|my|the|in|of|for|from|with|that|a|an|some|any|all|logs?|records?|history|database|entries?|ever|previously|logged?|tracked?|recorded?|eaten?|had|ever)\b/gi, '')
+  // Strip command/search verb phrases (including "tell me", "give me", "list all")
+  text = text.replace(/\b(tell\s+me(\s+about)?(\s+all)?|give\s+me(\s+all)?|list(\s+all)?(\s+my)?|find\s+(all\s+)?|search(\s+(my|for|through))?(\s+records?)?|show\s+me(\s+all)?|pull\s+(up|out)(\s+(my|all))?|have\s+i\s+(ever\s+)?(logged?|tracked?|eaten?|had|ate)|do\s+i\s+have|all\s+(my\s+)?(logs?|records?|entries))\b/gi, '')
+  // Strip "that I had/ate/logged" relative clauses
+  text = text.replace(/\b(that|which)\s+i\s+(had|ate|logged?|tracked?|consumed|eaten)\b/gi, '')
+  // Strip filler words (added ate, consumed, about, with)
+  text = text.replace(/\b(i|i've|my|the|in|of|for|from|with|about|that|a|an|some|any|all|logs?|records?|history|database|entries?|ever|previously|logged?|tracked?|recorded?|eaten?|had|ate|consumed|okay|ok|meal\s+notes?|notes?)\b/gi, '')
   // Clean punctuation and whitespace
   text = text.replace(/[?.,!]/g, '').replace(/\s+/g, ' ').trim()
+  // Normalise plurals — "protein bowls" → "protein bowl", "bars" → "bar"
+  // Strip trailing 's' so ILIKE matches both singular and plural stored values
+  if (text.endsWith('s') && text.length > 3) {
+    text = text.slice(0, -1)
+  }
   return text.length >= 2 ? text : null
 }
 
