@@ -593,10 +593,9 @@ export async function POST(req: Request): Promise<Response> {
                   /\bever (eat|ate|had|logged?|tracked?)\b/i.test(message) ||
                   /\bpull (up |out )?(my |all )?(records?|logs?|data|entries)\b/i.test(message)
                 ) {
-                  // General search intent with no specific time — fetch last 30 days
-                  const d = new Date(actualDateObj)
-                  d.setUTCDate(d.getUTCDate() - 30)
-                  rangeStart = getDateStr(d)
+                  // General search intent with no specific time — fetch all history
+                  // (getLogsForDateRange caps at 200 logs ordered DESC anyway, so this is safe)
+                  rangeStart = '2020-01-01'
                 } else {
                   // Default (yesterday, "day before", "same as yesterday", "use same", "tell me all", etc.): yesterday + today
                   const d = new Date(actualDateObj)
