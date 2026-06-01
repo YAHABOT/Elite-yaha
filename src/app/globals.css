@@ -43,8 +43,11 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     background-image:
-      radial-gradient(circle at 50% -20%, rgba(0,212,255,0.05), transparent),
-      radial-gradient(circle at 0% 100%, rgba(0,255,157,0.03), transparent);
+      radial-gradient(120% 60% at 80% -10%, rgba(0,212,255,0.09), transparent 60%),
+      radial-gradient(60% 40% at 10% 95%, rgba(168,85,247,0.06), transparent 55%),
+      linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
     background-attachment: fixed;
     min-height: 100vh;
     overscroll-behavior: none;
@@ -83,6 +86,27 @@
       filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.4));
     }
   }
+}
+
+/* ── Fusion Typography Utilities ──────────────────────────────────────────── */
+.font-display-heading {
+  font-family: var(--font-chakra), var(--font-orbitron), monospace;
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.font-ui-label {
+  font-family: var(--font-audiowide), system-ui, sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.font-data-value {
+  font-family: var(--font-share-mono), ui-monospace, monospace;
+  letter-spacing: 0.04em;
 }
 
 /* OLED Smooth Scroll */

@@ -64,11 +64,34 @@ function parseDurationToSeconds(raw: string): number | null {
   return null
 }
 
-function getSourceBadgeStyle(source: string): string {
-  if (source === 'telegram') return 'bg-sleep/10 text-sleep border border-sleep/20'
-  if (source === 'web') return 'bg-nutrition/10 text-nutrition border border-nutrition/20'
-  if (source === 'chat') return 'bg-mood/10 text-mood border border-mood/20'
-  return 'bg-white/[0.04] text-textMuted border border-white/5'
+function getSourceBadgeStyle(source: string): React.CSSProperties {
+  if (source === 'telegram') {
+    return {
+      background: 'rgba(168,85,247,0.18)',
+      color: '#a855f7',
+      border: '1px solid rgba(168,85,247,0.30)',
+    }
+  }
+  if (source === 'chat') {
+    return {
+      background: 'rgba(0,212,255,0.18)',
+      color: '#00d4ff',
+      border: '1px solid rgba(0,212,255,0.30)',
+    }
+  }
+  if (source === 'web') {
+    return {
+      background: 'rgba(0,212,255,0.18)',
+      color: '#00d4ff',
+      border: '1px solid rgba(0,212,255,0.30)',
+    }
+  }
+  // manual / default
+  return {
+    background: '#0f2040',
+    color: '#94a3b8',
+    border: '1px solid rgba(0,212,255,0.13)',
+  }
 }
 
 export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): React.ReactElement {
@@ -228,14 +251,17 @@ export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): Re
 
   return (
     <div
-      className={`group rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3.5 backdrop-blur-md transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.04] hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] ${isDeleting ? 'opacity-50 scale-[0.99]' : ''}`}
+      className={`group rounded-[14px] border border-white/5 bg-[#0e1d34] px-4 py-3.5 transition-all duration-300 hover:border-white/10 hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] ${isDeleting ? 'opacity-50 scale-[0.99]' : ''}`}
     >
       {/* Header row */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="text-[11px] font-medium text-textMuted">{formatTime(log.logged_at)}</span>
+          <span className="font-data-value text-[11px] text-[#94a3b8]">{formatTime(log.logged_at)}</span>
           {log.source !== 'manual' && (
-            <span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${getSourceBadgeStyle(log.source)}`}>
+            <span
+              className="rounded-[6px] px-[7px] py-[3px] font-ui-label"
+              style={{ fontSize: '10px', fontWeight: 900, ...getSourceBadgeStyle(log.source) }}
+            >
               {log.source}
             </span>
           )}
@@ -378,8 +404,8 @@ export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): Re
             const displayLabel = field.label.replace(/\s*\([^)]+\)\s*$/, '').trim()
             return (
               <div key={field.fieldId} className={isWide ? 'col-span-2' : ''}>
-                <dt className="text-[10px] font-medium uppercase tracking-wider text-textMuted">{displayLabel}</dt>
-                <dd className="mt-0.5 text-sm font-semibold text-textPrimary break-words">
+                <dt className="font-ui-label text-textMuted/70" style={{ fontSize: '9px' }}>{displayLabel}</dt>
+                <dd className="font-data-value mt-0.5 text-sm font-semibold text-textPrimary break-words">
                   {formatFieldValue(rawValue ?? null, field.unit, field.label, field.type)}
                 </dd>
               </div>

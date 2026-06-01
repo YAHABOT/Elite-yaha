@@ -11,20 +11,30 @@ export function TrackerCard({ tracker }: Props): React.ReactElement {
 
   return (
     <div
-      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] bg-[#091424] p-5 transition-all duration-300 hover:-translate-y-0.5"
+      style={{ border: `1px solid ${tracker.color}15` }}
       data-testid="tracker-card"
     >
-      {/* Top gradient accent line */}
+      {/* Top gradient accent hairline */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        className="pointer-events-none absolute inset-x-0 top-0"
         style={{
-          background: `linear-gradient(to right, transparent, ${tracker.color}60, transparent)`,
+          height: '1px',
+          background: `linear-gradient(to right, transparent, ${tracker.color}70, transparent)`,
         }}
       />
       {/* Corner ambient glow */}
       <div
-        className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-10 blur-3xl transition-opacity duration-300 group-hover:opacity-25"
-        style={{ backgroundColor: tracker.color }}
+        className="pointer-events-none absolute rounded-full"
+        style={{
+          width: 80,
+          height: 80,
+          top: -20,
+          right: -20,
+          background: tracker.color,
+          opacity: 0.07,
+          filter: 'blur(24px)',
+        }}
       />
 
       <Link href={`/trackers/${tracker.id}`} className="relative mb-4 block">

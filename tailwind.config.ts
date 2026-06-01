@@ -32,7 +32,10 @@ const config: Config = {
         accent: {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
+          // Fusion alias — cyan CTA (#00d4ff matches hsl(191,100%,50%) which is --accent)
+          fusion: '#00d4ff',
         },
+        accent2: '#a855f7',    // Fusion purple secondary accent
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
@@ -43,6 +46,9 @@ const config: Config = {
         // MasterLog Surface Tokens
         surface: '#091424',
         surfaceHighlight: '#0e1d34',
+        surface2: '#0e1d34',   // alias for surfaceHighlight — inner cards
+        raise: '#0f2040',      // hover states, progress tracks
+        faint: '#475569',      // placeholder/disabled text
         textPrimary: '#e2e8f0',
         textMuted: '#94a3b8',
         // Health Category Tokens — MasterLog palette
@@ -59,7 +65,9 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['var(--font-orbitron)', 'monospace'],
+        display: ['var(--font-chakra)', 'var(--font-orbitron)', 'monospace'],
+        mono: ['var(--font-share-mono)', 'ui-monospace', 'monospace'],
+        ui: ['var(--font-audiowide)', 'system-ui', 'sans-serif'],
       },
     },
   },

@@ -30,7 +30,7 @@ export function MobileBottomNav(): React.ReactElement {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-xl border-t border-white/5"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#050c1a]/88 backdrop-blur-2xl border-t border-[rgba(0,212,255,0.18)]"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-stretch">
@@ -42,29 +42,33 @@ export function MobileBottomNav(): React.ReactElement {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-1 transition-all duration-300 group ${
-                isActive ? 'text-nutrition' : 'text-muted-foreground hover:text-foreground'
+              className={`flex-1 flex flex-col items-center pt-2.5 pb-2 gap-[3px] transition-all duration-300 group ${
+                isActive ? 'text-[#00d4ff]' : 'text-[#475569] hover:text-[#94a3b8]'
               }`}
             >
-              <div className="relative flex items-center justify-center">
+              <div className="relative flex items-center justify-center px-3 py-1 rounded-full">
                 {/* Active glow pill behind icon */}
                 {isActive && (
-                  <span className="absolute inset-0 -mx-3 -my-1 rounded-full bg-nutrition/15 shadow-[0_0_14px_rgba(16,185,129,0.25)]" />
+                  <span
+                    className="absolute inset-0 rounded-full"
+                    style={{ background: 'color-mix(in oklch, #00d4ff 14%, transparent)' }}
+                  />
                 )}
                 <Icon
                   className={`relative z-10 transition-all duration-300 ${
                     tab.primary ? 'w-6 h-6' : 'w-5 h-5'
                   } ${
                     isActive
-                      ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] scale-110'
-                      : 'opacity-50 group-hover:opacity-80 group-hover:scale-105'
+                      ? 'text-[#00d4ff] drop-shadow-[0_0_5px_rgba(0,212,255,0.55)] stroke-[2.2]'
+                      : 'stroke-[1.6]'
                   }`}
                 />
               </div>
               <span
-                className={`text-[9px] font-black uppercase tracking-[0.15em] leading-none transition-all duration-300 ${
-                  isActive ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'
+                className={`font-ui leading-none transition-all duration-300 ${
+                  isActive ? 'text-[#a855f7]' : 'text-[#475569]'
                 }`}
+                style={{ fontSize: '9px', letterSpacing: '0.12em' }}
               >
                 {tab.label}
               </span>
