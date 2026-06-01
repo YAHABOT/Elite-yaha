@@ -114,6 +114,26 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // Mark hydrated after first client paint so the messages area doesn't flash unstyled
   useEffect(() => { setIsHydrated(true) }, [])
 
+  // Log Again — detect sessionStorage payload set by LogEntryCard "Log Again" button.
+  // Auto-sends a silent message so AI generates a pre-filled action card on arrival.
+  useEffect(() => {
+    const raw = sessionStorage.getItem('yaha_log_again')
+    if (!raw) return
+    sessionStorage.removeItem('yaha_log_again')
+    try {
+      const payload = JSON.parse(raw) as { trackerName: string; fieldSummary: string }
+      const autoMessage = `Re-log a ${payload.trackerName} entry for me. Pre-fill the action card with these exact values: ${payload.fieldSummary}. I may want to adjust some values before confirming.`
+      // Small delay to let session initialise
+      const t = setTimeout(() => {
+        void handleSendSilent(autoMessage)
+      }, 400)
+      return () => clearTimeout(t)
+    } catch {
+      // corrupt payload — ignore
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // NEW-CHAT POLL: When ChatInterface loads with only a user message (no AI response yet),
   // the user navigated here early (from MobileChatHome) while the server was still generating.
   // Poll via router.refresh() until the AI response appears in initialMessages.

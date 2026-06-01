@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Trash2, Loader2, Pencil, Check, X } from 'lucide-react'
+import { Trash2, Loader2, Pencil, Check, X, RotateCcw } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { deleteLogAction, updateLogAction } from '@/app/actions/logs'
 import { formatFieldValue } from '@/lib/utils/format'
 import type { TrackerLog, LogFields } from '@/types/log'
@@ -10,6 +11,9 @@ import type { SchemaField } from '@/types/tracker'
 type Props = {
   log: TrackerLog
   schema: SchemaField[]
+  trackerId: string
+  trackerName: string
+  trackerColor: string
 }
 
 const RATING_MIN = 1
@@ -67,7 +71,8 @@ function getSourceBadgeStyle(source: string): string {
   return 'bg-white/[0.04] text-textMuted border border-white/5'
 }
 
-export function LogEntryCard({ log, schema }: Props): React.ReactElement {
+export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): React.ReactElement {
+  const router = useRouter()
   const [isDeleting, startDeleteTransition] = useTransition()
   const [isSaving, startSaveTransition] = useTransition()
   const [isEditing, setIsEditing] = useState(false)
@@ -80,6 +85,24 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
   const filledFields = schema.filter(
     (field) => log.fields[field.fieldId] !== null && log.fields[field.fieldId] !== undefined
   )
+
+  function handleLogAgain(): void {
+    // Build a human-readable field summary using schema labels
+    const fieldSummary = schema
+      .filter((f) => log.fields[f.fieldId] !== null && log.fields[f.fieldId] !== undefined)
+      .map((f) => `${f.label}: ${log.fields[f.fieldId]}`)
+      .join(', ')
+
+    // Store payload in sessionStorage so ChatInterface can pick it up on mount
+    const payload = {
+      trackerId,
+      trackerName,
+      fieldSummary,
+      fields: log.fields,
+    }
+    sessionStorage.setItem('yaha_log_again', JSON.stringify(payload))
+    router.push('/chat')
+  }
 
   const handleDelete = (): void => {
     if (!confirmDelete) {
@@ -262,6 +285,15 @@ export function LogEntryCard({ log, schema }: Props): React.ReactElement {
             </>
           ) : (
             <>
+              <button
+                type="button"
+                onClick={handleLogAgain}
+                className="rounded-lg p-1 text-textMuted transition-all duration-300 hover:bg-white/[0.04] hover:text-textPrimary"
+                aria-label="Log again"
+                title="Log again"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
               <button
                 type="button"
                 onClick={startEdit}

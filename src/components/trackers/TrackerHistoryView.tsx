@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ClipboardList, TrendingUp, Settings } from 'lucide-react'
+import { ArrowLeft, ClipboardList, TrendingUp, Settings, Search } from 'lucide-react'
 import type { Tracker, SchemaField } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import { LogEntryCard } from '@/components/trackers/LogEntryCard'
@@ -119,7 +119,25 @@ function groupLogsByDate(logs: TrackerLog[]): GroupedLogs[] {
 }
 
 export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement {
-  const groups = groupLogsByDate(logs)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const filteredLogs = logs.filter((log) => {
+    // Date range filter
+    const logDate = log.logged_at.slice(0, 10) // YYYY-MM-DD
+    if (dateFrom && logDate < dateFrom) return false
+    if (dateTo && logDate > dateTo) return false
+    // Text search — match against all field values (stringify the whole fields object)
+    if (searchQuery.trim()) {
+      const haystack = JSON.stringify(log.fields).toLowerCase()
+      const needle = searchQuery.trim().toLowerCase()
+      if (!haystack.includes(needle)) return false
+    }
+    return true
+  })
+
+  const groups = groupLogsByDate(filteredLogs)
 
   const [totalsConfig, setTotalsConfig] = useState<TrackerTotalsConfig>({})
   const [configLoaded, setConfigLoaded] = useState(false)
@@ -181,6 +199,59 @@ export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement
         </div>
       </div>
 
+      {/* Search + Date Filter */}
+      <div className="mb-8 space-y-3">
+        {/* Search input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-textMuted/50" />
+          <input
+            type="text"
+            placeholder="Search entries…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-2xl border border-white/5 bg-white/[0.03] py-2.5 pl-9 pr-4 text-sm text-textPrimary placeholder:text-textMuted/40 focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
+          />
+        </div>
+
+        {/* Date range */}
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-textMuted/50">From</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-textPrimary focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-textMuted/50">To</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-textPrimary focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
+            />
+          </div>
+          {/* Clear button — only when any filter is active */}
+          {(searchQuery || dateFrom || dateTo) && (
+            <button
+              onClick={() => { setSearchQuery(''); setDateFrom(''); setDateTo('') }}
+              className="self-end rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-textMuted transition-colors hover:text-textPrimary"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Result count when filtering */}
+        {(searchQuery || dateFrom || dateTo) && (
+          <p className="text-[11px] text-textMuted/50">
+            {filteredLogs.length} {filteredLogs.length === 1 ? 'entry' : 'entries'} found
+          </p>
+        )}
+      </div>
+
       {/* Log History */}
       {groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 bg-white/[0.02] p-16 text-center">
@@ -219,6 +290,9 @@ export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement
                     key={log.id}
                     log={log}
                     schema={tracker.schema}
+                    trackerId={tracker.id}
+                    trackerName={tracker.name}
+                    trackerColor={tracker.color}
                   />
                 ))}
               </div>
