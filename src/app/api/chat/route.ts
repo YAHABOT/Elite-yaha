@@ -491,6 +491,16 @@ export async function POST(req: Request): Promise<Response> {
               /\btell\s+me\s+(all|what|about)\b/i,                      // EX15/EX26: "tell me all the food I ate"
               /\b\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i, // "23rd may"
               /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(st|nd|rd|th)?\b/i, // "may 23rd"
+              // General search/recall intent — no explicit time reference
+              /\bfind\b/i,
+              /\bsearch\b/i,
+              /\bin (my |the )?(records?|history|logs?|database)\b/i,
+              /\bdo i have\b/i,
+              /\bhave i (ever |previously )?(logged?|tracked?|recorded?|eaten?|had)\b/i,
+              /\bshow me all\b/i,
+              /\ball (my |the )?(logs?|records?|entries)\b/i,
+              /\bever (eat|ate|had|logged?|tracked?)\b/i,
+              /\bpull (up |out )?(my |all )?(records?|logs?|data|entries)\b/i,
             ]
             const hasHistoricalIntent = HISTORICAL_INTENT_PATTERNS.some(p => p.test(message))
 
@@ -572,6 +582,21 @@ export async function POST(req: Request): Promise<Response> {
                     d.setUTCDate(d.getUTCDate() - 1)
                     rangeStart = getDateStr(d)
                   }
+                } else if (
+                  /\bfind\b/i.test(message) ||
+                  /\bsearch\b/i.test(message) ||
+                  /\bin (my |the )?(records?|history|logs?|database)\b/i.test(message) ||
+                  /\bdo i have\b/i.test(message) ||
+                  /\bhave i (ever |previously )?(logged?|tracked?|recorded?|eaten?|had)\b/i.test(message) ||
+                  /\bshow me all\b/i.test(message) ||
+                  /\ball (my |the )?(logs?|records?|entries)\b/i.test(message) ||
+                  /\bever (eat|ate|had|logged?|tracked?)\b/i.test(message) ||
+                  /\bpull (up |out )?(my |all )?(records?|logs?|data|entries)\b/i.test(message)
+                ) {
+                  // General search intent with no specific time — fetch last 30 days
+                  const d = new Date(actualDateObj)
+                  d.setUTCDate(d.getUTCDate() - 30)
+                  rangeStart = getDateStr(d)
                 } else {
                   // Default (yesterday, "day before", "same as yesterday", "use same", "tell me all", etc.): yesterday + today
                   const d = new Date(actualDateObj)
