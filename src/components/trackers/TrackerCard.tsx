@@ -1,117 +1,95 @@
+'use client'
+
 import Link from 'next/link'
-import { Pencil, ClipboardList, Activity } from 'lucide-react'
+import { ClipboardList, Pencil, Eye, Activity, GripVertical } from 'lucide-react'
 import type { Tracker } from '@/types/tracker'
 
 type Props = {
   tracker: Tracker
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
 }
 
-export function TrackerCard({ tracker }: Props): React.ReactElement {
+export function TrackerCard({ tracker, dragHandleProps }: Props): React.ReactElement {
   const fieldCount = tracker.schema.length
 
   return (
     <div
-      className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] bg-[#091424] p-5 transition-all duration-300 hover:-translate-y-0.5"
-      style={{ border: `1px solid ${tracker.color}15` }}
+      className="group flex items-center gap-3 rounded-2xl bg-[#091424] p-4 transition-all duration-200"
+      style={{ border: `1px solid ${tracker.color}18` }}
       data-testid="tracker-card"
     >
-      {/* Top gradient accent hairline */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0"
-        style={{
-          height: '1px',
-          background: `linear-gradient(to right, transparent, ${tracker.color}70, transparent)`,
-        }}
-      />
-      {/* Corner ambient glow */}
-      <div
-        className="pointer-events-none absolute rounded-full"
-        style={{
-          width: 80,
-          height: 80,
-          top: -20,
-          right: -20,
-          background: tracker.color,
-          opacity: 0.07,
-          filter: 'blur(24px)',
-        }}
-      />
-
-      <Link href={`/trackers/${tracker.id}`} className="relative mb-4 block">
-        {/* Icon + Name row */}
-        <div className="mb-4 flex items-center gap-3">
-          <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 group-hover:scale-110"
-            style={{
-              backgroundColor: `${tracker.color}18`,
-              border: `1px solid ${tracker.color}35`,
-              boxShadow: `0 0 14px -4px ${tracker.color}50`,
-              color: tracker.color,
-            }}
-            data-testid="tracker-color-dot"
-          >
-            <Activity className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-display-heading text-base text-textPrimary break-words">
-              {tracker.name}
-            </h3>
-          </div>
+      {/* Drag handle — visible only when dragHandleProps are provided */}
+      {dragHandleProps && (
+        <div
+          {...dragHandleProps}
+          className="shrink-0 cursor-grab touch-none text-textMuted/20 hover:text-textMuted/60 transition-colors active:cursor-grabbing"
+          title="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4" />
         </div>
+      )}
 
-        {/* Badges */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+      {/* Icon */}
+      <div
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+        style={{
+          backgroundColor: `${tracker.color}14`,
+          border: `1px solid ${tracker.color}30`,
+          boxShadow: `0 0 12px ${tracker.color}20`,
+        }}
+        data-testid="tracker-color-dot"
+      >
+        <Activity className="h-4 w-4" style={{ color: tracker.color }} />
+      </div>
+
+      {/* Name + badges */}
+      <div className="min-w-0 flex-1">
+        <h3 className="font-display-heading text-sm text-textPrimary leading-tight">
+          {tracker.name}
+        </h3>
+        <div className="mt-1 flex items-center gap-2 flex-wrap">
           <span
-            className="rounded-full px-2.5 py-0.5 font-ui"
-            style={{
-              fontSize: '10px', letterSpacing: '0.12em',
-              backgroundColor: `${tracker.color}18`,
-              color: tracker.color,
-              border: `1px solid ${tracker.color}30`,
-            }}
+            className="font-ui"
+            style={{ fontSize: '9px', letterSpacing: '0.14em', color: tracker.color }}
           >
-            {tracker.type}
+            {tracker.type.toUpperCase()}
           </span>
-          <span className="rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-0.5 font-ui text-textMuted" style={{ fontSize: '10px', letterSpacing: '0.12em' }}>
-            {fieldCount} {fieldCount === 1 ? 'field' : 'fields'}
+          <span className="font-ui text-textMuted/50" style={{ fontSize: '9px', letterSpacing: '0.10em' }}>
+            {fieldCount} {fieldCount === 1 ? 'FIELD' : 'FIELDS'}
           </span>
         </div>
+      </div>
 
-        {/* Footer row */}
-        <div className="flex items-center justify-between border-t border-white/5 pt-3">
-          <span className="font-ui text-textMuted/40" style={{ fontSize: '10px', letterSpacing: '0.12em' }}>
-            View History
-          </span>
-          <div className="text-textMuted opacity-20 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100">
-            <svg width="6" height="10" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 9L5 5L1 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-        </div>
-      </Link>
-
-      {/* Action buttons */}
-      <div className="relative flex items-center gap-2">
+      {/* Action buttons — stacked on the right */}
+      <div className="flex shrink-0 flex-col gap-1.5">
         <Link
           href={`/trackers/${tracker.id}/log`}
-          className="flex items-center gap-1.5 rounded-full px-4 py-1.5 font-ui text-textPrimary transition-all duration-300"
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 font-ui transition-all duration-200 hover:brightness-110"
           style={{
-            fontSize: '10px', letterSpacing: '0.10em',
-            backgroundColor: `${tracker.color}14`,
+            fontSize: '9px', letterSpacing: '0.10em',
+            backgroundColor: `${tracker.color}18`,
             border: `1px solid ${tracker.color}35`,
             color: tracker.color,
           }}
         >
-          <ClipboardList className="h-3 w-3" />
+          <ClipboardList className="h-2.5 w-2.5 shrink-0" />
           Log Entry
         </Link>
         <Link
           href={`/trackers/${tracker.id}/schema`}
-          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 font-ui text-textPrimary transition-all duration-300 hover:border-white/20 hover:bg-white/[0.08]"
-          style={{ fontSize: '10px', letterSpacing: '0.10em' }}
+          className="flex items-center gap-1.5 rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 font-ui text-textMuted transition-all duration-200 hover:border-white/15 hover:text-textPrimary"
+          style={{ fontSize: '9px', letterSpacing: '0.10em' }}
         >
-          <Pencil className="h-3 w-3" />
+          <Pencil className="h-2.5 w-2.5 shrink-0" />
           Edit Schema
+        </Link>
+        <Link
+          href={`/trackers/${tracker.id}`}
+          className="flex items-center gap-1.5 rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 font-ui text-textMuted transition-all duration-200 hover:border-white/15 hover:text-textPrimary"
+          style={{ fontSize: '9px', letterSpacing: '0.10em' }}
+        >
+          <Eye className="h-2.5 w-2.5 shrink-0" />
+          View History
         </Link>
       </div>
     </div>

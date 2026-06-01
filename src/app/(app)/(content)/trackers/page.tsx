@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { getTrackers } from '@/lib/db/trackers'
-import { TrackerCard } from '@/components/trackers/TrackerCard'
+import { SortableTrackerList } from '@/components/trackers/SortableTrackerList'
 
 export default async function TrackersPage(): Promise<React.ReactElement> {
   const trackers = await getTrackers()
@@ -12,8 +12,8 @@ export default async function TrackersPage(): Promise<React.ReactElement> {
         <h1 className="font-display-heading text-2xl text-textPrimary">Trackers</h1>
         <Link
           href="/trackers/new"
-          className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#000d1a] transition-all shadow-[0_0_16px_-4px_rgba(0,212,255,0.5)]"
-          style={{ background: 'linear-gradient(135deg, #00d4ff, #0090cc)' }}
+          className="flex items-center gap-1.5 rounded-full px-4 py-2 font-ui text-[#000d1a] transition-all shadow-[0_0_16px_-4px_rgba(0,212,255,0.5)]"
+          style={{ fontSize: '11px', letterSpacing: '0.10em', background: 'linear-gradient(135deg, #00d4ff, #0090cc)' }}
         >
           <Plus className="h-4 w-4" />
           New Tracker
@@ -21,17 +21,13 @@ export default async function TrackersPage(): Promise<React.ReactElement> {
       </div>
 
       {trackers.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface p-12 text-center">
-          <p className="text-textMuted">
+        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-12 text-center">
+          <p className="font-ui text-textMuted" style={{ fontSize: '11px', letterSpacing: '0.08em' }}>
             No trackers yet. Create your first one to start logging.
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {trackers.map((tracker) => (
-            <TrackerCard key={tracker.id} tracker={tracker} />
-          ))}
-        </div>
+        <SortableTrackerList trackers={trackers} />
       )}
     </div>
   )

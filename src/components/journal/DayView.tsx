@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, GitBranch, Eye, EyeOff, Plus, Menu, X } from
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import type { Correlation } from '@/types/correlator'
-import { TrackerDayGroup } from '@/components/journal/TrackerDayGroup'
+import { SortableJournalList } from '@/components/journal/SortableJournalList'
 import { CorrelationCard } from '@/components/journal/CorrelationCard'
 import { CorrelatorModal } from '@/components/journal/CorrelatorModal'
 
@@ -299,19 +299,11 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
               )}
             </div>
           ) : (
-            <div className="space-y-3">
-              {trackersWithLogs.map((tracker) => {
-                const trackerLogs = grouped.get(tracker.id) ?? []
-                return (
-                  <TrackerDayGroup
-                    key={tracker.id}
-                    tracker={tracker}
-                    logs={trackerLogs}
-                    showTotals={showTotals}
-                  />
-                )
-              })}
-            </div>
+            <SortableJournalList
+              trackers={trackersWithLogs}
+              grouped={grouped}
+              showTotals={showTotals}
+            />
           )}
 
           {/* Add correlator CTA if none exist */}

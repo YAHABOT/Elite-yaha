@@ -304,24 +304,30 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
         <button
           onClick={handleConfirm}
           disabled={status === 'loading'}
-          className="flex-1 rounded-2xl bg-nutrition px-4 py-3 text-sm font-black text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)] active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:scale-100"
+          className="flex-1 rounded-2xl px-4 py-3 font-ui text-[#000d1a] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:scale-100"
+          style={{
+            fontSize: '12px', letterSpacing: '0.10em',
+            background: 'linear-gradient(135deg, #00d4ff, #0090cc)',
+            boxShadow: '0 0 20px rgba(0,212,255,0.30)',
+          }}
           data-testid="action-card-confirm"
         >
           {status === 'loading' ? (
             <span className="flex items-center justify-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-black/60 animate-bounce [animation-delay:0ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-black/60 animate-bounce [animation-delay:120ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-black/60 animate-bounce [animation-delay:240ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#000d1a]/60 animate-bounce [animation-delay:0ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#000d1a]/60 animate-bounce [animation-delay:120ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#000d1a]/60 animate-bounce [animation-delay:240ms]" />
             </span>
-          ) : 'Log Entry'}
+          ) : '✓ Confirm'}
         </button>
         <button
           onClick={handleDiscard}
           disabled={status === 'loading'}
-          className="rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3 text-sm font-bold text-muted-foreground/60 transition-all duration-200 hover:bg-white/[0.07] hover:text-muted-foreground active:scale-[0.98] disabled:opacity-30"
+          className="rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3 font-ui text-muted-foreground/60 transition-all duration-200 hover:bg-white/[0.07] hover:text-muted-foreground active:scale-[0.98] disabled:opacity-30"
+          style={{ fontSize: '11px', letterSpacing: '0.08em' }}
           data-testid="action-card-discard"
         >
-          Discard
+          ✕
         </button>
       </div>
     </div>

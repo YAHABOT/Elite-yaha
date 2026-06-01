@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, ChevronDown } from 'lucide-react'
+import { Settings, ChevronDown, GripVertical } from 'lucide-react'
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog, LogSource } from '@/types/log'
 import { formatFieldValue } from '@/lib/utils/format'
@@ -15,6 +15,11 @@ type Props = {
   tracker: Tracker
   logs: TrackerLog[]
   showTotals: boolean
+  // Controlled open state (used by sortable journal list)
+  isOpen?: boolean
+  onToggle?: () => void
+  // Drag handle props injected by dnd-kit sortable
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
 }
 
 const SOURCE_LABELS: Record<LogSource, string> = {
@@ -94,9 +99,12 @@ function computeTotals(
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.ReactElement {
+export function TrackerDayGroup({ tracker, logs, showTotals, isOpen: controlledOpen, onToggle, dragHandleProps }: Props): React.ReactElement {
   const logCount = logs.length
-  const [isOpen, setIsOpen] = useState(true)
+  const [localOpen, setLocalOpen] = useState(false)
+  // Controlled mode when parent passes isOpen/onToggle, otherwise local state
+  const isOpen = controlledOpen ?? localOpen
+  const handleToggle = onToggle ?? (() => setLocalOpen((o) => !o))
   const [totalsConfig, setTotalsConfig] = useState<TrackerTotalsConfig>({})
   const [configLoaded, setConfigLoaded] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
@@ -116,13 +124,24 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
         className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md transition-all duration-300"
         style={{ boxShadow: `0 0 0 1px ${tracker.color}18, inset 0 0 24px ${tracker.color}06` }}
       >
-        {/* Tracker header — clickable to collapse/expand */}
-        <button
-          type="button"
-          onClick={() => setIsOpen((o) => !o)}
-          className="mb-4 flex w-full items-center justify-between text-left"
-          aria-expanded={isOpen}
-        >
+        {/* Tracker header — drag handle + toggle button */}
+        <div className="mb-4 flex w-full items-center gap-2">
+          {/* Drag handle — shown only when sortable list injects props */}
+          {dragHandleProps && (
+            <div
+              {...dragHandleProps}
+              className="shrink-0 cursor-grab touch-none text-textMuted/25 hover:text-textMuted/60 transition-colors active:cursor-grabbing"
+              title="Drag to reorder"
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleToggle}
+            className="flex flex-1 items-center justify-between text-left"
+            aria-expanded={isOpen}
+          >
           <div className="flex items-center gap-3">
             {/* Colored icon badge */}
             <div
@@ -164,7 +183,8 @@ export function TrackerDayGroup({ tracker, logs, showTotals }: Props): React.Rea
               <ChevronDown className="h-3.5 w-3.5" />
             </span>
           </div>
-        </button>
+          </button>
+        </div>
 
         {/* Log entries — hidden when collapsed */}
         {isOpen && <div className="space-y-2.5">

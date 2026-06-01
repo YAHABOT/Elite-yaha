@@ -1009,8 +1009,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             }`}
           >
             {message.role === 'assistant' && (
-              <div className="mr-2.5 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] border border-white/5">
-                <Bot className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <div className="mr-2.5 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl"
+                style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.20)' }}>
+                <Bot className="h-3.5 w-3.5" style={{ color: 'rgba(0,212,255,0.70)' }} />
               </div>
             )}
 
@@ -1018,9 +1019,13 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               <div
                 className={`rounded-3xl px-5 py-3.5 text-sm leading-relaxed ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-br from-nutrition/90 to-nutrition/70 text-black font-medium shadow-[0_4px_24px_rgba(16,185,129,0.25)] rounded-br-lg'
+                    ? 'text-[#000d1a] font-medium rounded-br-lg'
                     : 'bg-white/[0.03] backdrop-blur-md border border-white/[0.06] text-foreground rounded-bl-lg shadow-[0_4px_24px_rgba(0,0,0,0.4)]'
                 }`}
+                style={message.role === 'user' ? {
+                  background: 'linear-gradient(135deg, #00d4ff, #0090cc)',
+                  boxShadow: '0 4px 24px rgba(0,212,255,0.28)',
+                } : {}}
               >
                 <MarkdownText content={message.content.replace(/```json\s*[\s\S]*?```/g, '').trim()} />
               </div>
