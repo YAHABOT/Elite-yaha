@@ -14,6 +14,7 @@ type Props = {
   value: WidgetValue
   editMode: boolean
   onDelete: () => void
+  target?: number
 }
 
 function Sparkline({ trend, color }: { trend: number[]; color: string }): React.ReactElement | null {
@@ -52,7 +53,7 @@ function Sparkline({ trend, color }: { trend: number[]; color: string }): React.
   }
 }
 
-export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.ReactElement {
+export function WidgetCard({ widget, value, editMode, onDelete, target }: Props): React.ReactElement {
   const color = widget.color ?? DEFAULT_BORDER_COLOR
   const borderHex = `${color}33` // 20% opacity for subtle border
   const glowHex = `${color}1A`   // 10% opacity for glow
@@ -60,6 +61,11 @@ export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.
   const displayValue = value.value !== null && value.value !== undefined
     ? String(value.value)
     : null
+
+  // Target progress bar — only when a numeric target is set and value is numeric
+  const numericValue = typeof value.value === 'number' ? value.value : parseFloat(String(value.value ?? ''))
+  const hasProgress = target !== undefined && target > 0 && !isNaN(numericValue)
+  const progressPct = hasProgress ? Math.min(100, Math.round((numericValue / target) * 100)) : 0
 
   return (
     <div
@@ -120,6 +126,35 @@ export function WidgetCard({ widget, value, editMode, onDelete }: Props): React.
       {/* Sparkline */}
       {value.trend && value.trend.length > 1 && (
         <Sparkline trend={value.trend} color={color} />
+      )}
+
+      {/* Target progress bar */}
+      {hasProgress && (
+        <div className="mt-3">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-ui text-textMuted/40" style={{ fontSize: '8px', letterSpacing: '0.12em' }}>
+              TARGET
+            </span>
+            <span className="font-ui" style={{ fontSize: '8px', letterSpacing: '0.10em', color: progressPct >= 100 ? '#10b981' : color }}>
+              {progressPct}%
+            </span>
+          </div>
+          <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${progressPct}%`,
+                background: progressPct >= 100
+                  ? 'linear-gradient(90deg, #10b981, #34d399)'
+                  : `linear-gradient(90deg, ${color}99, ${color})`,
+                boxShadow: progressPct >= 100 ? '0 0 6px rgba(16,185,129,0.5)' : `0 0 6px ${color}60`,
+              }}
+            />
+          </div>
+          <p className="mt-1 font-ui text-textMuted/30" style={{ fontSize: '8px', letterSpacing: '0.08em' }}>
+            {progressPct >= 100 ? `✓ Goal reached` : `${target! - Math.round(numericValue)} to go`}
+          </p>
+        </div>
       )}
     </div>
   )

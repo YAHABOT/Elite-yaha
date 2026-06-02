@@ -652,7 +652,7 @@ export async function POST(req: Request): Promise<Response> {
           let systemPrompt: string
           if (activeRoutine) {
             console.log(`[ChatRoute] Using routine prompt: ${activeRoutine.name} (Step ${session.current_step_index + 1})`)
-            systemPrompt = buildRoutineSystemPrompt(activeRoutine, trackers, session.current_step_index, brainContext, dayLogs, loggingDate, today, historicalContext, userName)
+            systemPrompt = buildRoutineSystemPrompt(activeRoutine, trackers, session.current_step_index, brainContext, dayLogs, loggingDate, today, historicalContext, userName, userProfile?.targets ?? undefined)
           } else if (activeAgent) {
             console.log(`[ChatRoute] Using agent prompt: ${activeAgent.name}`)
             const sessionMessagesForContext = historyMessages.map(msg => ({
@@ -665,7 +665,7 @@ export async function POST(req: Request): Promise<Response> {
                   type: att.type
                 }))
               : undefined
-            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName })
+            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined })
             systemPrompt = `${activeAgent.system_prompt}\n\n---\n## YAHA HEALTH LOGGING CAPABILITIES\n${yahaSection}`
           } else {
             console.log(`[ChatRoute] Using standard health prompt. daySession=${daySessionActive ? loggingDate : 'neutral'}`)
@@ -679,7 +679,7 @@ export async function POST(req: Request): Promise<Response> {
                   type: att.type
                 }))
               : undefined
-            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName })
+            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined })
           }
 
           // BUG-V32-8 FIX: Append native macro totaling for nutrition tracker (prevents LLM arithmetic errors)

@@ -73,6 +73,7 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
         dayEndRoutine={dayEndRoutine}
         dayState={dayState}
         userName={userName}
+        targets={userProfile?.targets ?? {}}
       />
     )
   } catch {

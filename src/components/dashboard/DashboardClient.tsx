@@ -12,6 +12,7 @@ import type { Widget, WidgetValue } from '@/types/widget'
 import type { Tracker } from '@/types/tracker'
 import type { Routine } from '@/types/routine'
 import type { UserDayState } from '@/lib/db/day-state'
+import type { UserTargets } from '@/lib/db/users'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone
 function getLocalDateStr(): string {
@@ -27,6 +28,18 @@ type Props = {
   dayEndRoutine: Routine | null
   dayState: UserDayState | null
   userName: string
+  targets: UserTargets
+}
+
+/** Match a widget label to a user target value (only for field_total widgets). */
+function getWidgetTarget(widget: Widget, targets: UserTargets): number | undefined {
+  if (widget.type !== 'field_total') return undefined
+  const label = widget.label.toLowerCase()
+  if (/calor|kcal/.test(label) && targets.calories) return targets.calories
+  if (/sleep|slept|rest/.test(label) && targets.sleep) return targets.sleep
+  if (/water|fluid|hydrat/.test(label) && targets.water) return targets.water
+  if (/step/.test(label) && targets.steps) return targets.steps
+  return undefined
 }
 
 function getTimeGreeting(): string {
@@ -72,6 +85,7 @@ export function DashboardClient({
   dayEndRoutine,
   dayState,
   userName,
+  targets,
 }: Props): React.ReactElement {
   const [editMode, setEditMode] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -347,6 +361,7 @@ export function DashboardClient({
               value={widgetValues[index] ?? { value: null, label: widget.label }}
               editMode={editMode}
               onDelete={() => handleDelete(widget.id)}
+              target={getWidgetTarget(widget, targets)}
             />
           ))}
         </div>

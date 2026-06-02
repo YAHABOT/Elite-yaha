@@ -959,9 +959,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
       {/* Messages — min-h-0 is critical: without it a flex child won't shrink below content height,
            causing the whole page to scroll instead of just this element */}
-      <div className={`min-h-0 flex-1 overflow-y-auto overscroll-y-none px-4 py-10 space-y-2 lg:px-12 ${!isHydrated ? 'invisible' : ''}`}>
+      <div className={`min-h-0 flex-1 overflow-y-auto overscroll-y-none flex flex-col px-4 lg:px-12 ${!isHydrated ? 'invisible' : ''}`}>
+        {/* Error banner — pinned at top */}
         {error && (
-          <div className="mb-6 flex items-center justify-between rounded-2xl bg-red-500/[0.08] border border-red-500/20 px-4 py-3 text-sm text-red-300 animate-in slide-in-from-top-2 backdrop-blur-sm">
+          <div className="mt-4 mb-2 flex items-center justify-between rounded-2xl bg-red-500/[0.08] border border-red-500/20 px-4 py-3 text-sm text-red-300 animate-in slide-in-from-top-2 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <Zap className="h-4 w-4 text-red-500 shrink-0" />
               <span>{error}</span>
@@ -972,8 +973,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           </div>
         )}
 
+        {/* Empty state — fills full height, centered */}
         {messages.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center gap-5 py-24 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center py-8">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-white/5"
               style={{ background: 'linear-gradient(135deg, rgba(0,212,255,0.12), rgba(168,85,247,0.08), transparent)', boxShadow: '0 0 40px rgba(0,212,255,0.12)' }}>
               <Bot className="h-9 w-9" style={{ color: 'rgba(0,212,255,0.80)' }} />
@@ -985,6 +987,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           </div>
         )}
 
+        {/* Spacer — pushes messages down when content is short */}
+        {(messages.length > 0 || isLoading) && <div className="flex-1" />}
+
+        <div className="flex flex-col gap-2 py-4">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -1108,27 +1114,25 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         ))}
 
         {isLoading && (
-          <div className="flex items-start gap-3 ml-2 animate-in fade-in duration-300">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] border border-white/5 mt-1">
-              <Bot className="h-3.5 w-3.5 text-muted-foreground/60" />
-            </div>
+          <div className="flex justify-start animate-in fade-in duration-300">
             {streamingText ? (
               // B8: render partial streaming text as it arrives
-              <div className="rounded-3xl rounded-bl-lg bg-white/[0.03] border border-white/[0.06] px-5 py-3.5 max-w-[85%]">
-                <p className="text-sm leading-relaxed text-textPrimary whitespace-pre-wrap">{streamingText}</p>
-                <span className="inline-block h-3 w-0.5 bg-nutrition/60 animate-pulse ml-0.5 align-bottom" />
+              <div className="max-w-[78%] rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-textPrimary/90" style={{ background: '#091424', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="whitespace-pre-wrap">{streamingText}</p>
+                <span className="inline-block h-3 w-0.5 animate-pulse ml-0.5 align-bottom" style={{ background: 'rgba(0,212,255,0.60)' }} />
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 rounded-3xl rounded-bl-lg bg-white/[0.03] border border-white/[0.06] px-5 py-3.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-nutrition/60 animate-bounce [animation-delay:0ms]" />
-                <span className="h-1.5 w-1.5 rounded-full bg-nutrition/60 animate-bounce [animation-delay:150ms]" />
-                <span className="h-1.5 w-1.5 rounded-full bg-nutrition/60 animate-bounce [animation-delay:300ms]" />
+              <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm px-4 py-3" style={{ background: '#091424', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
+                <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
+                <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
               </div>
             )}
           </div>
         )}
 
-        <div ref={bottomRef} className="h-4" />
+        <div ref={bottomRef} className="h-1" />
+        </div>{/* end messages wrapper */}
       </div>
 
       {/* Active Ritual Banner */}

@@ -1,5 +1,6 @@
 import type { Tracker } from '@/types/tracker'
 import type { Routine, RoutineStep } from '@/types/routine'
+import type { UserTargets } from '@/lib/db/users'
 
 type DayLog = {
   id: string
@@ -33,6 +34,8 @@ type BuildHealthSystemPromptParams = {
   attachmentsReceived?: Array<{ filename: string; type: string }>
   /** Display name for the user — personalises AI prompts. Defaults to 'you'. */
   userName?: string
+  /** User's daily targets from settings — injected so AI can reference goals. */
+  userTargets?: UserTargets
 }
 
 function formatTrackerSchema(tracker: Tracker): string {
@@ -491,6 +494,17 @@ export function buildAttachmentContext(attachmentList?: Array<{ filename: string
   return `\n## Attachments Received This Session\n${fileList}`
 }
 
+function buildTargetsSection(targets?: UserTargets): string {
+  if (!targets) return ''
+  const lines: string[] = []
+  if (targets.calories) lines.push(`- Calories: ${targets.calories} kcal/day`)
+  if (targets.sleep)    lines.push(`- Sleep: ${targets.sleep} hrs/night`)
+  if (targets.water)    lines.push(`- Water: ${targets.water} L/day`)
+  if (targets.steps)    lines.push(`- Steps: ${targets.steps} steps/day`)
+  if (lines.length === 0) return ''
+  return `\n## USER DAILY TARGETS\nThe user has set the following personal health targets. Reference these when discussing progress, totals, or remaining goals for the day:\n${lines.join('\n')}\n`
+}
+
 export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): string {
   const today = params.date ?? new Date().toISOString().split('T')[0]
   // Physical current date — used for relative date arithmetic ("yesterday", "5 days ago")
@@ -501,6 +515,7 @@ export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): 
   const trackerSection = buildTrackerSection(params.trackers)
   const masterBrain = params.userContext ? `${params.userContext}\n---\n` : ''
   const summary = buildDaySummary(params.dayLogs, params.trackers)
+  const targetsSection = buildTargetsSection(params.userTargets)
   const historicalSection = params.historicalContext !== undefined
     ? buildHistoricalSection(params.historicalContext, params.trackers)
     : ''
@@ -548,7 +563,7 @@ ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL
 
 ## CURRENT DAY ACTIVITY (${today})
 ${summary}
-${historicalSection ? `\n${historicalSection}\n` : ''}${intraSessionContext}${attachmentContext}
+${targetsSection}${historicalSection ? `\n${historicalSection}\n` : ''}${intraSessionContext}${attachmentContext}
 
 ## Available Trackers
 ${trackerSection}
@@ -585,16 +600,16 @@ ${FEW_SHOT_EXAMPLES.replace(/{{TODAY}}/g, today)}
 `
 }
 
-export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string, historicalContext?: HistoricalLog[], userName?: string): string {
+export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string, historicalContext?: HistoricalLog[], userName?: string, userTargets?: UserTargets): string {
   if (!routine.steps || routine.steps.length === 0) {
-    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate, userName })
+    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate, userName, userTargets })
   }
 
   // FIX: BUG-V33-RT01 — Bounds check currentStepIndex to prevent undefined step errors
   // If currentStepIndex is out of bounds, fall back to health system prompt (routine is complete)
   if (currentStepIndex < 0 || currentStepIndex >= routine.steps.length) {
     console.error(`[PromptBuilder] Routine step index ${currentStepIndex} out of bounds (total: ${routine.steps.length})`)
-    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate, userName })
+    return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate, userName, userTargets })
   }
 
   // Use client-supplied local date so routine logs land on the user's correct calendar day
@@ -604,6 +619,7 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
   const nextStep = routine.steps[currentStepIndex + 1]
   const masterBrain = userContext ? `${userContext}\n---\n` : ''
   const summary = buildDaySummary(dayLogs, trackers)
+  const targetsSection = buildTargetsSection(userTargets)
 
   // Build explicit field ID templates so the AI cannot hallucinate field IDs from other trackers.
   // Using actual fld_* IDs + labels prevents the AI from copying field names from step history.
@@ -779,7 +795,7 @@ ${fullSequence}
 
 ## CURRENT DAY ACTIVITY (${today})
 ${summary}
-${historicalSection ? `\n${historicalSection}\n` : ''}
+${targetsSection}${historicalSection ? `\n${historicalSection}\n` : ''}
 ## ACTIVE STEP: ${currentStepIndex + 1} of ${routine.steps.length} — ${currentStep.trackerName}
 - **Tracker ID** (use in action card): \`${getTrackerIdForStep(currentStep)}\`
 - **Fields to collect**: ${currentFields}
