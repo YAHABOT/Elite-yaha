@@ -992,24 +992,20 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               message.role === 'user' ? 'justify-end' : 'justify-start'
             }`}
           >
-            {message.role === 'assistant' && (
-              <div className="mr-2.5 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl"
-                style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.20)' }}>
-                <Bot className="h-3.5 w-3.5" style={{ color: 'rgba(0,212,255,0.70)' }} />
-              </div>
-            )}
-
-            <div data-testid={message.role === 'user' ? 'message-user' : 'message-model'} className={`flex max-w-[82%] flex-col gap-3 lg:max-w-[68%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div data-testid={message.role === 'user' ? 'message-user' : 'message-model'} className={`flex max-w-[78%] flex-col gap-3 lg:max-w-[65%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div
-                className={`rounded-3xl px-5 py-3.5 text-sm leading-relaxed ${
+                className={`px-4 py-3 text-sm leading-relaxed ${
                   message.role === 'user'
-                    ? 'text-[#000d1a] font-medium rounded-br-lg'
-                    : 'bg-white/[0.03] backdrop-blur-md border border-white/[0.06] text-foreground rounded-bl-lg shadow-[0_4px_24px_rgba(0,0,0,0.4)]'
+                    ? 'rounded-2xl rounded-br-sm text-[#000d1a] font-medium'
+                    : 'rounded-2xl rounded-bl-sm text-textPrimary/90'
                 }`}
                 style={message.role === 'user' ? {
                   background: 'linear-gradient(135deg, #00d4ff, #0090cc)',
-                  boxShadow: '0 4px 24px rgba(0,212,255,0.28)',
-                } : {}}
+                  boxShadow: '0 4px 20px rgba(0,212,255,0.22)',
+                } : {
+                  background: '#091424',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
               >
                 <MarkdownText content={message.content.replace(/```json\s*[\s\S]*?```/g, '').trim()} />
               </div>
