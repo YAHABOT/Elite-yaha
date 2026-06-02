@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { Paperclip, Send, X, Bot, Zap, CheckCircle2, Menu, Image as ImageIcon, FileText, Camera, Plus } from 'lucide-react'
+import { Paperclip, Send, X, Bot, Zap, CheckCircle2, Menu, Image as ImageIcon, FileText, Camera } from 'lucide-react'
 import { ActionCard, UpdateDataCardComponent } from '@/components/chat/ActionCard'
 import { CreateTrackerCard } from '@/components/chat/CreateTrackerCard'
 import { AgentSelector } from '@/components/chat/AgentSelector'
@@ -357,7 +356,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       })
       if (!res.ok) return
 
-      // Handle SSE streaming response for silent send
+      // Handle SSE streaming response — stream chunks so the step-N prompt appears
+      // progressively instead of all-at-once (also surfaces errors that would otherwise
+      // be silently swallowed by the old done-only approach).
       const contentType = res.headers.get('content-type') ?? ''
       let finalSessionId = currentSessionId
       let finalMessageId: string | null = null
@@ -377,12 +378,16 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue
             try {
-              const event = JSON.parse(line.slice(6)) as { type: string; messageId?: string; sessionId?: string; content?: string; actions?: unknown[] }
-              if (event.type === 'done' && event.messageId) {
+              const event = JSON.parse(line.slice(6)) as { type: string; text?: string; messageId?: string; sessionId?: string; content?: string; actions?: unknown[] }
+              if (event.type === 'chunk' && event.text) {
+                // Stream chunks so the step-N prompt appears progressively (not all-at-once)
+                setStreamingText(prev => prev + event.text)
+              } else if (event.type === 'done' && event.messageId) {
                 finalMessageId = event.messageId
                 finalSessionId = event.sessionId ?? currentSessionId
                 finalContent = event.content ?? ''
                 finalActions = event.actions ?? []
+                setStreamingText('')
               }
             } catch { /* ignore parse errors */ }
           }
@@ -435,6 +440,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       }
     } catch {
       // Silent — don't surface errors from auto-advance
+      if (isMountedRef.current) setStreamingText('')
     } finally {
       if (isMountedRef.current) setIsLoading(false)
     }
@@ -948,16 +954,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               </div>
             </div>
           )}
-
-          {/* + New Chat — always visible */}
-          <Link
-            href="/chat/new"
-            className="flex items-center gap-1 rounded-full px-3 py-1.5 font-ui transition-all duration-200"
-            style={{ fontSize: '9px', letterSpacing: '0.12em', border: '1px solid rgba(0,212,255,0.30)', background: 'rgba(0,212,255,0.09)', color: '#00d4ff' }}
-          >
-            <Plus className="h-2.5 w-2.5" />
-            New Chat
-          </Link>
         </div>
       </div>
 
