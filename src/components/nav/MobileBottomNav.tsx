@@ -33,7 +33,7 @@ export function MobileBottomNav(): React.ReactElement {
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl overflow-visible"
       style={{
         backgroundColor: 'rgba(5,12,26,0.90)',
-        height: 86,
+        height: 62,
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
@@ -70,7 +70,7 @@ export function MobileBottomNav(): React.ReactElement {
               key={tab.href}
               href={tab.href}
               className="flex-1 flex flex-col items-center pb-2 gap-[3px] transition-all duration-300"
-              style={{ paddingTop: isCenter ? 17 : 20 }}
+              style={{ paddingTop: isCenter ? 10 : 13 }}
             >
               <div className="relative flex items-center justify-center px-3 py-1 rounded-full">
                 {/* Active glow pill */}
