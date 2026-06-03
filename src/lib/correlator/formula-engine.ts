@@ -43,15 +43,20 @@ export function buildFieldValueMap(logs: TrackerLog[]): FieldValueMap {
 
   for (const log of logs) {
     for (const [fieldId, value] of Object.entries(log.fields)) {
-      if (typeof value !== 'number') continue
+      const numVal = typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim() !== ''
+          ? parseFloat(value.trim())
+          : NaN
+      if (isNaN(numVal)) continue
 
       const key = `${log.tracker_id}:${fieldId}`
       const existing = map.get(key)
 
       if (existing === undefined || existing === null) {
-        map.set(key, value)
+        map.set(key, numVal)
       } else {
-        map.set(key, existing + value)
+        map.set(key, existing + numVal)
       }
     }
   }

@@ -17,6 +17,7 @@ const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   field_total: 'N-Day Total',
   tracker_latest: 'Latest Entry',
   correlator: 'Correlator',
+  combined_field: 'Combined Field',
 }
 
 const MAX_LABEL_LENGTH = 50

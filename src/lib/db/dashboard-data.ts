@@ -397,10 +397,93 @@ export function computeWidgetValueOptimized(
       const fieldMap = buildFieldValueMap(correlatorLogs)
       const result = evaluateFormula(correlation.formula, fieldMap)
 
+      // Compute sparkline: per-day formula evaluations for last SPARKLINE_DEFAULT_DAYS days
+      const correlatorTrend: number[] = []
+      for (let i = SPARKLINE_DEFAULT_DAYS - 1; i >= 0; i--) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        const dayStr = d.toISOString().split('T')[0]
+        const dayLogs = nDayLogs.filter(l => l.logged_at.startsWith(dayStr))
+        const dayFieldMap = buildFieldValueMap(dayLogs)
+        const dayResult = evaluateFormula(correlation.formula, dayFieldMap)
+        correlatorTrend.push(dayResult !== null && Number.isFinite(dayResult) ? dayResult : 0)
+      }
+
       return {
         value: result !== null ? Math.round(result * 10) / 10 : null,
         unit: correlation.unit,
         label: widget.label,
+        trend: correlatorTrend.some(v => v > 0) ? correlatorTrend : undefined,
+      }
+    }
+
+    case 'combined_field': {
+      if (!widget.field_id?.startsWith('combined:')) return { value: null, label: widget.label }
+      const parts = widget.field_id.split(':')
+      const trackerType = parts[1]
+      const normalizedLabel = parts.slice(2).join(':')
+
+      const matchingTrackers = trackers.filter(t => t.type === trackerType)
+      if (matchingTrackers.length === 0) return { value: null, label: widget.label }
+
+      const matchingFieldIds = new Set<string>()
+      let combinedUnit: string | undefined
+      let combinedFieldType: string | undefined
+      for (const tracker of matchingTrackers) {
+        for (const field of tracker.schema) {
+          if (field.label.toLowerCase().trim() === normalizedLabel) {
+            matchingFieldIds.add(field.fieldId)
+            combinedUnit = combinedUnit ?? (typeof field.unit === 'string' ? field.unit : undefined)
+            combinedFieldType = combinedFieldType ?? field.type
+          }
+        }
+      }
+      if (matchingFieldIds.size === 0) return { value: null, label: widget.label }
+
+      const filteredLogs = filterByPeriod(nDayLogs, widget)
+      const matchingTrackerIds = new Set(matchingTrackers.map(t => t.id))
+
+      let combinedTotal = 0
+      let combinedCount = 0
+      for (const log of filteredLogs) {
+        if (!matchingTrackerIds.has(log.tracker_id)) continue
+        for (const [fieldId, val] of Object.entries(log.fields)) {
+          if (!matchingFieldIds.has(fieldId)) continue
+          const numVal = typeof val === 'number' ? val : typeof val === 'string' ? parseFloat(val) : NaN
+          if (isNaN(numVal)) continue
+          combinedTotal += numVal
+          combinedCount++
+        }
+      }
+
+      const combinedValue = combinedCount > 0 ? combinedTotal : null
+
+      // Compute sparkline: per-day totals for last SPARKLINE_DEFAULT_DAYS days
+      const sparkDays = Math.min(widget.days ?? SPARKLINE_DEFAULT_DAYS, SPARKLINE_DEFAULT_DAYS)
+      const combinedTrend: number[] = []
+      for (let i = sparkDays - 1; i >= 0; i--) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        const dayStr = d.toISOString().split('T')[0]
+        let dayTotal = 0
+        for (const log of nDayLogs) {
+          if (!log.logged_at.startsWith(dayStr)) continue
+          if (!matchingTrackerIds.has(log.tracker_id)) continue
+          for (const [fieldId, val] of Object.entries(log.fields)) {
+            if (!matchingFieldIds.has(fieldId)) continue
+            const numVal = typeof val === 'number' ? val : typeof val === 'string' ? parseFloat(val as string) : NaN
+            if (!isNaN(numVal)) dayTotal += numVal
+          }
+        }
+        combinedTrend.push(dayTotal)
+      }
+
+      return {
+        value: combinedValue,
+        unit: combinedUnit,
+        label: widget.label,
+        fieldType: combinedFieldType,
+        trend: combinedTrend.some(v => v > 0) ? combinedTrend : undefined,
       }
     }
 

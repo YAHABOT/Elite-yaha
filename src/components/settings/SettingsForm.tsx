@@ -11,10 +11,7 @@ import {
   Bot,
   Workflow,
   ShieldCheck,
-  Zap,
   Footprints,
-  Download,
-  Trash2,
   LogOut,
   ChevronRight,
 } from 'lucide-react'
@@ -67,25 +64,6 @@ export function SettingsForm({ initialValues }: Props): React.ReactElement {
     const result = await updateAliasAction(aliasValue)
     setAliasSaveState(result.error ? 'idle' : 'saved')
     if (!result.error) setTimeout(() => setAliasSaveState('idle'), 2000)
-  }
-
-  function handleClearLocalData(): void {
-    const confirmed = window.confirm('Clear all local data? This will reset any unsaved preferences in your browser.')
-    if (!confirmed) return
-    localStorage.clear()
-    sessionStorage.clear()
-    alert('Local data cleared.')
-  }
-
-  function handleExportJson(): void {
-    if (!initialValues) return
-    const blob = new Blob([JSON.stringify(initialValues, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'yaha-profile.json'
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   return (
@@ -179,33 +157,6 @@ export function SettingsForm({ initialValues }: Props): React.ReactElement {
           </div>
         </div>
       </Section>
-
-      {/* Data Management */}
-      <div className="flex items-center justify-center gap-8 py-8">
-        <button
-          type="button"
-          onClick={handleExportJson}
-          className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-textMuted hover:text-textPrimary transition-colors"
-        >
-          <Download className="h-4 w-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-          Export JSON
-        </button>
-        <button
-          type="button"
-          className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-40 hover:opacity-100 hover:text-textPrimary transition-opacity"
-        >
-          <Zap className="h-4 w-4" />
-          Import JSON
-        </button>
-        <button
-          type="button"
-          onClick={handleClearLocalData}
-          className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-red-500/50 hover:text-red-500 transition-colors"
-        >
-          <Trash2 className="h-4 w-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-          Clear Local Data
-        </button>
-      </div>
 
       {/* Sign Out */}
       <div className="flex items-center justify-center pb-4">

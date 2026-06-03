@@ -1,4 +1,4 @@
-export type WidgetType = 'field_latest' | 'field_average' | 'field_total' | 'correlator' | 'tracker_latest'
+export type WidgetType = 'field_latest' | 'field_average' | 'field_total' | 'correlator' | 'tracker_latest' | 'combined_field'
 export type TargetDisplay = 'bar' | 'ring' | 'number' | 'hide'
 export type WidgetPeriod = 'this_week' | 'last_week'
 
@@ -8,6 +8,7 @@ export const WIDGET_TYPES: WidgetType[] = [
   'field_total',
   'tracker_latest',
   'correlator',
+  'combined_field',
 ]
 
 export type ExtraField = {

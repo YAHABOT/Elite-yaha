@@ -8,13 +8,30 @@ import type { Tracker } from '@/types/tracker'
 import type { UserTarget } from '@/lib/db/users'
 
 type Step = 'tracker' | 'entry_type' | 'config'
-type EntryMode = 'last_entry' | 'single_field' | 'correlator'
+type EntryMode = 'last_entry' | 'single_field' | 'correlator' | 'combined_field'
 type Aggregation = 'latest' | 'today' | 'this_week' | 'last_week' | 'average' | 'total'
 
 const MAX_LABEL_LENGTH = 50
 const DEFAULT_DAYS = 7
 
 type CorrelationOption = { id: string; name: string; unit?: string }
+
+type CombinedOption = {
+  trackerType: string
+  typeColor: string
+  label: string
+  normalizedLabel: string
+  trackerCount: number
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  nutrition: '#10b981',
+  sleep: '#3b82f6',
+  workout: '#f97316',
+  mood: '#a855f7',
+  water: '#06b6d4',
+  custom: '#6B7280',
+}
 
 type Props = {
   trackers: Tracker[]
@@ -37,8 +54,45 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
   const [targetDisplay, setTargetDisplay] = useState<TargetDisplay>('bar')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedCombined, setSelectedCombined] = useState<CombinedOption | null>(null)
 
   const selectedTracker = trackers.find(t => t.id === selectedTrackerId) ?? null
+
+  // Compute combined field options: shared numeric fields across 2+ trackers of the same type
+  const combinedOptions: CombinedOption[] = (() => {
+    const byType = new Map<string, Tracker[]>()
+    for (const t of trackers) {
+      const arr = byType.get(t.type) ?? []
+      arr.push(t)
+      byType.set(t.type, arr)
+    }
+    const options: CombinedOption[] = []
+    for (const [type, group] of byType) {
+      if (group.length < 2) continue
+      const labelCounts = new Map<string, { originalLabel: string; count: number }>()
+      for (const tracker of group) {
+        for (const field of tracker.schema) {
+          if (field.type === 'text' || field.type === 'time' || field.type === 'select') continue
+          const nl = field.label.toLowerCase().trim()
+          const existing = labelCounts.get(nl)
+          if (existing) existing.count++
+          else labelCounts.set(nl, { originalLabel: field.label, count: 1 })
+        }
+      }
+      for (const [nl, { originalLabel, count }] of labelCounts) {
+        if (count >= 2) {
+          options.push({
+            trackerType: type,
+            typeColor: TYPE_COLORS[type] ?? '#6B7280',
+            label: originalLabel,
+            normalizedLabel: nl,
+            trackerCount: group.length,
+          })
+        }
+      }
+    }
+    return options
+  })()
 
   // Check if the selected field has a user target (for showing target display options)
   const matchingTarget = entryMode === 'single_field' && selectedFieldId
@@ -49,6 +103,7 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
   const widgetType: WidgetType =
     entryMode === 'last_entry' ? 'tracker_latest' :
     entryMode === 'correlator' ? 'correlator' :
+    entryMode === 'combined_field' ? 'combined_field' :
     aggregation === 'average' ? 'field_average' :
     (aggregation === 'total' || aggregation === 'today' || aggregation === 'this_week' || aggregation === 'last_week') ? 'field_total' :
     'field_latest'
@@ -70,6 +125,14 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
     setError(null)
   }
 
+  function handleSelectCombinedField(opt: CombinedOption): void {
+    setSelectedCombined(opt)
+    setSelectedTrackerId('')
+    setEntryMode('combined_field')
+    setStep('config')
+    setError(null)
+  }
+
   function handleSelectEntryMode(mode: EntryMode): void {
     setEntryMode(mode)
     setSelectedFieldId('')
@@ -83,9 +146,10 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
       setStep('tracker')
       setEntryMode(null)
     } else if (step === 'config') {
-      if (entryMode === 'correlator') {
+      if (entryMode === 'correlator' || entryMode === 'combined_field') {
         setStep('tracker')
         setEntryMode(null)
+        setSelectedCombined(null)
       } else {
         setStep('entry_type')
       }
@@ -96,6 +160,7 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
   const defaultLabel =
     entryMode === 'last_entry' ? `${selectedTracker?.name ?? ''} Latest` :
     entryMode === 'correlator' ? 'Correlation' :
+    entryMode === 'combined_field' && selectedCombined ? `${selectedCombined.label} (Combined)` :
     selectedTracker?.schema.find(f => f.fieldId === selectedFieldId)?.label ?? 'Widget'
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -106,14 +171,22 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
     try {
       const isWeekPeriod = aggregation === 'this_week' || aggregation === 'last_week'
       const daysNum = aggregation === 'today' ? 1 : isWeekPeriod ? 7 : Math.max(1, Math.min(365, parseInt(daysStr, 10) || DEFAULT_DAYS))
+      const combinedFieldId = entryMode === 'combined_field' && selectedCombined
+        ? `combined:${selectedCombined.trackerType}:${selectedCombined.normalizedLabel}`
+        : undefined
+
       const input: CreateWidgetInput = {
         type: widgetType,
         label: label.trim() || defaultLabel,
         days: daysNum,
         position: 0,
         width,
-        tracker_id: selectedTrackerId || undefined,
-        field_id: entryMode === 'single_field' && selectedFieldId ? selectedFieldId : undefined,
+        tracker_id: entryMode === 'combined_field' ? undefined : (selectedTrackerId || undefined),
+        field_id: entryMode === 'single_field' && selectedFieldId
+          ? selectedFieldId
+          : entryMode === 'combined_field'
+          ? combinedFieldId
+          : undefined,
         correlation_id: entryMode === 'correlator' && selectedCorrelationId ? selectedCorrelationId : undefined,
         extra_fields: extraFields.filter(ef => ef.field_id !== ''),
         target_display: matchingTarget ? targetDisplay : undefined,
@@ -139,6 +212,7 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
     step === 'entry_type' ? selectedTracker?.name ?? '' :
     entryMode === 'last_entry' ? 'Last Entry · Configure' :
     entryMode === 'single_field' ? 'Single Field · Configure' :
+    entryMode === 'combined_field' ? 'Combined Field · Configure' :
     'Correlator · Configure'
 
   return (
@@ -201,6 +275,33 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
                 </span>
               </button>
             ))}
+
+            {/* Combined Fields section */}
+            {combinedOptions.length > 0 && (
+              <>
+                <p className="mt-3 mb-1 text-[9px] font-black uppercase tracking-widest text-textMuted/40">Combined Fields</p>
+                {combinedOptions.map(opt => (
+                  <button
+                    key={`${opt.trackerType}:${opt.normalizedLabel}`}
+                    type="button"
+                    onClick={() => handleSelectCombinedField(opt)}
+                    className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 text-left transition-all duration-200 hover:border-white/15 hover:bg-white/[0.05] active:scale-[0.98]"
+                  >
+                    <div
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: opt.typeColor, boxShadow: `0 0 6px ${opt.typeColor}80` }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold text-textPrimary">{opt.label}</span>
+                      <span className="text-[9px] uppercase tracking-widest" style={{ color: opt.typeColor }}>
+                        {opt.trackerType} · {opt.trackerCount} trackers
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-[9px] text-textMuted/40">Combined</span>
+                  </button>
+                ))}
+              </>
+            )}
 
             {/* Correlator option */}
             <button
@@ -386,18 +487,86 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
                     No correlations yet. Create one in Settings → Correlations first.
                   </p>
                 ) : (
-                  <select
-                    value={selectedCorrelationId}
-                    onChange={e => setSelectedCorrelationId(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-textPrimary focus:border-[#00d4ff]/40 focus:outline-none"
+                  <>
+                    <select
+                      value={selectedCorrelationId}
+                      onChange={e => setSelectedCorrelationId(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-textPrimary focus:border-[#00d4ff]/40 focus:outline-none"
+                    >
+                      <option value="">Select a formula…</option>
+                      {correlations.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}{c.unit ? ` (${c.unit})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {!selectedCorrelationId && (
+                      <p className="mt-1 text-[9px] text-textMuted/50">Select a formula to continue.</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Combined Field — info + aggregation */}
+            {entryMode === 'combined_field' && selectedCombined && (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                  <p
+                    className="text-[9px] font-black uppercase tracking-widest mb-1"
+                    style={{ color: selectedCombined.typeColor }}
                   >
-                    <option value="">Select a formula…</option>
-                    {correlations.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}{c.unit ? ` (${c.unit})` : ''}
-                      </option>
+                    {selectedCombined.trackerType} · {selectedCombined.trackerCount} trackers
+                  </p>
+                  <p className="text-sm font-bold text-textPrimary">{selectedCombined.label} (Combined)</p>
+                  <p className="text-[10px] text-textMuted mt-1">
+                    Shows the combined total across all {selectedCombined.trackerType} trackers
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
+                    Show as
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { key: 'today',     label: 'Today so far',  desc: 'Running total today' },
+                      { key: 'this_week', label: 'This Week',     desc: 'Mon → today' },
+                      { key: 'last_week', label: 'Last Week',     desc: 'Full Mon–Sun' },
+                      { key: 'average',   label: 'N-Day Avg',     desc: 'Average over N days' },
+                      { key: 'total',     label: 'N-Day Total',   desc: 'Sum over N days' },
+                    ] as { key: Aggregation; label: string; desc: string }[]).map(({ key, label: aLabel, desc }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setAggregation(key)}
+                        className={`flex flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition-all duration-200 border ${
+                          aggregation === key
+                            ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
+                            : 'border-white/10 bg-white/5 text-textMuted hover:border-white/20'
+                        }`}
+                      >
+                        <span className="text-[9px] font-black uppercase tracking-widest">{aLabel}</span>
+                        <span className="text-[8px] opacity-60 normal-case tracking-normal font-normal">{desc}</span>
+                      </button>
                     ))}
-                  </select>
+                  </div>
+                </div>
+
+                {(aggregation === 'average' || aggregation === 'total') && (
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
+                      Days window
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={daysStr}
+                      onChange={e => setDaysStr(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-textPrimary focus:border-[#00d4ff]/40 focus:outline-none"
+                    />
+                  </div>
                 )}
               </div>
             )}
@@ -466,7 +635,7 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (entryMode === 'correlator' && !selectedCorrelationId)}
                 className="flex-1 rounded-xl border border-[#00d4ff]/30 bg-[#00d4ff]/10 py-2.5 text-[11px] font-black uppercase tracking-widest text-[#00d4ff] transition-all hover:border-[#00d4ff]/50 hover:bg-[#00d4ff]/20 disabled:opacity-40"
               >
                 {submitting ? 'Adding…' : 'Add Widget'}
