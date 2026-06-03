@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -19,15 +19,27 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { TrackerDayGroup } from './TrackerDayGroup'
+import { CrossTrackerAggregateRow } from './CrossTrackerAggregateRow'
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 
 const ORDER_KEY = 'yaha_tracker_order'
 
+const TYPE_COLORS: Record<string, string> = {
+  nutrition: '#00ff9d',
+  sleep: '#a855f7',
+  workout: '#ff6b35',
+  mood: '#ffd700',
+  water: '#00d4ff',
+  custom: '#6B7280',
+}
+
 type Props = {
   trackers: Tracker[]
   grouped: Map<string, TrackerLog[]>
   showTotals: boolean
+  crossTrackerGroups: Map<string, Tracker[]>
+  allLogs: TrackerLog[]
 }
 
 type SortableGroupProps = {
@@ -71,7 +83,7 @@ function SortableGroup({ tracker, logs, showTotals, isOpen, onToggle, dragEnable
   )
 }
 
-export function SortableJournalList({ trackers, grouped, showTotals }: Props) {
+export function SortableJournalList({ trackers, grouped, showTotals, crossTrackerGroups, allLogs }: Props) {
   const [items, setItems] = useState<Tracker[]>(trackers)
   // open state for each tracker — keyed by tracker ID, all start closed
   const [openMap, setOpenMap] = useState<Record<string, boolean>>(() =>
@@ -126,6 +138,14 @@ export function SortableJournalList({ trackers, grouped, showTotals }: Props) {
     })
   }
 
+  // Find the last tracker of each cross-tracked type in current display order
+  const lastOfType = new Map<string, string>() // type → trackerId
+  for (const t of items) {
+    if (crossTrackerGroups.has(t.type)) {
+      lastOfType.set(t.type, t.id)
+    }
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -144,16 +164,27 @@ export function SortableJournalList({ trackers, grouped, showTotals }: Props) {
           )}
           {items.map((tracker) => {
             const logs = grouped.get(tracker.id) ?? []
+            const isLastOfType = lastOfType.get(tracker.type) === tracker.id
             return (
-              <SortableGroup
-                key={tracker.id}
-                tracker={tracker}
-                logs={logs}
-                showTotals={showTotals}
-                isOpen={openMap[tracker.id] ?? false}
-                onToggle={() => handleToggle(tracker.id)}
-                dragEnabled={allCollapsed}
-              />
+              <React.Fragment key={tracker.id}>
+                <SortableGroup
+                  tracker={tracker}
+                  logs={logs}
+                  showTotals={showTotals}
+                  isOpen={openMap[tracker.id] ?? false}
+                  onToggle={() => handleToggle(tracker.id)}
+                  dragEnabled={allCollapsed}
+                />
+                {isLastOfType && (
+                  <CrossTrackerAggregateRow
+                    trackerType={tracker.type}
+                    typeColor={TYPE_COLORS[tracker.type] ?? '#6B7280'}
+                    trackers={crossTrackerGroups.get(tracker.type)!}
+                    logs={allLogs}
+                    showTotals={showTotals}
+                  />
+                )}
+              </React.Fragment>
             )
           })}
         </div>

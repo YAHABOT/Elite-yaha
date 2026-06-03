@@ -5,9 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Plus, ChevronLeft, Target, Save } from 'lucide-react'
 import { updateTrackerAction, deleteTrackerAction } from '@/app/actions/trackers'
 import { SchemaFieldRow } from '@/components/trackers/SchemaFieldRow'
-import type { SchemaField, Tracker } from '@/types/tracker'
+import type { SchemaField, Tracker, TrackerType } from '@/types/tracker'
 
 const MAX_SCHEMA_FIELDS = 20
+
+const TRACKER_TYPES: { value: TrackerType; label: string; color: string }[] = [
+  { value: 'nutrition', label: 'Nutrition', color: '#00ff9d' },
+  { value: 'sleep',     label: 'Sleep',     color: '#a855f7' },
+  { value: 'workout',   label: 'Workout',   color: '#ff6b35' },
+  { value: 'mood',      label: 'Mood',      color: '#ffd700' },
+  { value: 'water',     label: 'Water',     color: '#00d4ff' },
+  { value: 'custom',    label: 'Custom',    color: '#6B7280' },
+]
 
 type Props = {
   tracker: Tracker
@@ -28,6 +37,7 @@ function createEmptyField(): SchemaField {
 export function SchemaEditor({ tracker }: Props): React.ReactElement {
   const router = useRouter()
   const [schema, setSchema] = useState<SchemaField[]>(tracker.schema)
+  const [trackerType, setTrackerType] = useState<TrackerType>(tracker.type)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<boolean>(false)
   const [deleting, setDeleting] = useState<boolean>(false)
@@ -71,7 +81,7 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
     setSaving(true)
 
     const filteredSchema = schema.filter((f) => f.label.trim() !== '')
-    const result = await updateTrackerAction(tracker.id, { schema: filteredSchema })
+    const result = await updateTrackerAction(tracker.id, { type: trackerType, schema: filteredSchema })
 
     if (result.error) {
       setError(result.error)
@@ -195,6 +205,35 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
               <Plus className="h-3.5 w-3.5 stroke-[3px]" />
               Add Field
             </button>
+          </div>
+
+          {/* Type Selector */}
+          <div className="space-y-3">
+            <h3 className="px-2 text-[10px] font-black uppercase tracking-[0.4em] text-textMuted opacity-30">
+              Tracker Type
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {TRACKER_TYPES.map((t) => {
+                const isActive = trackerType === t.value
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setTrackerType(t.value)}
+                    className="rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all duration-200 active:scale-95"
+                    style={{
+                      backgroundColor: isActive ? `${t.color}20` : 'transparent',
+                      border: `1.5px solid ${isActive ? t.color : `${t.color}30`}`,
+                      color: isActive ? t.color : `${t.color}60`,
+                      opacity: isActive ? 1 : 0.4,
+                      boxShadow: isActive ? `0 0 10px -2px ${t.color}50` : 'none',
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Fields List */}

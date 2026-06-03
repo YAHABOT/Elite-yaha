@@ -63,6 +63,35 @@ export function saveTotalsConfig(trackerId: string, config: TrackerTotalsConfig)
   } catch { /* ignore */ }
 }
 
+// ── Cross-tracker aggregate localStorage helpers ─────────────────────────────
+
+const CROSS_STORAGE_KEY = 'journal_cross_totals_config'
+
+export type CrossTrackerTotalsConfig = {
+  [normalizedLabel: string]: FieldTotalsConfig  // keyed by label.toLowerCase().trim()
+}
+
+export function loadCrossTotalsConfig(trackerType: string): CrossTrackerTotalsConfig {
+  let stored: Record<string, CrossTrackerTotalsConfig> = {}
+  try {
+    const raw = localStorage.getItem(CROSS_STORAGE_KEY)
+    if (raw) stored = JSON.parse(raw) as Record<string, CrossTrackerTotalsConfig>
+  } catch { /* SSR / private mode */ }
+  return stored[trackerType] ?? {}
+}
+
+export function saveCrossTotalsConfig(trackerType: string, config: CrossTrackerTotalsConfig): void {
+  let stored: Record<string, CrossTrackerTotalsConfig> = {}
+  try {
+    const raw = localStorage.getItem(CROSS_STORAGE_KEY)
+    if (raw) stored = JSON.parse(raw) as Record<string, CrossTrackerTotalsConfig>
+  } catch { /* ignore */ }
+  stored[trackerType] = config
+  try {
+    localStorage.setItem(CROSS_STORAGE_KEY, JSON.stringify(stored))
+  } catch { /* ignore */ }
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -72,6 +101,8 @@ type Props = {
   schema: SchemaField[]
   onClose: () => void
   onSave: (config: TrackerTotalsConfig) => void
+  /** Optional: override initial config (used by cross-tracker aggregate row) */
+  initialConfig?: TrackerTotalsConfig
 }
 
 export function TotalsConfigModal({
@@ -81,11 +112,12 @@ export function TotalsConfigModal({
   schema,
   onClose,
   onSave,
+  initialConfig,
 }: Props): React.ReactElement {
   const numericFields = schema.filter((f) => f.type !== 'text' && f.type !== 'time' && f.type !== 'select')
 
   const [config, setConfig] = useState<TrackerTotalsConfig>(() =>
-    loadTotalsConfig(trackerId, schema)
+    initialConfig ?? loadTotalsConfig(trackerId, schema)
   )
 
   function setFieldProp<K extends keyof FieldTotalsConfig>(

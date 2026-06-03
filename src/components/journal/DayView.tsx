@@ -81,6 +81,17 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
   const grouped = groupLogsByTracker(logs)
   const trackersWithLogs = trackers.filter((t) => grouped.has(t.id))
 
+  // Build cross-tracker groups: type → Tracker[] (only types with 2+ trackers that have logs today)
+  const crossTrackerGroups = new Map<string, Tracker[]>()
+  for (const t of trackersWithLogs) {
+    const group = crossTrackerGroups.get(t.type) ?? []
+    group.push(t)
+    crossTrackerGroups.set(t.type, group)
+  }
+  for (const [type, group] of crossTrackerGroups) {
+    if (group.length < 2) crossTrackerGroups.delete(type)
+  }
+
   // When the user is viewing today and today has no logs yet, inject today into
   // the sidebar so it shows an active highlight and TODAY badge. Only inject for
   // the currently-viewed date — other logless dates never get phantom entries.
@@ -303,6 +314,8 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
               trackers={trackersWithLogs}
               grouped={grouped}
               showTotals={showTotals}
+              crossTrackerGroups={crossTrackerGroups}
+              allLogs={logs}
             />
           )}
 
