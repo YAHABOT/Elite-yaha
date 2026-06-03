@@ -406,9 +406,9 @@ export async function POST(req: Request): Promise<Response> {
           // Map history for Gemini — include stored image attachments so follow-up
           // messages like "use the photos I just sent" have the images in context.
           type ContentPart = { text: string } | { inlineData: { mimeType: string; data: string } }
-          // Only include image attachments from the 2 most recent messages — older base64
-          // blobs add megabytes to every request and are the primary latency driver.
-          const recentWithImages = new Set(historyMessages.slice(-2).map(m => m.id))
+          // Include image attachments from the 10 most recent messages — needed so the AI
+          // can reassess a food photo if the user challenges the estimates a few prompts later.
+          const recentWithImages = new Set(historyMessages.slice(-10).map(m => m.id))
           const history = historyMessages.map(msg => {
             const parts: ContentPart[] = []
             if (msg.content) parts.push({ text: msg.content })
@@ -665,7 +665,7 @@ export async function POST(req: Request): Promise<Response> {
                   type: att.type
                 }))
               : undefined
-            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined })
+            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.type.startsWith('image/')) ?? false })
             systemPrompt = `${activeAgent.system_prompt}\n\n---\n## YAHA HEALTH LOGGING CAPABILITIES\n${yahaSection}`
           } else {
             console.log(`[ChatRoute] Using standard health prompt. daySession=${daySessionActive ? loggingDate : 'neutral'}`)
@@ -679,7 +679,7 @@ export async function POST(req: Request): Promise<Response> {
                   type: att.type
                 }))
               : undefined
-            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined })
+            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.type.startsWith('image/')) ?? false })
           }
 
           // BUG-V32-8 FIX: Append native macro totaling for nutrition tracker (prevents LLM arithmetic errors)

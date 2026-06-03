@@ -114,15 +114,17 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // Mark hydrated after first client paint so the messages area doesn't flash unstyled
   useEffect(() => { setIsHydrated(true) }, [])
 
-  // Log Again — detect sessionStorage payload set by LogEntryCard "Log Again" button.
-  // Auto-sends a silent message so AI generates a pre-filled action card on arrival.
+  // Log Again — detect sessionStorage payload set by LogEntryCard "Log with Tweaks" button.
+  // Auto-sends a silent message so AI generates a pre-filled action card ready for tweaks.
   useEffect(() => {
     const raw = sessionStorage.getItem('yaha_log_again')
     if (!raw) return
     sessionStorage.removeItem('yaha_log_again')
     try {
-      const payload = JSON.parse(raw) as { trackerName: string; fieldSummary: string }
-      const autoMessage = `Re-log a ${payload.trackerName} entry for me. Pre-fill the action card with these exact values: ${payload.fieldSummary}. I may want to adjust some values before confirming.`
+      const payload = JSON.parse(raw) as { trackerName: string; fieldSummary: string; mode?: 'tweaks' | 'exact' }
+      const autoMessage = payload.mode === 'tweaks'
+        ? `I want to re-log a ${payload.trackerName} entry with some tweaks. Here are the current values: ${payload.fieldSummary}. Show me the action card pre-filled with these values — I'll tell you what to adjust before I confirm.`
+        : `Re-log a ${payload.trackerName} entry for me. Pre-fill the action card with these exact values: ${payload.fieldSummary}.`
       // Small delay to let session initialise
       const t = setTimeout(() => {
         void handleSendSilent(autoMessage)
@@ -986,9 +988,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             </div>
           </div>
         )}
-
-        {/* Spacer — pushes messages down when content is short */}
-        {(messages.length > 0 || isLoading) && <div className="flex-1" />}
 
         <div className="flex flex-col gap-2 py-4">
         {messages.map((message) => (

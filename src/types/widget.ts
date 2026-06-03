@@ -1,11 +1,28 @@
-export type WidgetType = 'field_latest' | 'field_average' | 'field_total' | 'correlator'
+export type WidgetType = 'field_latest' | 'field_average' | 'field_total' | 'correlator' | 'tracker_latest'
+export type TargetDisplay = 'bar' | 'ring' | 'number' | 'hide'
+export type WidgetPeriod = 'this_week' | 'last_week'
 
 export const WIDGET_TYPES: WidgetType[] = [
   'field_latest',
   'field_average',
   'field_total',
+  'tracker_latest',
   'correlator',
 ]
+
+export type ExtraField = {
+  field_id: string
+  label: string
+  unit?: string
+}
+
+export type ExtraFieldValue = {
+  field_id: string
+  label: string
+  value: number | string | null
+  unit?: string
+  fieldType?: string
+}
 
 export type Widget = {
   id: string
@@ -18,13 +35,21 @@ export type Widget = {
   days?: number
   position: number
   color?: string
+  width?: 'half' | 'full'
+  extra_fields?: ExtraField[]
+  target_display?: TargetDisplay
+  period?: WidgetPeriod
 }
 
 export type WidgetValue = {
   value: number | string | null
   unit?: string
+  fieldType?: string      // e.g. 'duration' — drives display formatting in WidgetCard
   trend?: number[]
+  delta?: number          // % change vs previous period (e.g. 12.5 means +12.5%)
   label: string
+  extraValues?: ExtraFieldValue[]
+  loggedAt?: string
 }
 
 export type CreateWidgetInput = Omit<Widget, 'id' | 'user_id'>

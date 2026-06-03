@@ -1,4 +1,6 @@
+import { unstable_cache } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getSafeUser } from '@/lib/supabase/auth'
 import type { Tracker, CreateTrackerInput, UpdateTrackerInput } from '@/types/tracker'
 import { getTrackerLogSummaries } from './logs'
@@ -9,18 +11,37 @@ const DEFAULT_TYPE = 'custom'
 
 const TRACKER_COLUMNS = 'id, user_id, name, type, color, schema, created_at, updated_at'
 
+function cachedGetTrackersBasic(userId: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('trackers')
+        .select(TRACKER_COLUMNS)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(`Failed to fetch basic trackers: ${error.message}`)
+      return data as Tracker[]
+    },
+    [`trackers-basic-${userId}`],
+    { tags: [`trackers-${userId}`], revalidate: false }
+  )()
+}
+
 export async function getTrackersBasic(supabaseClient?: SupabaseClient): Promise<Tracker[]> {
-  const supabase = supabaseClient ?? await createServerClient()
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  const { data, error } = await supabase
-    .from('trackers')
-    .select(TRACKER_COLUMNS)
-    .order('created_at', { ascending: false })
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from('trackers')
+      .select(TRACKER_COLUMNS)
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(`Failed to fetch basic trackers: ${error.message}`)
+    return data as Tracker[]
+  }
 
-  if (error) throw new Error(`Failed to fetch basic trackers: ${error.message}`)
-  return data as Tracker[]
+  return cachedGetTrackersBasic(user.id)
 }
 
 export async function getTrackers(supabaseClient?: SupabaseClient): Promise<Tracker[]> {

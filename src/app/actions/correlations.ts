@@ -1,6 +1,7 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { getSafeUser } from '@/lib/supabase/auth'
 import { createCorrelation, deleteCorrelation, updateCorrelation } from '@/lib/db/correlations'
 import type { FormulaNode, CreateCorrelationInput } from '@/types/correlator'
 
@@ -52,6 +53,8 @@ export async function createCorrelationAction(
     }
 
     await createCorrelation({ name, formula: input.formula, unit })
+    const user = await getSafeUser()
+    if (user) revalidateTag(`correlations-${user.id}`)
     revalidatePath('/journal/correlations')
     revalidatePath('/dashboard')
     return { success: true }
@@ -81,6 +84,8 @@ export async function updateCorrelationAction(
     }
 
     await updateCorrelation(id, { name, formula: input.formula, unit })
+    const user = await getSafeUser()
+    if (user) revalidateTag(`correlations-${user.id}`)
     revalidatePath('/journal/correlations')
     revalidatePath('/dashboard')
     return { success: true }
@@ -94,6 +99,8 @@ export async function deleteCorrelationAction(
 ): Promise<{ success?: true; error?: string }> {
   try {
     await deleteCorrelation(id)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`correlations-${user.id}`)
     revalidatePath('/journal/correlations')
     revalidatePath('/dashboard')
     return { success: true }

@@ -1,23 +1,44 @@
+import { unstable_cache } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getSafeUser } from '@/lib/supabase/auth'
 import type { Routine, CreateRoutineInput, UpdateRoutineInput } from '@/types/routine'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 const ROUTINE_COLUMNS = 'id, user_id, name, trigger_phrase, type, steps, created_at'
 
+function cachedGetRoutines(userId: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('routines')
+        .select(ROUTINE_COLUMNS)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+      if (error) throw new Error(`Failed to fetch routines: ${error.message}`)
+      return (data ?? []) as Routine[]
+    },
+    [`routines-${userId}`],
+    { tags: [`routines-${userId}`], revalidate: false }
+  )()
+}
+
 export async function getRoutines(supabaseClient?: SupabaseClient): Promise<Routine[]> {
-  const supabase = supabaseClient ?? await createServerClient()
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  const { data, error } = await supabase
-    .from('routines')
-    .select(ROUTINE_COLUMNS)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from('routines')
+      .select(ROUTINE_COLUMNS)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+    if (error) throw new Error(`Failed to fetch routines: ${error.message}`)
+    return (data ?? []) as Routine[]
+  }
 
-  if (error) throw new Error(`Failed to fetch routines: ${error.message}`)
-  return (data ?? []) as Routine[]
+  return cachedGetRoutines(user.id)
 }
 
 export async function getRoutine(id: string): Promise<Routine> {

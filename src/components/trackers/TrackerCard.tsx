@@ -44,7 +44,7 @@ export function TrackerCard({ tracker, dragHandleProps }: Props): React.ReactEle
 
       {/* Name + badges */}
       <div className="min-w-0 flex-1">
-        <h3 className="font-display-heading text-sm text-textPrimary leading-tight">
+        <h3 className="font-display-heading text-sm text-textPrimary leading-tight truncate">
           {tracker.name}
         </h3>
         <div className="mt-1 flex items-center gap-2 flex-wrap">

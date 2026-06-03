@@ -1,24 +1,45 @@
+import { unstable_cache } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getSafeUser } from '@/lib/supabase/auth'
 import { getColorForTrackerType } from '@/lib/db/dashboard-data'
 import type { Widget, CreateWidgetInput } from '@/types/widget'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const WIDGET_COLUMNS = 'id, user_id, type, label, tracker_id, field_id, correlation_id, days, position, color'
+const WIDGET_COLUMNS = 'id, user_id, type, label, tracker_id, field_id, correlation_id, days, period, position, color, width, extra_fields, target_display'
+
+function cachedGetWidgets(userId: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('widgets')
+        .select(WIDGET_COLUMNS)
+        .eq('user_id', userId)
+        .order('position', { ascending: true })
+      if (error) throw new Error(`Failed to fetch widgets: ${error.message}`)
+      return (data ?? []) as Widget[]
+    },
+    [`widgets-${userId}`],
+    { tags: [`widgets-${userId}`], revalidate: false }
+  )()
+}
 
 export async function getWidgets(supabaseClient?: SupabaseClient): Promise<Widget[]> {
-  const supabase = supabaseClient ?? await createServerClient()
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  const { data, error } = await supabase
-    .from('widgets')
-    .select(WIDGET_COLUMNS)
-    .eq('user_id', user.id)
-    .order('position', { ascending: true })
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from('widgets')
+      .select(WIDGET_COLUMNS)
+      .eq('user_id', user.id)
+      .order('position', { ascending: true })
+    if (error) throw new Error(`Failed to fetch widgets: ${error.message}`)
+    return (data ?? []) as Widget[]
+  }
 
-  if (error) throw new Error(`Failed to fetch widgets: ${error.message}`)
-  return (data ?? []) as Widget[]
+  return cachedGetWidgets(user.id)
 }
 
 export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
@@ -65,6 +86,10 @@ export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
       days: input.days ?? 7,
       position: nextPosition,
       color: widgetColor,
+      width: input.width ?? 'half',
+      extra_fields: input.extra_fields ?? [],
+      target_display: input.target_display ?? 'bar',
+      period: input.period ?? null,
     })
     .select(WIDGET_COLUMNS)
     .single()
@@ -90,6 +115,10 @@ export async function updateWidget(
   if (data.days !== undefined) updates.days = data.days
   if (data.position !== undefined) updates.position = data.position
   if (data.color !== undefined) updates.color = data.color
+  if (data.width !== undefined) updates.width = data.width
+  if (data.extra_fields !== undefined) updates.extra_fields = data.extra_fields
+  if (data.target_display !== undefined) updates.target_display = data.target_display
+  if (data.period !== undefined) updates.period = data.period ?? null
 
   if (Object.keys(updates).length === 0) {
     throw new Error('No fields to update')

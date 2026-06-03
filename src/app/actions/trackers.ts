@@ -1,6 +1,7 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { getSafeUser } from '@/lib/supabase/auth'
 import { createTracker, updateTracker, deleteTracker } from '@/lib/db/trackers'
 import type { CreateTrackerInput, UpdateTrackerInput } from '@/types/tracker'
 
@@ -19,6 +20,8 @@ export async function createTrackerAction(
       return { error: `Maximum ${MAX_SCHEMA_FIELDS} fields per tracker.` }
     }
     await createTracker(input)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`trackers-${user.id}`)
     revalidatePath('/trackers')
     return {}
   } catch (e) {
@@ -41,6 +44,8 @@ export async function updateTrackerAction(
       return { error: `Maximum ${MAX_SCHEMA_FIELDS} fields per tracker.` }
     }
     await updateTracker(id, input)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`trackers-${user.id}`)
     revalidatePath('/trackers')
     return {}
   } catch (e) {
@@ -53,6 +58,8 @@ export async function deleteTrackerAction(
 ): Promise<{ error?: string }> {
   try {
     await deleteTracker(id)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`trackers-${user.id}`)
     revalidatePath('/trackers')
     return {}
   } catch (e) {

@@ -270,7 +270,8 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                     ? (
                       <>
                         <span>{String(value)}</span>
-                        {unit && (
+                        {/* Duration fields are already displayed as HH:MM:SS — never show a unit label alongside */}
+                        {unit && fieldType !== 'duration' && (
                           <span className="font-ui text-[9px] uppercase tracking-wider text-muted-foreground/40 select-none">
                             {unit}
                           </span>

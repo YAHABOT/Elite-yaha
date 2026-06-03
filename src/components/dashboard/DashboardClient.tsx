@@ -1,24 +1,41 @@
 'use client'
 // needed for edit mode toggle state + add widget modal state + skip actions
 
-import { useState, useTransition } from 'react'
-import { Plus, Pencil, Check, RotateCcw, FlaskConical, Sunrise, Moon, ChevronRight } from 'lucide-react'
+import { useState, useTransition, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Plus, Pencil, Check, RotateCcw, FlaskConical, Sunrise, Moon, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { WidgetCard } from '@/components/dashboard/WidgetCard'
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal'
-import { deleteWidgetAction } from '@/app/actions/dashboard'
+import { EditWidgetModal } from '@/components/dashboard/EditWidgetModal'
+import { ScoreCard } from '@/components/dashboard/ScoreCard'
+import { WeeklyBarChart } from '@/components/dashboard/WeeklyBarChart'
+import { deleteWidgetAction, reorderWidgetsAction } from '@/app/actions/dashboard'
 import { resetDayStateAction, resetEndDayStateAction, skipStartDayAction, skipEndDayAction } from '@/app/actions/day-state'
 import { getTrackerTypeColor } from '@/lib/utils/tracker-colors'
 import type { Widget, WidgetValue } from '@/types/widget'
 import type { Tracker } from '@/types/tracker'
 import type { Routine } from '@/types/routine'
 import type { UserDayState } from '@/lib/db/day-state'
-import type { UserTargets } from '@/lib/db/users'
+import type { UserTarget } from '@/lib/db/users'
+import type { DayScore } from '@/lib/db/dashboard-data'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone
 function getLocalDateStr(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+// ── Props ────────────────────────────────────────────────────────────────────
+
+type CorrelationOption = { id: string; name: string; unit?: string }
 
 type Props = {
   widgets: Widget[]
@@ -28,17 +45,20 @@ type Props = {
   dayEndRoutine: Routine | null
   dayState: UserDayState | null
   userName: string
-  targets: UserTargets
+  targets: UserTarget[]
+  dailyScore: number | null
+  dayScores: DayScore[]
+  correlations: CorrelationOption[]
 }
 
-/** Match a widget label to a user target value (only for field_total widgets). */
-function getWidgetTarget(widget: Widget, targets: UserTargets): number | undefined {
-  if (widget.type !== 'field_total') return undefined
-  const label = widget.label.toLowerCase()
-  if (/calor|kcal/.test(label) && targets.calories) return targets.calories
-  if (/sleep|slept|rest/.test(label) && targets.sleep) return targets.sleep
-  if (/water|fluid|hydrat/.test(label) && targets.water) return targets.water
-  if (/step/.test(label) && targets.steps) return targets.steps
+/** Match a widget to a user target (for any field_* widget type). */
+function getWidgetTarget(widget: Widget, targets: UserTarget[]): { value: number; direction: 'above' | 'below' } | undefined {
+  if (!['field_latest', 'field_average', 'field_total'].includes(widget.type)) return undefined
+  if (!targets.length) return undefined
+  const byFieldId = targets.find(t => t.fieldId === widget.field_id)
+  if (byFieldId) return { value: byFieldId.value, direction: byFieldId.direction ?? 'above' }
+  const byLabel = targets.find(t => t.fieldLabel.toLowerCase() === widget.label.toLowerCase())
+  if (byLabel) return { value: byLabel.value, direction: byLabel.direction ?? 'above' }
   return undefined
 }
 
@@ -77,6 +97,40 @@ function applyTrackerColorToWidget(widget: Widget, trackers: Tracker[]): Widget 
   return widget
 }
 
+// ── Sortable wrapper for a single widget ────────────────────────────────────
+
+type SortableWidgetItemProps = {
+  id: string
+  widget: Widget
+  value: WidgetValue
+  editMode: boolean
+  target?: number
+  targetDirection?: 'above' | 'below'
+  onDelete: () => void
+  onEdit: () => void
+}
+
+function SortableWidgetItem({ id, widget, value, editMode, target, targetDirection, onDelete, onEdit }: SortableWidgetItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.45 : 1, zIndex: isDragging ? 50 : undefined }}
+    >
+      <WidgetCard
+        widget={widget}
+        value={value}
+        editMode={editMode}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        target={target}
+        targetDirection={targetDirection}
+        dragHandleProps={editMode ? { ...attributes, ...listeners } : undefined}
+      />
+    </div>
+  )
+}
+
 export function DashboardClient({
   widgets,
   widgetValues,
@@ -86,17 +140,82 @@ export function DashboardClient({
   dayState,
   userName,
   targets,
+  dailyScore,
+  dayScores,
+  correlations,
 }: Props): React.ReactElement {
+  const router = useRouter()
   const [editMode, setEditMode] = useState(false)
+  const [showScoreCard, setShowScoreCard] = useState(true)
+  const [showBarChart, setShowBarChart] = useState(true)
+
+  // Restore hide/show preferences from localStorage after mount (SSR-safe)
+  useEffect(() => {
+    const sc = localStorage.getItem('dash:showScoreCard')
+    if (sc !== null) setShowScoreCard(sc !== 'false')
+    const bc = localStorage.getItem('dash:showBarChart')
+    if (bc !== null) setShowBarChart(bc !== 'false')
+  }, [])
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editingWidget, setEditingWidget] = useState<Widget | null>(null)
   const [devMode, setDevMode] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(() =>
+    [...widgets].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).map(w => w.id)
+  )
+
+  // Keep widgetOrder in sync when widgets are added or deleted from the server
+  useEffect(() => {
+    setWidgetOrder(prev => {
+      const currentIds = new Set(widgets.map(w => w.id))
+      // Remove deleted widgets, preserve existing drag order
+      const filtered = prev.filter(id => currentIds.has(id))
+      const existingSet = new Set(filtered)
+      // Append any new widgets (by server position) that aren't in the order yet
+      const newIds = [...widgets]
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .map(w => w.id)
+        .filter(id => !existingSet.has(id))
+      return [...filtered, ...newIds]
+    })
+  }, [widgets])
 
   // EX13 FIX: Apply tracker type colors to widgets
   const widgetsWithColors = widgets.map(w => applyTrackerColorToWidget(w, trackers))
 
+  // Build id→value map so reordering doesn't break value lookup
+  const valueById = new Map<string, WidgetValue>(widgets.map((w, i) => [w.id, widgetValues[i]]))
+
+  // Sort widgetsWithColors + values together by current drag order
+  const sortedPairs = widgetOrder
+    .map(id => {
+      const w = widgetsWithColors.find(x => x.id === id)
+      return w ? { widget: w, value: valueById.get(id) ?? { value: null, label: w.label } } : null
+    })
+    .filter((p): p is { widget: Widget; value: WidgetValue } => p !== null)
+
+  const sortedWidgets = sortedPairs.map(p => p.widget)
+  const sortedValues = sortedPairs.map(p => p.value)
+
   const hasWidgets = widgets.length > 0
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = widgetOrder.indexOf(String(active.id))
+    const newIdx = widgetOrder.indexOf(String(over.id))
+    if (oldIdx === -1 || newIdx === -1) return
+    const next = arrayMove(widgetOrder, oldIdx, newIdx)
+    setWidgetOrder(next)
+    // Call server action outside state updater to avoid "update while rendering" error
+    reorderWidgetsAction(next).catch(() => {/* silent — optimistic */})
+  }
 
   // Derive explicit session state from dayState prop.
   // dayState comes from getActiveDayState() which only returns rows with
@@ -224,6 +343,8 @@ export function DashboardClient({
         </div>
       </div>
 
+      {/* AI_SUMMARIES_DEFERRED — see docs/plans/ai-summaries-deferred.md */}
+
       {/* ── Compact Start Day banner ── */}
       {dayStartRoutine && sessionIsNeutral && (
         <div className="flex flex-col gap-1.5">
@@ -298,20 +419,82 @@ export function DashboardClient({
         </div>
       )}
 
+      {/* ── Hero Score Card ── */}
+      {targets.length > 0 && (showScoreCard || editMode) && (
+        <div className="relative">
+          {showScoreCard ? (
+            <>
+              <Link href="/dashboard/score" className="block">
+                <ScoreCard score={dailyScore} targets={targets} />
+              </Link>
+              {editMode && (
+                <button
+                  type="button"
+                  onClick={() => { setShowScoreCard(false); localStorage.setItem('dash:showScoreCard', 'false') }}
+                  className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-black/40 text-textMuted/50 transition-all hover:border-white/20 hover:text-textMuted"
+                  title="Hide score card"
+                >
+                  <EyeOff className="h-3 w-3" />
+                </button>
+              )}
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setShowScoreCard(true); localStorage.setItem('dash:showScoreCard', 'true') }}
+              className="flex w-full items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-2.5 transition-all hover:border-white/10"
+            >
+              <span className="font-ui text-textMuted/40" style={{ fontSize: '9px', letterSpacing: '0.14em' }}>DAILY SCORE</span>
+              <Eye className="h-3 w-3 text-textMuted/30" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Weekly / N-day bar chart ── */}
+      {targets.length > 0 && (showBarChart || editMode) && (
+        <div className="relative">
+          {showBarChart ? (
+            <>
+              <WeeklyBarChart dayScores={dayScores} />
+              {editMode && (
+                <button
+                  type="button"
+                  onClick={() => { setShowBarChart(false); localStorage.setItem('dash:showBarChart', 'false') }}
+                  className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-black/40 text-textMuted/50 transition-all hover:border-white/20 hover:text-textMuted"
+                  title="Hide bar chart"
+                >
+                  <EyeOff className="h-3 w-3" />
+                </button>
+              )}
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setShowBarChart(true); localStorage.setItem('dash:showBarChart', 'true') }}
+              className="flex w-full items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-2.5 transition-all hover:border-white/10"
+            >
+              <span className="font-ui text-textMuted/40" style={{ fontSize: '9px', letterSpacing: '0.14em' }}>TARGET COMPLETION</span>
+              <Eye className="h-3 w-3 text-textMuted/30" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Widget header row (Edit / Add) ── */}
       {(editMode || hasWidgets || !hasWidgets) && (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1.5">
           {(editMode || hasWidgets) && (
             <button
               type="button"
               onClick={() => setEditMode(prev => !prev)}
-              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-2 font-ui text-textMuted backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:text-textPrimary"
-              style={{ fontSize: '10px', letterSpacing: '0.10em' }}
+              className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-ui text-textMuted backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:text-textPrimary"
+              style={{ fontSize: '9px', letterSpacing: '0.08em' }}
             >
               {editMode ? (
-                <><Check className="h-3 w-3" />Done</>
+                <><Check className="h-2.5 w-2.5" />Done</>
               ) : (
-                <><Pencil className="h-3 w-3" />Edit</>
+                <><Pencil className="h-2.5 w-2.5" />Edit</>
               )}
             </button>
           )}
@@ -319,20 +502,19 @@ export function DashboardClient({
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1.5 rounded-full px-4 py-2 font-ui transition-all duration-300"
-              style={{ fontSize: '10px', letterSpacing: '0.10em', border: '1px solid rgba(0,212,255,0.25)', background: 'rgba(0,212,255,0.08)', color: '#00d4ff' }}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 font-ui transition-all duration-300"
+              style={{ fontSize: '9px', letterSpacing: '0.08em', border: '1px solid rgba(0,212,255,0.25)', background: 'rgba(0,212,255,0.08)', color: '#00d4ff' }}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-2.5 w-2.5" />
               Add Widget
             </button>
           )}
         </div>
       )}
 
-      {/* Widget grid or empty state */}
+      {/* ── Widgets (flat list) or empty state ── */}
       {!hasWidgets ? (
         <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-white/5 bg-white/[0.02] py-20 text-center backdrop-blur-sm">
-          {/* Subtle gradient background */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-nutrition/[0.03] via-transparent to-transparent" />
           <div className="relative flex flex-col items-center gap-5">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-nutrition/20 bg-nutrition/10">
@@ -353,21 +535,31 @@ export function DashboardClient({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-          {widgetsWithColors.map((widget, index) => (
-            <WidgetCard
-              key={widget.id}
-              widget={widget}
-              value={widgetValues[index] ?? { value: null, label: widget.label }}
-              editMode={editMode}
-              onDelete={() => handleDelete(widget.id)}
-              target={getWidgetTarget(widget, targets)}
-            />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sortedWidgets.map(w => w.id)} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col gap-3">
+              {sortedPairs.map(({ widget, value }) => {
+                const widgetTarget = getWidgetTarget(widget, targets)
+                return (
+                  <SortableWidgetItem
+                    key={widget.id}
+                    id={widget.id}
+                    widget={widget}
+                    value={value}
+                    editMode={editMode}
+                    onDelete={() => handleDelete(widget.id)}
+                    onEdit={() => setEditingWidget(widget)}
+                    target={widgetTarget?.value}
+                    targetDirection={widgetTarget?.direction}
+                  />
+                )
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
-      {/* Pending overlay (glass toast) */}
+      {/* Pending overlay */}
       {isPending && (
         <div className="fixed bottom-4 right-4 z-50 rounded-2xl border border-white/10 bg-surfaceHighlight/90 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-textMuted backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
           Saving…
@@ -378,7 +570,20 @@ export function DashboardClient({
       {showAddModal && (
         <AddWidgetModal
           trackers={trackers}
+          targets={targets}
+          correlations={correlations}
           onClose={handleCloseModal}
+        />
+      )}
+
+      {/* Edit widget modal */}
+      {editingWidget && (
+        <EditWidgetModal
+          widget={editingWidget}
+          trackers={trackers}
+          targets={targets}
+          correlations={correlations}
+          onClose={() => { setEditingWidget(null); router.refresh() }}
         />
       )}
     </div>

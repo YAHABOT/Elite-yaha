@@ -19,7 +19,7 @@ export function LoginForm(): React.ReactElement {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+        redirectTo: `${window.location.origin}/api/auth/callback`,
       },
     })
     if (oauthError) {

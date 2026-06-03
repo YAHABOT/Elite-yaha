@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Trash2, Loader2, Pencil, Check, X } from 'lucide-react'
+import { useState, useTransition, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { Trash2, Loader2, Pencil, Check, X, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { deleteLogAction, updateLogAction } from '@/app/actions/logs'
+import { deleteLogAction, updateLogAction, createLogAction } from '@/app/actions/logs'
 import { formatFieldValue } from '@/lib/utils/format'
 import type { TrackerLog, LogFields } from '@/types/log'
 import type { SchemaField } from '@/types/tracker'
@@ -104,24 +105,69 @@ export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): Re
   const [editLoggedAt, setEditLoggedAt] = useState<string>('')
   const [editError, setEditError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<boolean>(false)
+  const [showLogMenu, setShowLogMenu] = useState(false)
+  const [isLoggingAgain, startLogAgainTransition] = useTransition()
+  const [loggedAgainMsg, setLoggedAgainMsg] = useState<string | null>(null)
+  const logMenuRef = useRef<HTMLDivElement>(null)
+  const logBtnRef = useRef<HTMLButtonElement>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+
+  // Close log menu on outside click
+  useEffect(() => {
+    if (!showLogMenu) return
+    function handleOutside(e: MouseEvent) {
+      if (logMenuRef.current && !logMenuRef.current.contains(e.target as Node) &&
+          logBtnRef.current && !logBtnRef.current.contains(e.target as Node)) {
+        setShowLogMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [showLogMenu])
+
+  const toggleLogMenu = useCallback(() => {
+    if (!showLogMenu && logBtnRef.current) {
+      const rect = logBtnRef.current.getBoundingClientRect()
+      const MENU_HEIGHT = 110
+      const spaceBelow = window.innerHeight - rect.bottom
+      const top = spaceBelow >= MENU_HEIGHT + 8
+        ? rect.bottom + 4
+        : rect.top - MENU_HEIGHT - 4
+      setMenuPos({ top, left: rect.left })
+    }
+    setShowLogMenu(p => !p)
+  }, [showLogMenu])
 
   const filledFields = schema.filter(
     (field) => log.fields[field.fieldId] !== null && log.fields[field.fieldId] !== undefined
   )
 
-  function handleLogAgain(): void {
-    // Build a human-readable field summary using schema labels
-    const fieldSummary = schema
-      .filter((f) => log.fields[f.fieldId] !== null && log.fields[f.fieldId] !== undefined)
-      .map((f) => `${f.label}: ${log.fields[f.fieldId]}`)
+  function buildFieldSummary(): string {
+    return schema
+      .filter(f => log.fields[f.fieldId] !== null && log.fields[f.fieldId] !== undefined)
+      .map(f => `${f.label}: ${log.fields[f.fieldId]}`)
       .join(', ')
+  }
 
-    // Store payload in sessionStorage so ChatInterface can pick it up on mount
+  function handleLogAgainExact(): void {
+    setShowLogMenu(false)
+    startLogAgainTransition(async () => {
+      const result = await createLogAction(trackerId, log.fields as Record<string, number | string | null>)
+      if (result.error) {
+        setLoggedAgainMsg('Error')
+      } else {
+        setLoggedAgainMsg('✓ Logged!')
+      }
+      setTimeout(() => setLoggedAgainMsg(null), 2000)
+    })
+  }
+
+  function handleLogAgainWithTweaks(): void {
+    setShowLogMenu(false)
     const payload = {
-      trackerId,
       trackerName,
-      fieldSummary,
-      fields: log.fields,
+      fieldSummary: buildFieldSummary(),
+      mode: 'tweaks' as const,
     }
     sessionStorage.setItem('yaha_log_again', JSON.stringify(payload))
     router.push('/chat/new')
@@ -311,14 +357,53 @@ export function LogEntryCard({ log, schema, trackerId, trackerName }: Props): Re
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={handleLogAgain}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-textMuted transition-all duration-200 hover:border-[rgba(0,212,255,0.3)] hover:bg-[rgba(0,212,255,0.08)] hover:text-[#00d4ff]"
-                aria-label="Log again"
-              >
-                Log Again
-              </button>
+              {/* Log Again dropdown */}
+              <div className="relative">
+                <button
+                  ref={logBtnRef}
+                  type="button"
+                  onClick={toggleLogMenu}
+                  disabled={isLoggingAgain}
+                  className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-textMuted transition-all duration-200 hover:border-[rgba(0,212,255,0.3)] hover:bg-[rgba(0,212,255,0.08)] hover:text-[#00d4ff] disabled:opacity-50"
+                  aria-label="Log again options"
+                  style={{ fontSize: '10px', letterSpacing: '0.08em' }}
+                >
+                  {isLoggingAgain ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : loggedAgainMsg ? (
+                    <span style={{ color: loggedAgainMsg.startsWith('✓') ? '#10b981' : '#ef4444' }}>{loggedAgainMsg}</span>
+                  ) : (
+                    <>Log Again <ChevronDown className="h-2.5 w-2.5 opacity-60" /></>
+                  )}
+                </button>
+
+                {showLogMenu && menuPos && typeof document !== 'undefined' && createPortal(
+                  <div
+                    ref={logMenuRef}
+                    className="min-w-[160px] overflow-hidden rounded-xl border border-white/10 bg-surfaceHighlight shadow-[0_8px_24px_rgba(0,0,0,0.7)]"
+                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999 }}
+                  >
+                    <button
+                      type="button"
+                      onClick={handleLogAgainExact}
+                      className="w-full px-3 py-2.5 text-left transition-colors hover:bg-white/[0.05]"
+                    >
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-textPrimary">Log Again</span>
+                      <span className="block text-[9px] text-textMuted/50 normal-case tracking-normal font-normal mt-0.5">Same values, logged now</span>
+                    </button>
+                    <div className="h-px bg-white/[0.06]" />
+                    <button
+                      type="button"
+                      onClick={handleLogAgainWithTweaks}
+                      className="w-full px-3 py-2.5 text-left transition-colors hover:bg-white/[0.05]"
+                    >
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-textPrimary">Log with Tweaks</span>
+                      <span className="block text-[9px] text-textMuted/50 normal-case tracking-normal font-normal mt-0.5">Adjust before logging</span>
+                    </button>
+                  </div>,
+                  document.body
+                )}
+              </div>
               <button
                 type="button"
                 onClick={startEdit}

@@ -1,0 +1,2 @@
+ALTER TABLE public.widgets
+  ADD COLUMN IF NOT EXISTS extra_fields JSONB NOT NULL DEFAULT '[]';

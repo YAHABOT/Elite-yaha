@@ -129,13 +129,16 @@ export function SchemaFieldRow({
 
   function handleTypeChange(value: string): void {
     const newType = value as FieldType
+    const unitAllowed = newType === 'number' || newType === 'text'
     if (newType !== 'select') {
       // Clear stale select-only properties when switching away from select
+      // Also clear unit when switching to a type that doesn't support it
       const { selectOptions: _so, multiSelect: _ms, ...rest } = field
       void _so; void _ms
-      onChange({ ...rest, type: newType })
+      onChange({ ...rest, type: newType, unit: unitAllowed ? rest.unit : undefined })
     } else {
-      onChange({ ...field, type: newType })
+      // select never has a unit
+      onChange({ ...field, type: newType, unit: undefined })
     }
   }
 
@@ -194,14 +197,16 @@ export function SchemaFieldRow({
           ))}
         </select>
 
-        <input
-          type="text"
-          value={field.unit ?? ''}
-          onChange={(e) => handleUnitChange(e.target.value)}
-          placeholder="Unit"
-          className="h-[46px] w-full sm:w-24 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs font-bold text-textPrimary placeholder-textMuted/20 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all text-center"
-          aria-label="Field unit"
-        />
+        {(field.type === 'number' || field.type === 'text') && (
+          <input
+            type="text"
+            value={field.unit ?? ''}
+            onChange={(e) => handleUnitChange(e.target.value)}
+            placeholder="Unit"
+            className="h-[46px] w-full sm:w-24 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs font-bold text-textPrimary placeholder-textMuted/20 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all text-center"
+            aria-label="Field unit"
+          />
+        )}
 
         <button
           type="button"

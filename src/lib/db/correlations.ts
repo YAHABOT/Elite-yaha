@@ -1,22 +1,44 @@
+import { unstable_cache } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getSafeUser } from '@/lib/supabase/auth'
 import type { Correlation, CreateCorrelationInput } from '@/types/correlator'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 const CORRELATION_COLUMNS = 'id, user_id, name, formula, unit, created_at'
 
+function cachedGetCorrelations(userId: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('correlations')
+        .select(CORRELATION_COLUMNS)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(`Failed to fetch correlations: ${error.message}`)
+      return data as Correlation[]
+    },
+    [`correlations-${userId}`],
+    { tags: [`correlations-${userId}`], revalidate: false }
+  )()
+}
+
 export async function getCorrelations(supabaseClient?: SupabaseClient): Promise<Correlation[]> {
-  const supabase = supabaseClient ?? await createServerClient()
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  const { data, error } = await supabase
-    .from('correlations')
-    .select(CORRELATION_COLUMNS)
-    .order('created_at', { ascending: false })
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from('correlations')
+      .select(CORRELATION_COLUMNS)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(`Failed to fetch correlations: ${error.message}`)
+    return data as Correlation[]
+  }
 
-  if (error) throw new Error(`Failed to fetch correlations: ${error.message}`)
-  return data as Correlation[]
+  return cachedGetCorrelations(user.id)
 }
 
 export async function getCorrelation(id: string): Promise<Correlation> {

@@ -1,10 +1,12 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { sanitizeFields } from '@/lib/ai/actions'
+import { upsertDailyScore } from '@/lib/db/scores'
 import type { ActionCard, UpdateDataCard, CreateTrackerCard } from '@/types/action-card'
 import type { SchemaField } from '@/types/tracker'
+import type { UserTarget } from '@/lib/db/users'
 
 export async function confirmLogAction(
   card: ActionCard,
@@ -156,6 +158,9 @@ export async function confirmLogAction(
         }
       }
     }
+
+    // Upsert daily score snapshot for this date (fire-and-forget — don't block confirm)
+    void upsertScoreForDate(supabase, user.id, logDateStr).catch(() => {})
 
     revalidatePath('/journal')
     revalidatePath('/dashboard')
@@ -345,6 +350,7 @@ export async function confirmCreateTrackerAction(
       }
     }
 
+    revalidateTag(`trackers-${user.id}`)
     revalidatePath('/trackers')
     revalidatePath('/chat')
     return { success: true, trackerId: newTracker.id }
@@ -385,4 +391,68 @@ export async function renameSessionAction(id: string, title: string): Promise<{ 
   } catch (e: unknown) {
     return { error: e instanceof Error ? e.message : String(e) }
   }
+}
+
+/** Computes and persists today's score snapshot after any log change. */
+async function upsertScoreForDate(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  userId: string,
+  dateStr: string
+): Promise<void> {
+  const [{ data: userRow }, { data: dayLogs }] = await Promise.all([
+    supabase.from('users').select('targets').eq('id', userId).maybeSingle(),
+    supabase
+      .from('tracker_logs')
+      .select('tracker_id, fields, logged_at')
+      .eq('user_id', userId)
+      .gte('logged_at', `${dateStr}T00:00:00.000Z`)
+      .lte('logged_at', `${dateStr}T23:59:59.999Z`),
+  ])
+
+  const targets = ((userRow?.targets ?? []) as UserTarget[]).filter(
+    t => t.trackerId !== '__correlations__' &&
+    ['number', 'rating', 'duration'].includes(t.fieldType) &&
+    t.value > 0
+  )
+
+  if (targets.length === 0) return
+
+  const logs = (dayLogs ?? []) as Array<{ tracker_id: string; fields: Record<string, unknown>; logged_at: string }>
+
+  const achievements = targets.map(target => {
+    const trackerLogs = logs.filter(l => l.tracker_id === target.trackerId)
+    const values = trackerLogs
+      .map(l => l.fields[target.fieldId])
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+    const actual = values.reduce((a, b) => a + b, 0)
+    const pct = target.direction === 'below'
+      ? (actual <= target.value ? 100 : Math.max(0, (target.value / actual) * 100))
+      : Math.min(actual / target.value, 1) * 100
+
+    return {
+      targetId: target.id,
+      fieldLabel: target.fieldLabel,
+      trackerName: target.trackerName,
+      fieldId: target.fieldId,
+      trackerId: target.trackerId,
+      targetValue: target.value,
+      actual: Math.round(actual * 10) / 10,
+      pct: Math.round(pct),
+      hit: pct >= 100,
+      direction: (target.direction ?? 'above') as 'above' | 'below',
+    }
+  })
+
+  const score = Math.round(
+    achievements.reduce((a, b) => a + b.pct, 0) / achievements.length
+  )
+  const targets_hit = achievements.filter(a => a.hit).length
+
+  await upsertDailyScore(userId, {
+    date: dateStr,
+    score,
+    targets_count: targets.length,
+    targets_hit,
+    achievements,
+  }, supabase)
 }

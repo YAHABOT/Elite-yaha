@@ -32,27 +32,35 @@ export function MobileBottomNav(): React.ReactElement {
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl overflow-visible"
       style={{
-        backgroundColor: 'rgba(5,12,26,0.90)',
+        background: 'transparent',
         height: 62,
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {/* SVG arc border — flat on sides, bumps up over center chat icon */}
+      {/* SVG: fills ONLY below the arc (transparent above) + draws the border stroke.
+          viewBox matches nav height so coordinates are in real pixels.
+          Fill extends to 200 to cover safe-area-inset-bottom on any device. */}
       <svg
         aria-hidden="true"
-        viewBox="0 0 390 22"
+        viewBox="0 0 390 62"
         preserveAspectRatio="none"
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
-          height: 22,
+          height: '100%',
           pointerEvents: 'none',
         }}
       >
+        {/* Background fill — only below the arc curve, transparent above */}
         <path
-          d="M0,16 L138,16 C158,16 165,6 195,6 C225,6 232,16 252,16 L390,16"
+          d="M0,8 L138,8 C158,8 165,2 195,2 C225,2 232,8 252,8 L390,8 L390,200 L0,200 Z"
+          fill="rgba(5,12,26,0.92)"
+        />
+        {/* Arc border stroke */}
+        <path
+          d="M0,8 L138,8 C158,8 165,2 195,2 C225,2 232,8 252,8 L390,8"
           fill="none"
           stroke="rgba(0,212,255,0.32)"
           strokeWidth="1.2"
@@ -60,7 +68,7 @@ export function MobileBottomNav(): React.ReactElement {
       </svg>
 
       <div className="flex items-stretch h-full">
-        {TABS.map((tab, index) => {
+        {TABS.map((tab) => {
           const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/')
           const isCenter = tab.center === true
           const Icon = tab.icon
@@ -69,8 +77,9 @@ export function MobileBottomNav(): React.ReactElement {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex-1 flex flex-col items-center pb-2 gap-[3px] transition-all duration-300"
-              style={{ paddingTop: isCenter ? 10 : 13 }}
+              prefetch={true}
+              className="relative flex-1 flex flex-col items-center justify-start transition-all duration-300"
+              style={{ paddingTop: isCenter ? 4 : 10 }}
             >
               <div className="relative flex items-center justify-center px-3 py-1 rounded-full">
                 {/* Active glow pill */}
@@ -86,7 +95,7 @@ export function MobileBottomNav(): React.ReactElement {
                   style={{
                     width: 20,
                     height: 20,
-                    color: isActive ? '#00d4ff' : '#475569',
+                    color: isActive ? '#00d4ff' : '#94a3b8',
                     filter: isActive
                       ? 'drop-shadow(0 0 5px rgba(0,212,255,0.60))'
                       : isCenter
@@ -97,12 +106,14 @@ export function MobileBottomNav(): React.ReactElement {
                   }}
                 />
               </div>
+              {/* Label pinned to bottom — absolute so flex math can never push it out */}
               <span
-                className="font-ui leading-none transition-all duration-300"
+                className="absolute font-ui leading-none transition-all duration-300"
                 style={{
+                  bottom: 6,
                   fontSize: '9px',
                   letterSpacing: '0.12em',
-                  color: isActive ? '#a855f7' : '#475569',
+                  color: isActive ? '#a855f7' : '#94a3b8',
                 }}
               >
                 {tab.label}

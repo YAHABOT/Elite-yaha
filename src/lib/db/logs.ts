@@ -1,4 +1,6 @@
+import { unstable_cache } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getSafeUser } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
 import type { TrackerLog, CreateLogInput, UpdateLogInput } from '@/types/log'
@@ -103,21 +105,40 @@ export async function getLogsForDay(date: string, supabaseClient?: SupabaseClien
   return data as TrackerLog[]
 }
 
+function cachedGetLoggedDates(userId: string, limit: number) {
+  return unstable_cache(
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('logged_dates_summary')
+        .select('log_date')
+        .eq('user_id', userId)
+        .order('log_date', { ascending: false })
+        .limit(limit)
+      if (error) throw new Error(`Failed to fetch logged dates: ${error.message}`)
+      return (data ?? []).map((row: { log_date: string }) => row.log_date)
+    },
+    [`logged-dates-${userId}-${limit}`],
+    { revalidate: 120 }
+  )()
+}
+
 export async function getLoggedDates(limit = 90, supabaseClient?: SupabaseClient): Promise<string[]> {
-  const supabase = supabaseClient ?? await createServerClient()
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  const { data, error } = await supabase
-    .from('logged_dates_summary')
-    .select('log_date')
-    .eq('user_id', user.id)
-    .order('log_date', { ascending: false })
-    .limit(limit)
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from('logged_dates_summary')
+      .select('log_date')
+      .eq('user_id', user.id)
+      .order('log_date', { ascending: false })
+      .limit(limit)
+    if (error) throw new Error(`Failed to fetch logged dates: ${error.message}`)
+    return (data ?? []).map((row: { log_date: string }) => row.log_date)
+  }
 
-  if (error) throw new Error(`Failed to fetch logged dates: ${error.message}`)
-
-  return (data ?? []).map(row => row.log_date)
+  return cachedGetLoggedDates(user.id, limit)
 }
 
 export async function getLog(id: string): Promise<TrackerLog> {

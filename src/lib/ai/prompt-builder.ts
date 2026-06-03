@@ -1,6 +1,6 @@
 import type { Tracker } from '@/types/tracker'
 import type { Routine, RoutineStep } from '@/types/routine'
-import type { UserTargets } from '@/lib/db/users'
+import type { UserTarget } from '@/lib/db/users'
 
 type DayLog = {
   id: string
@@ -35,7 +35,11 @@ type BuildHealthSystemPromptParams = {
   /** Display name for the user — personalises AI prompts. Defaults to 'you'. */
   userName?: string
   /** User's daily targets from settings — injected so AI can reference goals. */
-  userTargets?: UserTargets
+  userTargets?: UserTarget[]
+  /** Current user message text — used to decide compact vs full day summary mode */
+  currentMessage?: string
+  /** True when the current message has at least one image attachment — gates full vision prompt */
+  hasImageAttachment?: boolean
 }
 
 function formatTrackerSchema(tracker: Tracker): string {
@@ -64,74 +68,66 @@ function buildTrackerSection(trackers: Tracker[]): string {
     .join('\n\n')
 }
 
-function buildDaySummary(logs?: DayLog[], trackers?: Tracker[]): string {
+function hasDurationFields(trackers: Tracker[]): boolean {
+  return trackers.some(t => t.schema?.some(f => f.type === 'duration'))
+}
+
+function buildDaySummary(logs?: DayLog[], trackers?: Tracker[], mode: 'compact' | 'full' = 'compact'): string {
   if (!logs || logs.length === 0) return 'No entries logged yet for today.'
 
   const trackerMap = new Map((trackers ?? []).map(t => [t.id, t]))
 
+  // Accumulate totals and entry counts in one pass
+  const trackerTotals: Record<string, Record<string, number>> = {}
+  const trackerCounts: Record<string, number> = {}
+
+  for (const log of logs) {
+    trackerCounts[log.tracker_id] = (trackerCounts[log.tracker_id] ?? 0) + 1
+    if (!trackerTotals[log.tracker_id]) trackerTotals[log.tracker_id] = {}
+    for (const [fieldId, value] of Object.entries(log.fields || {})) {
+      if (typeof value === 'number') {
+        trackerTotals[log.tracker_id][fieldId] = (trackerTotals[log.tracker_id][fieldId] ?? 0) + value
+      }
+    }
+  }
+
+  // Build totals block (shared by both modes)
+  const totalLines: string[] = []
+  for (const [trackerId, fieldTotals] of Object.entries(trackerTotals)) {
+    if (Object.keys(fieldTotals).length === 0) continue
+    const tracker = trackerMap.get(trackerId)
+    const trackerName = tracker?.name ?? trackerId
+    const fieldLabelMap = new Map((tracker?.schema ?? []).map(f => [f.fieldId, { label: f.label, unit: f.unit }]))
+    totalLines.push(`\n### ${trackerName} — Daily Totals`)
+    for (const [fieldId, total] of Object.entries(fieldTotals)) {
+      const meta = fieldLabelMap.get(fieldId)
+      totalLines.push(`- ${meta?.label ?? fieldId}: ${total}${meta?.unit ? ' ' + meta.unit : ''}`)
+    }
+  }
+  const totalsBlock = totalLines.length > 0 ? '\n## Today\'s Totals\n' + totalLines.join('\n') : ''
+
+  if (mode === 'compact') {
+    // Compact: entry counts per tracker + totals (~80 tokens)
+    const countParts = Object.entries(trackerCounts).map(([tid, n]) => {
+      const name = trackerMap.get(tid)?.name ?? tid
+      return `${name} (${n} ${n === 1 ? 'entry' : 'entries'})`
+    })
+    return `Logged today: ${countParts.join(', ')}${totalsBlock}`
+  }
+
+  // Full mode: per-entry lines with LOG_IDs + totals (needed for edits / item queries)
   const logLines = logs.map(l => {
     const tracker = trackerMap.get(l.tracker_id)
     const trackerName = tracker?.name ?? l.tracker_id
-
-    // De-obfuscate field IDs: map fieldId -> label
-    const fieldLabelMap = new Map(
-      (tracker?.schema ?? []).map(f => [f.fieldId, f.label])
-    )
-
+    const fieldLabelMap = new Map((tracker?.schema ?? []).map(f => [f.fieldId, f.label]))
     const fields = Object.entries(l.fields || {})
-      .map(([k, v]) => {
-        const label = fieldLabelMap.get(k) || k
-        return `${label}: ${v}`
-      })
+      .map(([k, v]) => `${fieldLabelMap.get(k) ?? k}: ${v}`)
       .join(', ')
     const time = l.logged_at.includes('T') ? l.logged_at.split('T')[1].slice(0, 5) : '??:??'
-    // EX23 FIX: Log IDs are prominently shown so AI can use them in UPDATE_DATA actions
     return `- [${time}] ${trackerName} — ${fields} [LOG_ID: ${l.id}]`
   })
 
-  // BUG-V32-8 FIX: Compute daily totals for each tracker to match dashboard metrics
-  // Group logs by tracker and compute totals for numeric fields
-  const trackerTotals: Record<string, Record<string, number>> = {}
-
-  for (const log of logs) {
-    if (!trackerTotals[log.tracker_id]) {
-      trackerTotals[log.tracker_id] = {}
-    }
-
-    // Only sum numeric fields
-    for (const [fieldId, value] of Object.entries(log.fields || {})) {
-      if (typeof value === 'number') {
-        if (!trackerTotals[log.tracker_id][fieldId]) {
-          trackerTotals[log.tracker_id][fieldId] = 0
-        }
-        trackerTotals[log.tracker_id][fieldId] += value
-      }
-    }
-  }
-
-  // Build totals summary
-  const totalLines: string[] = []
-  for (const [trackerId, fieldTotals] of Object.entries(trackerTotals)) {
-    const tracker = trackerMap.get(trackerId)
-    const trackerName = tracker?.name ?? trackerId
-    const hasNumerics = Object.keys(fieldTotals).length > 0
-
-    if (hasNumerics) {
-      totalLines.push(`\n### ${trackerName} — Daily Totals`)
-      const fieldLabelMap = new Map(
-        (tracker?.schema ?? []).map(f => [f.fieldId, { label: f.label, unit: f.unit }])
-      )
-
-      for (const [fieldId, total] of Object.entries(fieldTotals)) {
-        const meta = fieldLabelMap.get(fieldId)
-        const label = meta?.label || fieldId
-        const unit = meta?.unit || ''
-        totalLines.push(`- ${label}: ${total}${unit ? ' ' + unit : ''}`)
-      }
-    }
-  }
-
-  return logLines.join('\n') + (totalLines.length > 0 ? '\n## Today\'s Totals\n' + totalLines.join('\n') : '')
+  return logLines.join('\n') + totalsBlock
 }
 
 const MAX_HISTORICAL_TOKENS = 4000
@@ -329,6 +325,72 @@ For nutrition label images: read the label values exactly.
 For receipt/menu images: extract relevant food items and quantities.
 Always use image content to inform your response — never claim you cannot view images.
 
+## 📸 PHOTO-ONLY FOOD DETECTION FLOW (CRITICAL — NEW BEHAVIOUR)
+
+When the user sends a food image WITHOUT explicit quantities, weights, or ingredient amounts:
+
+### Step 0 — Ask home or eating out (UNLESS context already tells you)
+Before estimating anything, ask ONE question:
+"Is this home-cooked or did you eat out?"
+
+**Skip Step 0 and go straight to Step 1 if the user's message already contains any of:**
+- A restaurant or fast food name ("McDonald's", "Chipotle", "sushi place", etc.)
+- Words like "restaurant", "takeout", "take-out", "delivery", "ordered", "ate out", "outside"
+- Words like "I made", "I cooked", "homemade", "home", "my meal"
+
+**How to use the answer:**
+- "Home" / "I made it" / "homemade" → apply the conservative portion calibration below (camera inflation −30%, calorie gate 600 kcal)
+- "Eating out" / restaurant / takeout / delivery → use standard restaurant portion sizes (these are typically 1.5–2× larger than home portions); calorie gate rises to 900 kcal
+- "Friend's house" or ambiguous → treat as home-cooked (conservative) unless they specify it was takeout
+
+Output an empty array \`[]\` during Step 0.
+
+### Step 1 — Visual detection ONLY (NO action card yet)
+Respond conversationally listing each detected item on its own line with estimated portion + macros:
+
+"I can see:
+• Chicken breast ~180g — ~200 kcal · 37g protein · 0g fat · 0g carbs
+• White rice ~150g — ~195 kcal · 4g protein · 1g fat · 44g carbs
+• Broccoli ~80g — ~27 kcal · 2g protein · 0g fat · 5g carbs
+
+**Total estimated: ~422 kcal · 43g protein · 1g fat · 49g carbs**
+
+Does this look right? Let me know if anything needs adjusting and I'll log it."
+
+**DO NOT output a JSON action card at this point. Output an empty array \`[]\`.**
+
+## 📏 PHOTO PORTION CALIBRATION — CRITICAL (ANTI-OVERESTIMATE)
+
+Food photos systematically make portions look larger than they are. Apply these rules on EVERY food photo — no exceptions:
+
+1. **Camera inflation**: Reduce your raw visual weight estimate by ~30% before reporting. If something looks like 200g, estimate 140g. If it looks like 100g, estimate 70g.
+2. **Bowl / plate illusion**: Food in bowls and on plates always appears more voluminous than actual mass. Err toward the lower bound of your range — not the middle.
+3. **Single-serve default**: Assume ONE person's portion. Do not size as a shared dish or full-size restaurant plate unless the photo clearly shows a large communal dish.
+4. **Calorie sanity gate**: If your per-item total would exceed ~600 kcal for a single-person meal with no clearly high-fat items (deep-frying oil, heavy cheese, large amounts of nut butter), reduce portion weights until the total is under 600. Most realistic single meals are 300–500 kcal.
+5. **User range → use lower bound**: If the user says an ingredient was "40–50g" or "around 100–120g", always use the LOWER number (40g, 100g). Never average or use the upper end.
+6. **Correction = full recalculate, no anchoring**: When the user corrects an ingredient (e.g. "that brownie is made with vital wheat gluten, no sugar" or "the froyo was only 40g"), discard your original macro estimate for that item entirely. Recalculate that item from scratch using the corrected description. Do NOT scale from your previous inflated estimate.
+
+### Step 2 — Wait for confirmation before logging
+- User confirms ("yes", "looks right", "log it", "correct", "yep", "sure") → generate the action card(s) NOW with those values
+- User corrects a portion ("that's 250g chicken not 180g") → recalculate with correction, show updated estimates, still NO action card — wait for another confirmation
+- User rejects an item ("no broccoli on there") → remove it, show updated estimates, wait for confirmation
+- The image stays in context for follow-up corrections — reassess the photo if the user challenges your estimates
+
+### Skip photo detection and go straight to action card when:
+- User provides explicit amounts: "log 200g chicken, 150g rice, 80g broccoli"
+- User's message contains weights/quantities alongside the image
+- User says "just log it" or "don't ask"
+- The image is a fitness tracker screenshot, nutrition label, receipt, or non-food image — apply standard rules
+
+## 📝 MEAL NOTES AUTO-FILL (PHOTO + TEXT FILE FLOWS)
+
+When creating a LOG_DATA action card for a food/nutrition entry, look for tracker fields whose label (case-insensitive) contains any of: "notes", "ingredients", "items", "meal notes", "food items", "description".
+
+If such a field exists, AUTO-POPULATE it with the detected food items as a readable comma-separated string.
+Format: "Chicken breast ~180g, White rice ~150g, Broccoli ~80g"
+- Apply this when: photo logging (detected items), text file logging (all items identified), or any multi-item meal log
+- NEVER leave a notes/ingredients/items field empty if you have food item data available
+
 ATTACHMENT HANDLING (NON-NEGOTIABLE):
 - When the user provides attachments (images, PDFs, files), you MUST explicitly acknowledge them in your conversational response
 - Examples: "I can see your photo shows...", "Your nutrition label shows...", "I've analyzed your receipt and found..."
@@ -351,6 +413,14 @@ FILE RECEIPT LOGGING & MACRO EXTRACTION (BUG-V32-EX28 FIX):
 const DURATION_FORMAT_RULE = `
 DURATION FIELD TYPE — CRITICAL RULES:
 Fields with type="duration" store elapsed time as TOTAL SECONDS (plain integer). Always output a single integer.
+
+**🔴 UNIT LABEL IS IRRELEVANT — ALWAYS OUTPUT SECONDS:**
+The "unit" label on a duration field (e.g. "MINS", "HRS", "mins", "seconds") is ONLY a display label — it does NOT change what you output.
+ALWAYS output TOTAL SECONDS as a plain integer for every duration field, regardless of what the unit label says.
+- Field has unit="MINS" → still output total SECONDS (e.g., 15 minutes 40 seconds → 940, NOT 15 or 16)
+- Field has unit="HRS" → still output total SECONDS (e.g., 2 hours → 7200, NOT 2)
+- Field has unit="seconds" → output total SECONDS (same rule)
+The unit label never changes the output format. Seconds. Always. Integer. Always.
 
 **How to convert what you see on screen:**
 - Samsung Health / Garmin / Fitbit / Amazfit show durations as MM:SS (< 1 hour) or HH:MM:SS (≥ 1 hour)
@@ -494,14 +564,11 @@ export function buildAttachmentContext(attachmentList?: Array<{ filename: string
   return `\n## Attachments Received This Session\n${fileList}`
 }
 
-function buildTargetsSection(targets?: UserTargets): string {
-  if (!targets) return ''
-  const lines: string[] = []
-  if (targets.calories) lines.push(`- Calories: ${targets.calories} kcal/day`)
-  if (targets.sleep)    lines.push(`- Sleep: ${targets.sleep} hrs/night`)
-  if (targets.water)    lines.push(`- Water: ${targets.water} L/day`)
-  if (targets.steps)    lines.push(`- Steps: ${targets.steps} steps/day`)
-  if (lines.length === 0) return ''
+function buildTargetsSection(targets?: UserTarget[]): string {
+  if (!targets || targets.length === 0) return ''
+  const lines = targets.map(t =>
+    `- ${t.fieldLabel} (${t.trackerName}): ${t.value}${t.unit ? ' ' + t.unit : ''}`
+  )
   return `\n## USER DAILY TARGETS\nThe user has set the following personal health targets. Reference these when discussing progress, totals, or remaining goals for the day:\n${lines.join('\n')}\n`
 }
 
@@ -514,7 +581,29 @@ export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): 
   const daySessionActive = params.daySessionActive ?? false
   const trackerSection = buildTrackerSection(params.trackers)
   const masterBrain = params.userContext ? `${params.userContext}\n---\n` : ''
-  const summary = buildDaySummary(params.dayLogs, params.trackers)
+
+  // Compact day summary by default; switch to full (per-entry lines + LOG_IDs) when:
+  // - user is editing/correcting an entry (needs LOG_IDs), OR
+  // - user is asking about their logged data — any query about totals, stats, items, progress
+  //   regardless of which tracker they're asking about
+  const msg = params.currentMessage ?? ''
+  const needsFullLog = msg.includes('?')
+    || /^(what|how|show|tell|list|did i|have i)\b/i.test(msg.trimStart())
+    || /\b(total|stats|so far|how much|how many|logged|progress|update|change|edit|fix|correct|wrong|items?|entries)\b/i.test(msg)
+  const summary = buildDaySummary(params.dayLogs, params.trackers, needsFullLog ? 'full' : 'compact')
+
+  // Vision rules: full block only when an image is actually attached; otherwise a 2-line note.
+  // Saves ~300 tokens on non-photo messages (creatine log, mood check, text queries, etc.)
+  const hasImage = params.hasImageAttachment
+    ?? params.attachmentsReceived?.some(a => a.type.startsWith('image/'))
+    ?? false
+  const visionBlock = hasImage
+    ? VISION_CAPABILITY
+    : 'MULTIMODAL VISION: You have full vision capabilities. If the user sends an image, analyze it directly and extract all relevant data. Never claim you cannot view images.'
+
+  // Duration rules: only inject if the user actually has duration-type tracker fields
+  const durationBlock = hasDurationFields(params.trackers) ? DURATION_FORMAT_RULE : ''
+
   const targetsSection = buildTargetsSection(params.userTargets)
   const historicalSection = params.historicalContext !== undefined
     ? buildHistoricalSection(params.historicalContext, params.trackers)
@@ -540,11 +629,11 @@ If the user HAS explicitly named a date (e.g. "log this for yesterday", "log for
 
   return `${masterBrain}You are YAHA, ${name}'s executive health manager. Help ${name} log their life with zero friction.
 
-${VISION_CAPABILITY}
+${visionBlock}
 
 ${FOOD_LOOKUP_RULE}
 
-${DURATION_FORMAT_RULE}
+${durationBlock}
 
 ## 🔴 YOU ARE CONNECTED TO THE DATABASE — THIS IS NOT A DEMO
 You have DIRECT access to ${name}'s health tracker database. When you produce a LOG_DATA action card and ${name} confirms it, the data IS written to the database immediately by the app. This is a real, production health logging system.
@@ -600,7 +689,7 @@ ${FEW_SHOT_EXAMPLES.replace(/{{TODAY}}/g, today)}
 `
 }
 
-export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string, historicalContext?: HistoricalLog[], userName?: string, userTargets?: UserTargets): string {
+export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], currentStepIndex: number = 0, userContext?: string, dayLogs?: DayLog[], date?: string, actualDate?: string, historicalContext?: HistoricalLog[], userName?: string, userTargets?: UserTarget[]): string {
   if (!routine.steps || routine.steps.length === 0) {
     return buildHealthSystemPrompt({ trackers, userContext, dayLogs, date, actualDate, userName, userTargets })
   }

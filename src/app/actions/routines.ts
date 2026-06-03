@@ -1,6 +1,7 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { getSafeUser } from '@/lib/supabase/auth'
 import { createRoutine, updateRoutine, deleteRoutine } from '@/lib/db/routines'
 import type { CreateRoutineInput, UpdateRoutineInput } from '@/types/routine'
 
@@ -21,6 +22,8 @@ export async function createRoutineAction(
     }
 
     await createRoutine(input)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`routines-${user.id}`)
     revalidatePath('/settings/routines')
     return { success: true }
   } catch (err) {
@@ -51,6 +54,8 @@ export async function updateRoutineAction(
     }
 
     await updateRoutine(id, input)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`routines-${user.id}`)
     revalidatePath('/settings/routines')
     return { success: true }
   } catch (err) {
@@ -64,6 +69,8 @@ export async function deleteRoutineAction(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     await deleteRoutine(id)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`routines-${user.id}`)
     revalidatePath('/settings/routines')
     return { success: true }
   } catch (err) {
