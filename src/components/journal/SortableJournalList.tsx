@@ -42,6 +42,44 @@ type Props = {
   allLogs: TrackerLog[]
 }
 
+// ── Drag item types ────────────────────────────────────────────────────────────
+
+type SoloItem = { kind: 'solo'; id: string; tracker: Tracker }
+type GroupItem = { kind: 'group'; id: string; trackerType: string; trackers: Tracker[] }
+type DragItem = SoloItem | GroupItem
+
+function buildDragItems(ordered: Tracker[], crossGroups: Map<string, Tracker[]>): DragItem[] {
+  const visited = new Set<string>()
+  const result: DragItem[] = []
+
+  for (const tracker of ordered) {
+    if (visited.has(tracker.id)) continue
+
+    const group = crossGroups.get(tracker.type)
+    if (group && group.length >= 2) {
+      // Pull all group members from `ordered` in their current order
+      const members = ordered.filter((t) => group.some((g) => g.id === t.id))
+      members.forEach((t) => visited.add(t.id))
+      result.push({
+        kind: 'group',
+        id: `group_${tracker.type}`,
+        trackerType: tracker.type,
+        trackers: members,
+      })
+    } else {
+      visited.add(tracker.id)
+      result.push({ kind: 'solo', id: tracker.id, tracker })
+    }
+  }
+  return result
+}
+
+function flattenDragItems(items: DragItem[]): Tracker[] {
+  return items.flatMap((item) => (item.kind === 'solo' ? [item.tracker] : item.trackers))
+}
+
+// ── SortableGroup (solo tracker) ──────────────────────────────────────────────
+
 type SortableGroupProps = {
   tracker: Tracker
   logs: TrackerLog[]
@@ -83,6 +121,76 @@ function SortableGroup({ tracker, logs, showTotals, isOpen, onToggle, dragEnable
   )
 }
 
+// ── SortableGroupBlock (grouped same-type trackers) ───────────────────────────
+
+type SortableGroupBlockProps = {
+  item: GroupItem
+  grouped: Map<string, TrackerLog[]>
+  showTotals: boolean
+  openMap: Record<string, boolean>
+  onToggle: (id: string) => void
+  dragEnabled: boolean
+  crossTrackerGroups: Map<string, Tracker[]>
+  allLogs: TrackerLog[]
+  typeColor: string
+}
+
+function SortableGroupBlock({
+  item,
+  grouped,
+  showTotals,
+  openMap,
+  onToggle,
+  dragEnabled,
+  crossTrackerGroups,
+  allLogs,
+  typeColor,
+}: SortableGroupBlockProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id, disabled: !dragEnabled })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.45 : 1,
+        zIndex: isDragging ? 50 : undefined,
+      }}
+    >
+      <div className="space-y-3">
+        {item.trackers.map((tracker) => (
+          <TrackerDayGroup
+            key={tracker.id}
+            tracker={tracker}
+            logs={grouped.get(tracker.id) ?? []}
+            showTotals={showTotals}
+            isOpen={openMap[tracker.id] ?? false}
+            onToggle={() => onToggle(tracker.id)}
+            dragHandleProps={dragEnabled ? { ...attributes, ...listeners } : undefined}
+          />
+        ))}
+        <CrossTrackerAggregateRow
+          trackerType={item.trackerType}
+          typeColor={typeColor}
+          trackers={crossTrackerGroups.get(item.trackerType)!}
+          logs={allLogs}
+          showTotals={showTotals}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
 export function SortableJournalList({ trackers, grouped, showTotals, crossTrackerGroups, allLogs }: Props) {
   const [items, setItems] = useState<Tracker[]>(trackers)
   // open state for each tracker — keyed by tracker ID, all start closed
@@ -114,6 +222,9 @@ export function SortableJournalList({ trackers, grouped, showTotals, crossTracke
   // Drag is only enabled when ALL items are collapsed
   const allCollapsed = items.every((t) => !openMap[t.id])
 
+  // Derived drag items from flat items + crossTrackerGroups
+  const dragItems = buildDragItems(items, crossTrackerGroups)
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { delay: 200, tolerance: 8 },
@@ -127,23 +238,17 @@ export function SortableJournalList({ trackers, grouped, showTotals, crossTracke
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    setItems((prev) => {
-      const oldIndex = prev.findIndex((t) => t.id === active.id)
-      const newIndex = prev.findIndex((t) => t.id === over.id)
-      const next = arrayMove(prev, oldIndex, newIndex)
+    setItems((prevFlat) => {
+      const prevDrag = buildDragItems(prevFlat, crossTrackerGroups)
+      const oldIndex = prevDrag.findIndex((d) => d.id === active.id)
+      const newIndex = prevDrag.findIndex((d) => d.id === over.id)
+      const nextDrag = arrayMove(prevDrag, oldIndex, newIndex)
+      const nextFlat = flattenDragItems(nextDrag)
       try {
-        localStorage.setItem(ORDER_KEY, JSON.stringify(next.map((t) => t.id)))
+        localStorage.setItem(ORDER_KEY, JSON.stringify(nextFlat.map((t) => t.id)))
       } catch { /* ignore */ }
-      return next
+      return nextFlat
     })
-  }
-
-  // Find the last tracker of each cross-tracked type in current display order
-  const lastOfType = new Map<string, string>() // type → trackerId
-  for (const t of items) {
-    if (crossTrackerGroups.has(t.type)) {
-      lastOfType.set(t.type, t.id)
-    }
   }
 
   return (
@@ -153,7 +258,7 @@ export function SortableJournalList({ trackers, grouped, showTotals, crossTracke
       onDragEnd={handleDragEnd}
     >
       <SortableContext
-        items={items.map((t) => t.id)}
+        items={dragItems.map((d) => d.id)}
         strategy={verticalListSortingStrategy}
       >
         <div className="space-y-3">
@@ -162,29 +267,33 @@ export function SortableJournalList({ trackers, grouped, showTotals, crossTracke
               Hold &amp; drag to reorder
             </p>
           )}
-          {items.map((tracker) => {
-            const logs = grouped.get(tracker.id) ?? []
-            const isLastOfType = lastOfType.get(tracker.type) === tracker.id
-            return (
-              <React.Fragment key={tracker.id}>
+          {dragItems.map((dragItem) => {
+            if (dragItem.kind === 'solo') {
+              return (
                 <SortableGroup
-                  tracker={tracker}
-                  logs={logs}
+                  key={dragItem.id}
+                  tracker={dragItem.tracker}
+                  logs={grouped.get(dragItem.tracker.id) ?? []}
                   showTotals={showTotals}
-                  isOpen={openMap[tracker.id] ?? false}
-                  onToggle={() => handleToggle(tracker.id)}
+                  isOpen={openMap[dragItem.tracker.id] ?? false}
+                  onToggle={() => handleToggle(dragItem.tracker.id)}
                   dragEnabled={allCollapsed}
                 />
-                {isLastOfType && (
-                  <CrossTrackerAggregateRow
-                    trackerType={tracker.type}
-                    typeColor={TYPE_COLORS[tracker.type] ?? '#6B7280'}
-                    trackers={crossTrackerGroups.get(tracker.type)!}
-                    logs={allLogs}
-                    showTotals={showTotals}
-                  />
-                )}
-              </React.Fragment>
+              )
+            }
+            return (
+              <SortableGroupBlock
+                key={dragItem.id}
+                item={dragItem}
+                grouped={grouped}
+                showTotals={showTotals}
+                openMap={openMap}
+                onToggle={handleToggle}
+                dragEnabled={allCollapsed}
+                crossTrackerGroups={crossTrackerGroups}
+                allLogs={allLogs}
+                typeColor={TYPE_COLORS[dragItem.trackerType] ?? '#6B7280'}
+              />
             )
           })}
         </div>

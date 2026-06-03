@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings } from 'lucide-react'
+import { Settings, ChevronDown } from 'lucide-react'
 import type { Tracker, SchemaField } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import {
@@ -129,6 +129,7 @@ export function CrossTrackerAggregateRow({
     loadCrossTotalsConfig(trackerType)
   )
   const [showModal, setShowModal] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
 
   if (!showTotals) return null
 
@@ -201,7 +202,7 @@ export function CrossTrackerAggregateRow({
         }}
       >
         {/* Header */}
-        <div className="mb-3 flex items-center justify-between">
+        <div className={`${isOpen ? 'mb-3' : ''} flex items-center justify-between`}>
           <div className="flex items-center gap-2">
             <span
               className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest"
@@ -219,9 +220,15 @@ export function CrossTrackerAggregateRow({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[9px] font-black uppercase tracking-widest text-textMuted opacity-40">
-              {'Σ'} Combined
-            </span>
+            <button
+              onClick={() => setIsOpen((o) => !o)}
+              className="flex h-6 w-6 items-center justify-center rounded-lg text-textMuted hover:text-textPrimary transition-colors"
+            >
+              <ChevronDown
+                className="h-3.5 w-3.5 transition-transform duration-200"
+                style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+              />
+            </button>
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-1 rounded-lg border border-white/[0.04] px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-textMuted transition-colors hover:border-white/[0.10] hover:text-textPrimary"
@@ -233,24 +240,28 @@ export function CrossTrackerAggregateRow({
           </div>
         </div>
 
-        {displayItems.length === 0 ? (
-          <p className="text-[10px] italic text-textMuted">All fields hidden.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {displayItems.map((item) => (
-              <div
-                key={item.normalizedLabel}
-                className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2"
-              >
-                <span className="font-ui-label block truncate text-textMuted">
-                  {item.aggregation === 'avg' ? 'Avg ' : ''}
-                  {item.label}
-                </span>
-                <span className="font-data-value text-sm text-textPrimary">
-                  {formatFieldValue(item.value, item.unit, item.label, item.fieldType)}
-                </span>
+        {isOpen && (
+          <div className="mt-3">
+            {displayItems.length === 0 ? (
+              <p className="text-[10px] italic text-textMuted">All fields hidden.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {displayItems.map((item) => (
+                  <div
+                    key={item.normalizedLabel}
+                    className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2"
+                  >
+                    <span className="font-ui-label block truncate text-textMuted">
+                      {item.aggregation === 'avg' ? 'Avg ' : ''}
+                      {item.label}
+                    </span>
+                    <span className="font-data-value text-sm text-textPrimary">
+                      {formatFieldValue(item.value, item.unit, item.label, item.fieldType)}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
