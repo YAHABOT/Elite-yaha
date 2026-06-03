@@ -476,34 +476,81 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
               </>
             )}
 
-            {/* Correlator — pick existing correlation */}
+            {/* Correlator — pick existing correlation + time window */}
             {entryMode === 'correlator' && (
-              <div>
-                <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
-                  Formula
-                </label>
-                {correlations.length === 0 ? (
-                  <p className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3 text-xs text-textMuted">
-                    No correlations yet. Create one in Settings → Correlations first.
-                  </p>
-                ) : (
-                  <>
-                    <select
-                      value={selectedCorrelationId}
-                      onChange={e => setSelectedCorrelationId(e.target.value)}
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
+                    Formula
+                  </label>
+                  {correlations.length === 0 ? (
+                    <p className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3 text-xs text-textMuted">
+                      No correlations yet. Create one in Settings → Correlations first.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={selectedCorrelationId}
+                        onChange={e => setSelectedCorrelationId(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-textPrimary focus:border-[#00d4ff]/40 focus:outline-none"
+                      >
+                        <option value="">Select a formula…</option>
+                        {correlations.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}{c.unit ? ` (${c.unit})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {!selectedCorrelationId && (
+                        <p className="mt-1 text-[9px] text-textMuted/50">Select a formula to continue.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Time window for formula evaluation */}
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
+                    Evaluate over
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { key: 'today',     label: 'Today',      desc: 'Running total today' },
+                      { key: 'this_week', label: 'This Week',  desc: 'Mon → today' },
+                      { key: 'last_week', label: 'Last Week',  desc: 'Full Mon–Sun' },
+                      { key: 'total',     label: 'Last N Days', desc: 'Custom day window' },
+                    ] as { key: Aggregation; label: string; desc: string }[]).map(({ key, label, desc }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setAggregation(key)}
+                        className={`flex flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition-all duration-200 border ${
+                          aggregation === key
+                            ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
+                            : 'border-white/10 bg-white/5 text-textMuted hover:border-white/20'
+                        }`}
+                      >
+                        <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+                        <span className="text-[8px] opacity-60 normal-case tracking-normal font-normal">{desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {aggregation === 'total' && (
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
+                      Days window
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={daysStr}
+                      onChange={e => setDaysStr(e.target.value)}
                       className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-textPrimary focus:border-[#00d4ff]/40 focus:outline-none"
-                    >
-                      <option value="">Select a formula…</option>
-                      {correlations.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}{c.unit ? ` (${c.unit})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {!selectedCorrelationId && (
-                      <p className="mt-1 text-[9px] text-textMuted/50">Select a formula to continue.</p>
-                    )}
-                  </>
+                    />
+                  </div>
                 )}
               </div>
             )}

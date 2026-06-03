@@ -388,11 +388,8 @@ export function computeWidgetValueOptimized(
       const correlation = correlations.find(c => c.id === widget.correlation_id)
       if (!correlation) return { value: null, label: widget.label }
 
-      // Use nDayLogs for correlator (filter by widget's days window)
-      const widgetDaysAgo = new Date()
-      widgetDaysAgo.setDate(widgetDaysAgo.getDate() - (widget.days ?? 7))
-      const widgetDaysAgoStr = widgetDaysAgo.toISOString()
-      const correlatorLogs = nDayLogs.filter(l => l.logged_at >= widgetDaysAgoStr)
+      // Use filterByPeriod so this_week / last_week / today / N-day all work correctly
+      const correlatorLogs = filterByPeriod(nDayLogs, widget)
 
       const fieldMap = buildFieldValueMap(correlatorLogs)
       const result = evaluateFormula(correlation.formula, fieldMap)
