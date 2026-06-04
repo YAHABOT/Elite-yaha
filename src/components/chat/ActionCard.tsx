@@ -131,18 +131,35 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
     setStatus('confirmed')
 
     // Fire analytics event (fire-and-forget, never awaited on the critical path)
-    const wasEdited = Object.keys(card.fields ?? {}).some(key => {
-      const original = card.fields?.[key]
-      const edited = editableFields[key]
-      return String(original ?? '') !== String(edited ?? '')
+    // AI accuracy: only count it as wrong when the user changes a value the AI actually filled in.
+    // Filling in a field the AI left blank does NOT count against accuracy.
+    const allFieldKeys = Object.keys(card.fieldLabels ?? card.fields ?? {})
+
+    // Fields the AI actually provided a value for (non-empty in card.fields)
+    const aiFilledKeys = allFieldKeys.filter(key => {
+      const v = card.fields?.[key]
+      return v !== null && v !== undefined && String(v).trim() !== ''
     })
+
+    // Of AI-filled fields, which did the user change?
+    const aiChangedKeys = aiFilledKeys.filter(key =>
+      String(card.fields?.[key] ?? '') !== String(editableFields[key] ?? '')
+    )
+
+    // Fields AI left blank that the user filled in (user contribution, not AI error)
+    const userAddedKeys = allFieldKeys.filter(key => {
+      const original = card.fields?.[key]
+      const wasBlank = original === null || original === undefined || String(original).trim() === ''
+      return wasBlank && String(editableFields[key] ?? '').trim() !== ''
+    })
+
     void recordEventAction('action_card_confirmed', {
       tracker_id: card.trackerId ?? null,
       tracker_name: card.trackerName ?? null,
-      was_edited: wasEdited,
-      fields_edited_count: wasEdited
-        ? Object.keys(card.fields ?? {}).filter(k => String(card.fields?.[k] ?? '') !== String(editableFields[k] ?? '')).length
-        : 0,
+      was_edited: aiChangedKeys.length > 0,       // true only if AI's value was corrected
+      ai_fields_changed: aiChangedKeys.length,     // how many AI values the user overrode
+      ai_fields_total: aiFilledKeys.length,        // how many fields AI actually filled
+      user_fields_added: userAddedKeys.length,     // how many blanks the user completed
     })
 
     onConfirm?.()
