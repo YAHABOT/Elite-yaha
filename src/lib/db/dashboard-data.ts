@@ -47,6 +47,39 @@ function getLastWeekRange(): { start: string; end: string } {
   return { start: lastMonday.toISOString(), end: lastSunday.toISOString() }
 }
 
+/**
+ * Returns how many sparkline bars to show for a widget's period.
+ * this_week → days elapsed Mon→today (1–7)
+ * last_week → always 7
+ * else       → min(days, 7)
+ */
+export function getSparklineDays(widget: { days?: number; period?: string }): number {
+  if (widget.period === 'this_week') {
+    const day = new Date().getDay() // 0=Sun
+    return day === 0 ? 7 : day     // Mon=1, Tue=2, … Sun=7
+  }
+  if (widget.period === 'last_week') return 7
+  return Math.min(widget.days ?? 7, 7)
+}
+
+/**
+ * Returns the start date for the sparkline (oldest bar = index 0).
+ * For this_week/last_week, aligns bars to calendar days Mon→today or Mon→Sun.
+ */
+export function getSparklineStartDate(widget: { days?: number; period?: string }): Date {
+  const days = getSparklineDays(widget)
+  if (widget.period === 'this_week') {
+    return getThisWeekStart()
+  }
+  if (widget.period === 'last_week') {
+    return new Date(getLastWeekRange().start)
+  }
+  const d = new Date()
+  d.setDate(d.getDate() - (days - 1))
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 function filterByPeriod(logs: TrackerLog[], widget: { days?: number; period?: string }): TrackerLog[] {
   if (widget.period === 'this_week') {
     const start = getThisWeekStart().toISOString()
@@ -394,11 +427,13 @@ export function computeWidgetValueOptimized(
       const fieldMap = buildFieldValueMap(correlatorLogs)
       const result = evaluateFormula(correlation.formula, fieldMap)
 
-      // Compute sparkline: per-day formula evaluations for last SPARKLINE_DEFAULT_DAYS days
+      // Compute sparkline: per-day evaluations, period-aware number of bars
+      const sparkDays = getSparklineDays(widget)
+      const sparkStart = getSparklineStartDate(widget)
       const correlatorTrend: number[] = []
-      for (let i = SPARKLINE_DEFAULT_DAYS - 1; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
+      for (let i = 0; i < sparkDays; i++) {
+        const d = new Date(sparkStart)
+        d.setDate(sparkStart.getDate() + i)
         const dayStr = d.toISOString().split('T')[0]
         const dayLogs = nDayLogs.filter(l => l.logged_at.startsWith(dayStr))
         const dayFieldMap = buildFieldValueMap(dayLogs)
@@ -513,18 +548,28 @@ export function computeWidgetValueOptimized(
 /**
  * Groups logs by calendar date and computes one value per day for a given field.
  * Returns array oldest→newest, length = nDays.
+ *
+ * @param startDate - When provided, generates bars from startDate forward (for this_week/last_week).
+ *                    When omitted, counts back nDays from today (legacy/N-day mode).
  */
 export function computeDailyPointsFromLogs(
   logs: TrackerLog[],
   trackerId: string,
   fieldId: string,
   aggregation: 'average' | 'total',
-  nDays: number
+  nDays: number,
+  startDate?: Date
 ): number[] {
   const result: number[] = []
-  for (let i = nDays - 1; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
+  for (let i = 0; i < nDays; i++) {
+    let d: Date
+    if (startDate) {
+      d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+    } else {
+      d = new Date()
+      d.setDate(d.getDate() - (nDays - 1 - i))
+    }
     const dateStr = d.toISOString().split('T')[0]
     const dayLogs = logs.filter(
       l => l.tracker_id === trackerId && l.logged_at.startsWith(dateStr)

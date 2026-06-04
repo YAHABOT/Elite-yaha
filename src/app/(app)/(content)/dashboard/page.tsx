@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSafeUser } from '@/lib/supabase/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { getWidgets } from '@/lib/db/dashboard'
-import { computeWidgetValueOptimized, computeDailyScore, computeDailyScores, computeDeltaPct, computeDailyPointsFromLogs, type CorrelationRecord } from '@/lib/db/dashboard-data'
+import { computeWidgetValueOptimized, computeDailyScore, computeDailyScores, computeDeltaPct, computeDailyPointsFromLogs, getSparklineDays, getSparklineStartDate, type CorrelationRecord } from '@/lib/db/dashboard-data'
 import { getTrackersBasic } from '@/lib/db/trackers'
 import { getRoutines } from '@/lib/db/routines'
 import { getActiveDayState } from '@/lib/db/day-state'
@@ -82,14 +82,16 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
 
         // Add sparkline + delta for field_average and field_total
         if ((w.type === 'field_average' || w.type === 'field_total') && w.tracker_id && w.field_id) {
-          const sparkDays = Math.min(w.days ?? 7, 7)
+          const sparkDays = getSparklineDays(w)
+          const sparkStart = getSparklineStartDate(w)
           const agg = w.type === 'field_average' ? 'average' : 'total'
           val.trend = computeDailyPointsFromLogs(
             nDayLogs as TrackerLog[],
             w.tracker_id,
             w.field_id,
             agg,
-            sparkDays
+            sparkDays,
+            sparkStart
           )
           const delta = computeDeltaPct(
             nDayLogs as TrackerLog[],
