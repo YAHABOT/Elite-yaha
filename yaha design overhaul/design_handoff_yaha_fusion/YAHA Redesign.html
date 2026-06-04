@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>YAHA — Redesign · Ember</title>
+<link rel="stylesheet" href="yaha.css" />
+<style>
+  html, body { margin: 0; height: 100%; background: #07060a; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="yaha-shared.jsx"></script>
+<script type="text/babel" src="dashboards.jsx"></script>
+<script type="text/babel" src="aurora-a.jsx"></script>
+<script type="text/babel" src="aurora-b.jsx"></script>
+
+<script type="text/babel">
+function Phone({ dir = "ember", children }) {
+  return (
+    <IOSDevice dark width={390} height={844}>
+      <div className={"y dir-" + dir} style={{ height: "100%" }}>{children}</div>
+    </IOSDevice>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+
+      {/* ── Row 1: three directions, same dashboard ── */}
+      <DCSection id="directions" title="Dashboard — three directions"
+        subtitle="Same structure, three premium dark personalities. Ember is selected.">
+        <DCArtboard id="d-aurora" label="Aurora · lime + lilac" width={390} height={844}>
+          <Phone dir="aurora"><DashAurora /></Phone>
+        </DCArtboard>
+        <DCArtboard id="d-ember" label="Ember · coral warm ✓" width={390} height={844}>
+          <Phone dir="ember"><DashEmber /></Phone>
+        </DCArtboard>
+        <DCArtboard id="d-tide" label="Tide · cyan airy" width={390} height={844}>
+          <Phone dir="tide"><DashTide /></Phone>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── Row 2: Ember full app — real screens ── */}
+      <DCSection id="ember-app" title="Ember — full app"
+        subtitle="All 6 real screens: Dashboard · Journal · Chat · Trackers · Tracker detail · Settings">
+        <DCArtboard id="e-dash" label="Dashboard" width={390} height={844}>
+          <Phone dir="ember"><ScreenDashboard /></Phone>
+        </DCArtboard>
+        <DCArtboard id="e-journal" label="Journal" width={390} height={844}>
+          <Phone dir="ember"><ScreenJournal /></Phone>
+        </DCArtboard>
+        <DCArtboard id="e-chat" label="Chat · AI logging" width={390} height={844}>
+          <Phone dir="ember"><ScreenChat /></Phone>
+        </DCArtboard>
+        <DCArtboard id="e-trackers" label="Trackers" width={390} height={844}>
+          <Phone dir="ember"><ScreenTrackers /></Phone>
+        </DCArtboard>
+        <DCArtboard id="e-detail" label="Tracker detail · Food" width={390} height={844}>
+          <Phone dir="ember"><ScreenTrackerDetail /></Phone>
+        </DCArtboard>
+        <DCArtboard id="e-settings" label="Settings" width={390} height={844}>
+          <Phone dir="ember"><ScreenSettings /></Phone>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── Row 3: Masterlog palette — Ember layout, navy/cyan/Orbitron ── */}
+      <DCSection id="masterlog-app" title="Masterlog palette · Ember layout"
+        subtitle="Same structure as Ember — deep navy #050c1a · cyan #00d4ff · Orbitron display · Inter body">
+        <DCArtboard id="m-dash" label="Dashboard" width={390} height={844}>
+          <Phone dir="masterlog"><ScreenDashboard /></Phone>
+        </DCArtboard>
+        <DCArtboard id="m-journal" label="Journal" width={390} height={844}>
+          <Phone dir="masterlog"><ScreenJournal /></Phone>
+        </DCArtboard>
+        <DCArtboard id="m-chat" label="Chat · AI logging" width={390} height={844}>
+          <Phone dir="masterlog"><ScreenChat /></Phone>
+        </DCArtboard>
+        <DCArtboard id="m-trackers" label="Trackers" width={390} height={844}>
+          <Phone dir="masterlog"><ScreenTrackers /></Phone>
+        </DCArtboard>
+        <DCArtboard id="m-detail" label="Tracker detail · Food" width={390} height={844}>
+          <Phone dir="masterlog"><ScreenTrackerDetail /></Phone>
+        </DCArtboard>
+        <DCArtboard id="m-settings" label="Settings" width={390} height={844}>
+          <Phone dir="masterlog"><ScreenSettings /></Phone>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── Row 4: Hyper palette — custom fonts + vivid palette ── */}
+      <DCSection id="hyper-app" title="Hyper palette · custom fonts"
+        subtitle="Raisin Black · Electric Blue · Rich Lemon · Purple · Pink · font stand-ins: Black Ops One ≈ Cyberhype · Share Tech Mono ≈ Unhuman · Audiowide ≈ Omnitrinx">
+        <DCArtboard id="h-dash" label="Dashboard" width={390} height={844}>
+          <Phone dir="hyper"><ScreenDashboard /></Phone>
+        </DCArtboard>
+        <DCArtboard id="h-journal" label="Journal" width={390} height={844}>
+          <Phone dir="hyper"><ScreenJournal /></Phone>
+        </DCArtboard>
+        <DCArtboard id="h-chat" label="Chat · AI logging" width={390} height={844}>
+          <Phone dir="hyper"><ScreenChat /></Phone>
+        </DCArtboard>
+        <DCArtboard id="h-trackers" label="Trackers" width={390} height={844}>
+          <Phone dir="hyper"><ScreenTrackers /></Phone>
+        </DCArtboard>
+        <DCArtboard id="h-detail" label="Tracker detail · Food" width={390} height={844}>
+          <Phone dir="hyper"><ScreenTrackerDetail /></Phone>
+        </DCArtboard>
+        <DCArtboard id="h-settings" label="Settings" width={390} height={844}>
+          <Phone dir="hyper"><ScreenSettings /></Phone>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── Row 5: Fusion — Aurora layout · Masterlog colors · Hyper fonts ── */}
+      <DCSection id="fusion-app" title="Fusion · Aurora × Masterlog × Hyper fonts"
+        subtitle="Aurora's rounded spacious layout · Navy #050c1a + Cyan #00d4ff + Purple #a855f7 · Black Ops One headers · Share Tech Mono numbers · Audiowide labels">
+        <DCArtboard id="f-dash" label="Dashboard" width={390} height={844}>
+          <Phone dir="fusion"><DashAurora /></Phone>
+        </DCArtboard>
+        <DCArtboard id="f-journal" label="Journal" width={390} height={844}>
+          <Phone dir="fusion"><ScreenJournal /></Phone>
+        </DCArtboard>
+        <DCArtboard id="f-chat" label="Chat · AI logging" width={390} height={844}>
+          <Phone dir="fusion"><ScreenChat /></Phone>
+        </DCArtboard>
+        <DCArtboard id="f-trackers" label="Trackers" width={390} height={844}>
+          <Phone dir="fusion"><ScreenTrackers /></Phone>
+        </DCArtboard>
+        <DCArtboard id="f-detail" label="Tracker detail · Food" width={390} height={844}>
+          <Phone dir="fusion"><ScreenTrackerDetail /></Phone>
+        </DCArtboard>
+        <DCArtboard id="f-detail-cfg" label="Tracker detail · Configure modal" width={390} height={844}>
+          <Phone dir="fusion"><ScreenTrackerDetailConfig /></Phone>
+        </DCArtboard>
+        <DCArtboard id="f-settings" label="Settings" width={390} height={844}>
+          <Phone dir="fusion"><ScreenSettings /></Phone>
+        </DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

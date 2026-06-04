@@ -11,7 +11,7 @@ if (!key) process.exit(1);
 const genAI = new GoogleGenerativeAI(key);
 
 async function test() {
-  const models = ['gemini-3.1-flash-lite-preview'];
+  const models = ['gemini-2.0-flash'];
   for (const modelName of models) {
     try {
       console.log(`Testing model: ${modelName}`);

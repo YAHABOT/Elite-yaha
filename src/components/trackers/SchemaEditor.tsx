@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronLeft, Target, Save } from 'lucide-react'
-import { updateTrackerAction, deleteTrackerAction } from '@/app/actions/trackers'
+import { Plus, ChevronLeft, Target, Save, Archive } from 'lucide-react'
+import { updateTrackerAction, deleteTrackerAction, archiveTrackerAction } from '@/app/actions/trackers'
 import { SchemaFieldRow } from '@/components/trackers/SchemaFieldRow'
 import type { SchemaField, Tracker, TrackerType } from '@/types/tracker'
 
@@ -41,7 +41,9 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<boolean>(false)
   const [deleting, setDeleting] = useState<boolean>(false)
+  const [archiving, setArchiving] = useState<boolean>(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState<boolean>(false)
   const [deleteInput, setDeleteInput] = useState<string>('')
 
   function handleAddField(): void {
@@ -88,7 +90,22 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
       setSaving(false)
     } else {
       router.push('/trackers')
-      // Do NOT reset saving — let component unmount to prevent double-submit
+    }
+  }
+
+  async function handleArchive(): Promise<void> {
+    if (archiving) return
+    setError(null)
+    setArchiving(true)
+
+    const result = await archiveTrackerAction(tracker.id)
+
+    if (result.error) {
+      setError(result.error)
+      setArchiving(false)
+      setShowArchiveConfirm(false)
+    } else {
+      router.push('/trackers')
     }
   }
 
@@ -106,21 +123,69 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
       setDeleteInput('')
     } else {
       router.push('/trackers')
-      // Do NOT reset deleting — let component unmount to prevent double-submit
     }
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+      {/* Archive confirmation modal */}
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowArchiveConfirm(false)} />
+          <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-[#0A0A0A] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${tracker.color}15`, border: `1px solid ${tracker.color}30` }}>
+                <Archive className="h-5 w-5" style={{ color: tracker.color }} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-textPrimary">Archive Tracker</h3>
+                <p className="text-xs text-textMuted/60">All data is preserved</p>
+              </div>
+            </div>
+            <p className="mb-5 text-sm text-textMuted/80">
+              <span className="font-bold text-textPrimary">{tracker.name}</span> will be hidden from your active trackers. You can restore it anytime from the Archives.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleArchive}
+                disabled={archiving}
+                className="flex-1 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-black transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: tracker.color }}
+              >
+                {archiving ? 'Archiving...' : 'Archive'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowArchiveConfirm(false)}
+                className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-textMuted transition-colors hover:text-textPrimary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setShowDeleteConfirm(false); setDeleteInput('') }} />
           <div className="relative w-full max-w-sm rounded-3xl border border-red-500/20 bg-[#0A0A0A] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <h3 className="mb-1 text-base font-black text-textPrimary">Delete Tracker</h3>
-            <p className="mb-4 text-xs text-textMuted/60">
-              Type <span className="font-bold text-textPrimary">{tracker.name}</span> to confirm deletion. This cannot be undone.
+            <p className="mb-1 text-xs text-textMuted/60">
+              Type <span className="font-bold text-textPrimary">{tracker.name}</span> to confirm. This <span className="text-red-400">permanently deletes all data</span> and cannot be undone.
             </p>
+            {/* Suggest archive instead */}
+            <button
+              type="button"
+              onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); setShowArchiveConfirm(true) }}
+              className="mb-4 mt-2 w-full rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2 text-left text-xs transition-colors hover:bg-white/[0.06]"
+            >
+              <span className="font-black text-textPrimary">Archive instead?</span>
+              <span className="ml-1.5 text-textMuted/60">Keeps all history, hidden from active list.</span>
+            </button>
             <input
               autoFocus
               type="text"
@@ -136,7 +201,7 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
                 disabled={deleteInput !== tracker.name || deleting}
                 className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? 'Deleting...' : 'Delete Forever'}
               </button>
               <button
                 type="button"
@@ -150,17 +215,28 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
         </div>
       )}
 
-      {/* Back Button */}
-      <button
-        onClick={() => router.back()}
-        className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-textMuted transition-colors hover:text-textPrimary"
-      >
-        <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-        Back to Trackers
-      </button>
+      {/* Back Button + Archive */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-textMuted transition-colors hover:text-textPrimary"
+        >
+          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Back to Trackers
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowArchiveConfirm(true)}
+          className="flex items-center gap-1.5 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-textMuted transition-all hover:border-white/15 hover:text-textPrimary active:scale-95"
+        >
+          <Archive className="h-3.5 w-3.5" />
+          Archive
+        </button>
+      </div>
 
+      {/* Title block */}
       <div className="space-y-1">
-        <h1 className="text-4xl font-black tracking-tight text-textPrimary">Edit Schema</h1>
+        <h1 className="font-display-heading text-3xl text-textPrimary">Edit Schema</h1>
         <p className="text-sm text-textMuted/60">Define the internal structure and metrics for your tracker.</p>
       </div>
 
@@ -172,19 +248,19 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
 
       {/* Main Container */}
       <div className="rounded-2xl md:rounded-[40px] border border-white/5 bg-black/40 p-4 md:p-8 backdrop-blur-xl shadow-2xl relative group/container">
-        {/* Glow effect — overflow-hidden scoped here so it never clips child content */}
+        {/* Glow effect */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl md:rounded-[40px]">
           <div className="absolute -top-24 -right-24 h-48 w-48 blur-[100px] opacity-10" style={{ backgroundColor: tracker.color }} />
         </div>
-        
+
         <div className="relative space-y-8">
           {/* Header Status */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div 
+              <div
                 className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-inner transition-transform group-hover/container:scale-110 active:scale-95 duration-500"
-                style={{ 
-                  backgroundColor: `${tracker.color}15`, 
+                style={{
+                  backgroundColor: `${tracker.color}15`,
                   border: `1px solid ${tracker.color}30`,
                   boxShadow: `0 0 20px -5px ${tracker.color}40`
                 }}
@@ -192,7 +268,7 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
                 <Target className="h-7 w-7" style={{ color: tracker.color }} />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-textPrimary">{tracker.name}</h2>
+                <h2 className="font-display-heading text-2xl text-textPrimary">{tracker.name}</h2>
               </div>
             </div>
 

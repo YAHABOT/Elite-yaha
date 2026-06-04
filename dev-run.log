@@ -35,3 +35,4 @@
  ✓ Starting...
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\the--\Documents\Projects\yaha\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\the--\Documents\Projects\yaha\.next\cache\webpack\client-development\0.pack.gz'
  ✓ Ready in 34.7s
+   Reload env: .env.local

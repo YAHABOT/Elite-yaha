@@ -1,55 +1,89 @@
-# Session 2026-05-31 — Bug Fixes: EX11 (Header Unpin) + SC2 (Routine Wrong Tracker Fields)
+# Session 2026-05-31 — V33: Duration/Time Fields, Daily Stats Persistence, Chat Performance, OAuth Fix
 
-**Status:** COMPLETE ✓  
-**Branch:** feat/mvp-build  
-**Previous Build Status:** v32 COMPLETE (2026-05-27)
-
----
-
-## Tasks Completed
-
-### [T-1] EX11 v1 — Body Scroll Prevention (carry-over from previous session)
-**What:** Root layout html/body had `min-h-screen` with no overflow constraint. iOS/Android could scroll the body itself, dragging chat header and input bar off-screen.  
-**Fix:** Added `h-full overflow-hidden overscroll-none` to body, `h-full` to html in `src/app/layout.tsx`  
-**Commits:** `621b65b`  
-**Result:** Deployed. User tested → FAILED on Android Chrome (window-level scroll, not body scroll, was the cause)
+**Status:** COMPLETE ✓
+**Branch:** feat/mvp-build
+**Previous Build Status:** v32 COMPLETE ✓ (carry-over CT-2.1 and CT-3 outstanding from 2026-05-27)
 
 ---
 
-### [T-2] SC2 — Routine Step Action Card Shows Wrong Tracker Fields
-**Root cause:** During End Of Day routine Step 2 (Notes tracker), Gemini was hallucinating the Overview tracker's UUID as `trackerId` but writing `trackerName: "Notes"`. `buildSanitizedActions` found the Overview tracker by UUID → rebuilt `fieldLabels` from Overview schema → card showed Overview fields (Weight, Steps, etc.) under "Notes" title. Step advancement check also failed (UUID mismatch → `hasLoggedCurrentStep = false`) → auto-prompt for next step never fired (SC1 symptom).
+## Carry-Over from 2026-05-27
 
-**Fix A — prompt-builder.ts:** Inject explicit field IDs + labels into the JSON format template so Gemini sees actual `fld_*` keys, not generic `"fieldId": value` placeholders. Added `fieldsJsonTemplate` and `fieldLabelsJsonTemplate` builders from tracker schema.
-
-**Fix B — route.ts:** Server-side safety net: if AI produces LOG_DATA with wrong `trackerId` but `trackerName` matches the current routine step name, correct the UUID before schema lookup and advancement check.
-
-**Files:** `src/lib/ai/prompt-builder.ts`, `src/app/api/chat/route.ts`  
-**Commits:** `39fe6f1`  
-**Verdict:** PASS (deployed, user confirmed routine flow working)
+| Task | Status | Notes |
+|------|--------|-------|
+| CT-2.1 Fix CR findings | ⏳ Deferred | Code review findings from v32 — not addressed this session (new work prioritized) |
+| CT-3 QA Testing | ⏳ Deferred | 67 test cases pending |
+| CT-4 User Requests | ⏳ Partial | Context loss resolved (implicit from session continuity) |
 
 ---
 
-### [T-3] EX11 v2 — Android Chrome Header/Input Unpin (real fix)
-**Root cause:** `overflow: hidden` on body only prevents body-element scroll. Android Chrome triggers window-level scroll from touch events chaining up from the messages `overflow-y-auto` container. This window scroll is not blocked by body overflow.
+## Tasks Completed This Session
 
-**Fix:** Changed `(app)/layout.tsx` outer div from `h-dvh overflow-hidden` to `fixed inset-0 overflow-hidden`. `position: fixed; inset: 0` pins the shell to exact viewport bounds — body has zero content in document flow → `window.scrollY` cannot move → header/input structurally cannot unpin. Also reverted html/body `h-full` (no longer needed).
+### [T1] Restore `time` Field Type Alongside `duration` ✓ COMPLETE
+**What:** User wanted both `time` (clock-picker, HH:MM string) and `duration` (elapsed seconds, text input) field types to coexist. Previous migration had converted all `time` fields to `duration`.
+**Files:** 9 files modified — see TECHNICAL_LOG_V33.md § T1
+**Result:** Both types available in schema editor and all form/display components
+[CA | ~10:00] Delivered
 
-**Files:** `src/app/(app)/layout.tsx`, `src/app/layout.tsx`  
-**Commits:** `ab9d46b`  
-**Verdict:** User confirmed "seems fine for now" ✓
+### [T2] Daily Stats Persistence (tracker aggregates + correlations) ✓ COMPLETE
+**What:** Daily totals/averages and correlation values were computed client-side only. User requested DB persistence for analytics.
+**Files:** `src/lib/db/daily-stats.ts` (new), `src/lib/db/logs.ts` (modified)
+**Result:** `recomputeDayStats()` fires after every log create/update/delete; upserts into `daily_stats` table with tracker field sums/avgs and evaluated correlation values
+[CA | ~10:30] Delivered
+
+### [T3] Sleep Time Field Migration ✓ COMPLETE
+**What:** Previous `20260531_time_to_duration_field.sql` migration corrupted Sleep Start/End values (converted "23:30" strings to integer seconds). Migration written and applied once both users changed Sleep Start/End schema back to `time` type.
+**File:** `supabase/migrations/20260531_fix_time_field_values.sql`
+**Applied:** ✓ `jfretlgjsthhmlmgmlog` — all `time`-typed field values converted from integers back to "HH:MM" strings. Verified via SQL query: Sleep Start/End values correct across all historical logs.
+
+### [T4] Chat Performance Fix — New Chat Navigation Lag ✓ COMPLETE
+**What:** Starting a new chat from the home page took ~3-5 seconds to navigate to the chat page. Root cause: 8-query `Promise.all` ran before the SSE stream was created, blocking all bytes to the client.
+**Files:** `src/app/api/chat/route.ts`
+**Fix:** Moved `ReadableStream` creation to immediately after `createSession()`. Session ID SSE event emitted as first byte. Client navigates instantly; server continues DB setup in background.
+**Deployed:** ✓ `https://yaha-flame.vercel.app`
+[CA | ~14:00] Delivered
+
+### [T5] Google OAuth Login Fix ✓ COMPLETE
+**What:** Google login redirected back to login page after choosing account. Two bugs: (1) no `/api/auth/callback` route handler — code never exchanged for session. (2) `LoginForm` used `process.env.NEXT_PUBLIC_APP_URL` which is not set on Vercel.
+**Files:** `src/app/api/auth/callback/route.ts` (new), `src/components/auth/LoginForm.tsx` (modified)
+**Key fix:** Callback route uses `request.cookies` for PKCE verifier reads, collects `pendingCookies`, then sets them on `NextResponse.redirect()` response. First attempt failed because `cookies()` from `next/headers` doesn't attach to a separate redirect response.
+**Deployed:** ✓ `https://yaha-flame.vercel.app`
+[CA | ~15:30] Delivered
 
 ---
 
-## Commits This Session
-| Hash | Description |
-|------|-------------|
-| `621b65b` | fix(layout): lock html/body height to prevent iOS body scroll (EX11 v1) |
-| `39fe6f1` | fix(routine): prevent AI from hallucinating wrong tracker fields in step action cards (SC2) |
-| `ab9d46b` | fix(layout): use fixed inset-0 on app shell to prevent window scroll on Android (EX11 v2) |
+### [T6] SC1 — Duration Fields Show Seconds in Action Card ✓ COMPLETE
+**What:** Sleep tracker duration fields (Awake, REM, Light, Deep, Time in Bed, Actual Sleep Time) displayed raw seconds (e.g., 7020) in the confirmation action card. Journal/tracker pages showed correctly because they used `field.type === 'duration'` check. ActionCard only converted when `unit === 'hrs'`.
+**File:** `src/components/chat/ActionCard.tsx`
+**Fix:** Added `fieldDefinitions[key]?.type === 'duration'` check to `editableFields` init → converts raw seconds to HH:MM:SS. Updated `isStringValue` regex to exclude HH:MM:SS format from `col-span-2` logic.
+[CA | context-restored] Delivered
+
+### [T7] SC2 — Step 2 Not Initiating After Step 1 ✓ COMPLETE
+**What:** After Step 1 completed, `shouldAutoPromptNextStep = true` fired (server correctly advanced step), banner showed "Step 2 In Progress" but no AI prompt appeared. Root cause: `setTimeout` closure captured `handleSendSilent` from the current render whose `currentSessionId` could be `'new'` (stale) on the very first message. Server then created a brand-new session with no `active_routine_id` → generic response.
+**File:** `src/components/chat/ChatInterface.tsx`
+**Fix:** Added `sessionIdOverride?: string` param to `handleSendSilent`. In done handler, captured `const capturedSessionId = finalSessionId` before timeout → passes it explicitly. Removed wrong `return () => {}` pattern (useEffect cleanup syntax in async function).
+[CA | context-restored] Delivered
+
+### [T8] Bug 3 — Start Day Routine Orphaned Day State ✓ COMPLETE
+**What:** Dashboard "Start Day" button triggered the routine, called `markDayStarted` (fire-and-forget). If user missed/dropped the AI stream, `day_state.day_started_at` was set but no routine steps ran. Later trigger attempts hit "already complete" guard.
+**File:** `src/app/api/chat/route.ts`
+**Fix:** Both `day_start` guards now check `active_routine_id` (routine actually running) instead of just `day_started_at`. Three sub-cases: (a) different day open → block; (b) day ended → block; (c) routine in progress → block. Orphaned state (same day, no active routine, not ended) → allow re-trigger.
+[CA | context-restored] Delivered
+
+**Deployed:** ✓ https://yaha-flame.vercel.app
 
 ---
 
-## Known Issues / Next Session Carry-Over
-- SC1 (routine step 2 not auto-prompted) was caused by SC2 trackerId mismatch → fixed as part of T-2. No separate fix needed.
-- Code Review and QA agents NOT run this session (user-reported bugs required immediate hotfixes). Consider CR + QA sweep next session.
-- Applied Learning: `[EX11] overflow:hidden on body doesn't block Android window scroll → use fixed inset-0 on app shell (date: 2026-05-31)`
+## Pending
+
+- **CT-2.1** Code review findings from v32 (low/medium severity — non-blocking)
+- **CT-3** QA Testing (67 test cases)
+- **T3** Sleep time migration application (trigger: "apply the sleep time migration")
+- **Backfill** historical `daily_stats` (user hasn't requested)
+- **Display name / alias** — ✓ Fixed 2026-06-01 (T10)
+
+---
+
+## Known Gotchas Added This Session
+
+- `cookies()` from `next/headers` does NOT attach cookies to a `NextResponse.redirect()` — must collect in array and set on redirect response directly (OAuth callback pattern)
+- Moving route setup inside `ReadableStream.start()` changes nested function type inference — `buildSanitizedActions` required `as AnyActionCard` cast on spread return

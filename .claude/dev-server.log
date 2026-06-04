@@ -1,0 +1,13 @@
+
+> yaha@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use by process 33384, using available port 3009 instead.
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3009
+   - Network:      http://10.5.0.2:3009
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 7.3s
+   Reload env: .env.local

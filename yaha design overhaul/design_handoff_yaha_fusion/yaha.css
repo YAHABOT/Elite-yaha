@@ -1,0 +1,566 @@
+/* ============================================================
+   YAHA — dark, premium health tracker
+   Three theme directions share structure; differ by hue,
+   radius and density. Type system is constant.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Bungee&family=Audiowide&display=swap');
+
+* { box-sizing: border-box; }
+
+.y {
+  /* ---- type ---- */
+  --font: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  height: 100%;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* ============================== THEMES ============================== */
+
+/* ---------- AURORA : near-black, lime + lilac, soft, round ---------- */
+.dir-aurora {
+  --bg:        #08080B;
+  --surface:   #101015;
+  --surface2:  #17171E;
+  --raise:     #1E1E27;
+  --border:    rgba(255,255,255,0.075);
+  --border2:   rgba(255,255,255,0.13);
+  --text:      #F4F4F7;
+  --muted:     rgba(244,244,247,0.56);
+  --faint:     rgba(244,244,247,0.32);
+  --accent:    #C7F24B;          /* lime */
+  --accent-ink:#0C1400;          /* text on accent */
+  --accent2:   #B7A4EC;          /* lilac */
+  --r-lg: 26px; --r-md: 20px; --r-sm: 14px; --r-pill: 999px;
+  --pad: 20px; --gap: 14px;
+  --glow: 0 0 0 1px rgba(199,242,75,0.0), 0 12px 40px -12px rgba(199,242,75,0.25);
+  /* category hues tuned for dark */
+  --c-nutrition:#9BE26B; --c-sleep:#8FA8FF; --c-workout:#FF9D6B;
+  --c-mood:#C9A0F5; --c-water:#5FD6E6; --c-heart:#FF8AA6;
+}
+
+/* ---------- EMBER : warm charcoal, coral, dense, sharp ---------- */
+.dir-ember {
+  --bg:        #0B0A09;
+  --surface:   #15130F;
+  --surface2:  #1D1A15;
+  --raise:     #25211B;
+  --border:    rgba(255,242,230,0.07);
+  --border2:   rgba(255,242,230,0.14);
+  --text:      #F6F1E9;
+  --muted:     rgba(246,241,233,0.55);
+  --faint:     rgba(246,241,233,0.3);
+  --accent:    #F2884E;          /* coral-amber */
+  --accent-ink:#1A0E05;
+  --accent2:   #E8C07A;          /* sand */
+  --r-lg: 14px; --r-md: 11px; --r-sm: 8px; --r-pill: 999px;
+  --pad: 16px; --gap: 10px;
+  --glow: 0 10px 36px -14px rgba(242,136,78,0.35);
+  --c-nutrition:#D9C26A; --c-sleep:#C29BE0; --c-workout:#F2884E;
+  --c-mood:#E08FB0; --c-water:#7CC6D6; --c-heart:#F07A6A;
+}
+
+/* ---------- TIDE : cool ink, soft cyan, airy, very round ---------- */
+.dir-tide {
+  --bg:        #06080B;
+  --surface:   #0E141A;
+  --surface2:  #141C23;
+  --raise:     #1B2630;
+  --border:    rgba(230,244,250,0.06);
+  --border2:   rgba(230,244,250,0.13);
+  --text:      #EBF3F6;
+  --muted:     rgba(235,243,246,0.55);
+  --faint:     rgba(235,243,246,0.3);
+  --accent:    #74D6E6;          /* soft cyan */
+  --accent-ink:#02161A;
+  --accent2:   #9FB8F5;          /* periwinkle */
+  --r-lg: 30px; --r-md: 24px; --r-sm: 18px; --r-pill: 999px;
+  --pad: 22px; --gap: 16px;
+  --glow: 0 14px 44px -14px rgba(116,214,230,0.3);
+  --c-nutrition:#86E0A8; --c-sleep:#8FB6FF; --c-workout:#FFB178;
+  --c-mood:#B9A6F5; --c-water:#74D6E6; --c-heart:#FF9BB0;
+}
+
+/* ---------- MASTERLOG : deep navy, cyan, Orbitron numbers, Inter body ---------- */
+.dir-masterlog {
+  --bg:        #050c1a;
+  --surface:   #091424;
+  --surface2:  #0e1d34;
+  --raise:     #0f2040;
+  --border:    rgba(0,212,255,0.13);
+  --border2:   rgba(0,212,255,0.35);
+  --text:      #e2e8f0;
+  --muted:     #94a3b8;
+  --faint:     #475569;
+  --accent:    #00d4ff;           /* cyan */
+  --accent-ink:#000d1a;
+  --accent2:   #a855f7;           /* purple */
+  --r-lg: 16px; --r-md: 12px; --r-sm: 8px; --r-pill: 999px;
+  --pad: 16px; --gap: 10px;
+  --glow: 0 0 16px -4px rgba(0,212,255,0.5), 0 0 0 1px rgba(0,212,255,0.2);
+  /* category hues from masterlog */
+  --c-nutrition:#00ff9d;
+  --c-sleep:    #a855f7;
+  --c-workout:  #ff6b35;
+  --c-mood:     #00d4ff;
+  --c-water:    #22d3ee;
+  --c-heart:    #ef4444;
+  /* override fonts */
+  --font: "Inter", -apple-system, system-ui, sans-serif;
+  --mono: "Orbitron", ui-monospace, monospace;
+}
+
+/* grid lines background for masterlog */
+.dir-masterlog .scr {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 60% -10%, rgba(0,212,255,0.08), transparent 65%),
+    linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+}
+
+/* Orbitron metric + gradient fill */
+.dir-masterlog .metric {
+  font-family: var(--mono);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), rgba(255,255,255,0.75));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dir-masterlog .metric .unit {
+  font-size: 0.45em;
+  -webkit-text-fill-color: var(--muted);
+  font-weight: 400;
+}
+
+/* ============================== HYPER THEME ============================== */
+/* Font stand-ins (swap for purchased files):                                */
+/*   --display → Cyberhype (headers, tracker names, brand)                  */
+/*   --mono    → Unhuman   (metric numbers)                                  */
+/*   --ui      → Omnitrinx (nav labels, eyebrow, chips)                     */
+/*   --glitch  → SDGlitch  (body copy)                                       */
+
+.dir-hyper {
+  --bg:        #272932;
+  --surface:   #2e3140;
+  --surface2:  #353a4d;
+  --raise:     #3b4159;
+  --border:    rgba(55,235,243,0.15);
+  --border2:   rgba(55,235,243,0.40);
+  --text:      #f0edf5;
+  --muted:     #9a97a8;
+  --faint:     #575470;
+  --accent:    #37EBF3;
+  --accent-ink:#061214;
+  --accent2:   #FDF500;
+  --r-lg: 10px; --r-md: 7px; --r-sm: 4px; --r-pill: 999px;
+  --pad: 16px; --gap: 10px;
+  --glow: 0 0 20px -4px rgba(55,235,243,0.55), 0 0 0 1px rgba(55,235,243,0.25);
+  --c-nutrition:#FDF500;
+  --c-sleep:   #9370DB;
+  --c-workout: #1AC5B0;
+  --c-mood:    #E455AE;
+  --c-water:   #37EBF3;
+  --c-heart:   #CB1DCD;
+  --font:    "Inter", -apple-system, system-ui, sans-serif;
+  --mono:    "Share Tech Mono", ui-monospace, monospace;
+  --display: "Chakra Petch", system-ui, sans-serif;
+  --ui:      "Audiowide", system-ui, sans-serif;
+  --glitch:  "Bungee", system-ui, sans-serif;
+}
+.dir-hyper .scr {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 70% 45% at 70% -8%, rgba(55,235,243,0.09), transparent 60%),
+    radial-gradient(ellipse 50% 30% at 10% 90%, rgba(253,245,0,0.05), transparent 55%),
+    linear-gradient(rgba(55,235,243,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(55,235,243,0.022) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+}
+.dir-hyper h1,
+.dir-hyper .hdr-title,
+.dir-hyper .disp {
+  font-family: var(--display) !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-style: italic;
+}
+.dir-hyper h1,
+.dir-hyper .hdr-title {
+  background: linear-gradient(130deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dir-hyper .tab span,
+.dir-hyper .eyebrow,
+.dir-hyper .hdr-kick {
+  font-family: var(--ui) !important;
+  letter-spacing: 0.10em;
+}
+.dir-hyper .metric {
+  font-family: var(--mono) !important;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dir-hyper .metric .unit {
+  font-family: var(--ui) !important;
+  -webkit-text-fill-color: var(--muted);
+  font-size: 0.42em; letter-spacing: 0.08em;
+}
+.dir-hyper .mono { font-family: var(--mono) !important; }
+.dir-hyper .btn-accent {
+  background: linear-gradient(135deg, var(--accent), #00b8c2);
+  color: var(--accent-ink);
+  box-shadow: 0 0 20px -4px rgba(55,235,243,0.55);
+}
+.dir-hyper .chip-accent { background: var(--accent); color: var(--accent-ink); }
+.dir-hyper .card { position: relative; overflow: hidden; }
+.dir-hyper .card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent) 50%, transparent);
+  opacity: 0.45; pointer-events: none;
+}
+.dir-hyper .card:hover {
+  border-color: rgba(55,235,243,0.32);
+  box-shadow: 0 0 28px -8px rgba(55,235,243,0.14);
+}
+.dir-hyper .tabbar {
+  border-top-color: rgba(55,235,243,0.2);
+  background: color-mix(in oklch, #272932 88%, transparent);
+}
+.dir-hyper .tab.active { color: var(--accent2); }
+.dir-hyper .tab.active svg { color: var(--accent) !important; filter: drop-shadow(0 0 5px rgba(55,235,243,0.5)); }
+
+/* ── flabel: Omnitrinx/Audiowide for field labels + subheadings ── */
+.dir-fusion .flabel,
+.dir-hyper .flabel {
+  font-family: var(--ui) !important;
+  letter-spacing: 0.1em;
+}
+.dir-masterlog .flabel {
+  font-family: var(--mono) !important;
+  letter-spacing: 0.08em;
+}
+
+/* ── active tab gets cyan glow */
+.dir-masterlog .tab.active {
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(0,212,255,0.6);
+}
+
+/* border-hi on card hover */
+.dir-masterlog .card:hover {
+  border-color: rgba(0,212,255,0.32);
+  box-shadow: 0 0 24px -8px rgba(0,212,255,0.12);
+}
+
+/* KPI-style top line on widget cards */
+.dir-masterlog .kpi-line::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  opacity: 0.7;
+}
+
+/* bare h1 elements also get Orbitron + gradient */
+.dir-masterlog h1 {
+  font-family: "Orbitron", monospace;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--accent), rgba(255,255,255,0.85));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+/* Orbitron brand label */
+.dir-masterlog .hdr-title {
+  font-family: "Orbitron", monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--accent), rgba(255,255,255,0.85));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dir-masterlog .eyebrow {
+  font-family: "Orbitron", monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+.dir-masterlog .label {
+  font-size: 12px;
+  color: var(--muted);
+}
+/* cyan chip active */
+.dir-masterlog .chip-accent {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 12px rgba(0,212,255,0.4);
+}
+.dir-masterlog .btn-accent {
+  background: linear-gradient(135deg, var(--accent), #0090cc);
+  color: var(--accent-ink);
+  box-shadow: 0 0 18px -4px rgba(0,212,255,0.5);
+}
+
+/* ============================== FUSION THEME ============================== */
+/* Aurora layout · Masterlog colors · Hyper fonts                            */
+
+.dir-fusion {
+  /* ── Masterlog color tokens ── */
+  --bg:        #050c1a;
+  --surface:   #091424;
+  --surface2:  #0e1d34;
+  --raise:     #0f2040;
+  --border:    rgba(0,212,255,0.13);
+  --border2:   rgba(0,212,255,0.38);
+  --text:      #e2e8f0;
+  --muted:     #94a3b8;
+  --faint:     #475569;
+  --accent:    #00d4ff;
+  --accent-ink:#000d1a;
+  --accent2:   #a855f7;
+  /* ── Aurora radii + spacing ── */
+  --r-lg: 26px; --r-md: 20px; --r-sm: 14px; --r-pill: 999px;
+  --pad: 20px; --gap: 14px;
+  --glow: 0 0 16px -4px rgba(0,212,255,0.45), 0 0 0 1px rgba(0,212,255,0.15);
+  /* ── Masterlog category colors ── */
+  --c-nutrition:#00ff9d;
+  --c-sleep:   #a855f7;
+  --c-workout: #ff6b35;
+  --c-mood:    #00d4ff;
+  --c-water:   #22d3ee;
+  --c-heart:   #ef4444;
+  /* ── Hyper fonts ── */
+  --font:    "Inter", -apple-system, system-ui, sans-serif;
+  --mono:    "Share Tech Mono", ui-monospace, monospace;
+  --display: "Chakra Petch", system-ui, sans-serif;
+  --ui:      "Audiowide", system-ui, sans-serif;
+}
+
+/* grid + radial glow background */
+.dir-fusion .scr {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(120% 60% at 80% -10%, rgba(0,212,255,0.09), transparent 60%),
+    radial-gradient(60% 40% at 10% 95%, rgba(168,85,247,0.06), transparent 55%),
+    linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+}
+
+/* Cyberhype (Chakra Petch) on headers + display elements */
+.dir-fusion h1,
+.dir-fusion .hdr-title,
+.dir-fusion .disp {
+  font-family: var(--display) !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-style: italic;
+}
+
+/* Gradient text fill on h1 / hdr-title */
+.dir-fusion h1,
+.dir-fusion .hdr-title {
+  background: linear-gradient(130deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Omnitrinx (Audiowide) on labels */
+.dir-fusion .tab span,
+.dir-fusion .eyebrow,
+.dir-fusion .hdr-kick {
+  font-family: var(--ui) !important;
+  letter-spacing: 0.10em;
+}
+
+/* Unhuman (Share Tech Mono) on metrics — cyan→purple gradient */
+.dir-fusion .metric {
+  font-family: var(--mono) !important;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dir-fusion .metric .unit {
+  font-family: var(--ui) !important;
+  -webkit-text-fill-color: var(--muted);
+  font-size: 0.42em;
+  letter-spacing: 0.08em;
+}
+.dir-fusion .mono { font-family: var(--mono) !important; }
+
+/* Buttons */
+.dir-fusion .btn-accent {
+  background: linear-gradient(135deg, var(--accent), #0090cc);
+  color: var(--accent-ink);
+  box-shadow: 0 0 20px -4px rgba(0,212,255,0.5);
+}
+.dir-fusion .chip-accent {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 12px rgba(0,212,255,0.4);
+}
+
+/* Active tab */
+.dir-fusion .tab.active {
+  color: var(--accent2);
+}
+.dir-fusion .tab.active svg {
+  color: var(--accent) !important;
+  filter: drop-shadow(0 0 5px rgba(0,212,255,0.55));
+}
+
+/* Tab bar */
+.dir-fusion .tabbar {
+  border-top-color: rgba(0,212,255,0.18);
+  background: color-mix(in oklch, #050c1a 88%, transparent);
+}
+
+/* ============================== SCREEN SHELL ============================== */
+.scr {
+  position: relative;
+  height: 100%;
+  background:
+    radial-gradient(120% 60% at 80% -10%, color-mix(in oklch, var(--accent) 9%, transparent), transparent 60%),
+    var(--bg);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.scr-scroll {
+  flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
+  padding: 0 var(--pad) 84px;
+}
+.scr-scroll::-webkit-scrollbar { width: 0; }
+
+/* status-bar safe top spacer */
+.topspace { height: 60px; flex: none; }
+
+/* ============================== HEADER ============================== */
+.hdr { display: flex; align-items: center; gap: 12px; padding: 6px 0 18px; }
+.hdr-kick { font: 600 12px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+.hdr-title { font-weight: 800; font-size: 30px; letter-spacing: -0.02em; margin: 4px 0 0; white-space: nowrap; }
+.hdr-sub { color: var(--muted); font-size: 14px; margin-top: 3px; }
+.spacer { flex: 1; }
+
+.avatar {
+  width: 44px; height: 44px; border-radius: var(--r-pill); flex: none;
+  background: linear-gradient(145deg, var(--accent2), var(--accent));
+  display: grid; place-items: center; font-weight: 800; color: var(--accent-ink);
+  font-size: 16px; border: 1px solid var(--border2);
+}
+.icon-btn {
+  width: 42px; height: 42px; border-radius: var(--r-sm); flex: none;
+  background: var(--surface); border: 1px solid var(--border);
+  display: grid; place-items: center; color: var(--text);
+}
+
+/* ============================== CARD ============================== */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: var(--pad);
+}
+.card-2 { background: var(--surface2); }
+.card-row { display: flex; gap: var(--gap); }
+.stack { display: flex; flex-direction: column; gap: var(--gap); }
+
+.eyebrow { font: 600 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.label { font-size: 13px; color: var(--muted); }
+.mono { font-family: var(--mono); }
+
+.metric { font-family: var(--mono); font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+.metric .unit { font-size: 0.45em; color: var(--muted); font-weight: 500; margin-left: 3px; letter-spacing: 0; }
+
+/* tiny category dot */
+.dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+
+/* pill / chip */
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: var(--r-pill);
+  background: var(--surface2); border: 1px solid var(--border);
+  font-size: 13px; font-weight: 500; color: var(--text);
+}
+.chip-accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
+.chip-ghost { background: transparent; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 46px; padding: 0 20px; border-radius: var(--r-pill);
+  font-weight: 700; font-size: 15px; border: 1px solid transparent;
+}
+.btn-accent { background: var(--accent); color: var(--accent-ink); box-shadow: var(--glow); }
+.btn-ghost { background: var(--surface2); color: var(--text); border-color: var(--border); }
+.btn-block { width: 100%; }
+
+/* progress bar */
+.bar { height: 7px; border-radius: 99px; background: var(--raise); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+
+/* ring (conic) */
+.ring { position: relative; display: grid; place-items: center; border-radius: 50%; }
+.ring::before {
+  content: ""; position: absolute; inset: 11%; border-radius: 50%; background: var(--surface);
+}
+.ring-val { position: relative; text-align: center; }
+
+/* bottom tab bar — flat frosted bar, full width, matches real app */
+.tabbar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 72px; z-index: 40;
+  display: flex; align-items: stretch; justify-content: space-around;
+  background: color-mix(in oklch, var(--surface) 90%, transparent);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-top: 1px solid var(--border2);
+  box-shadow: 0 -8px 32px -8px rgba(0,0,0,0.5);
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 3px; color: var(--faint); flex: 1;
+  font-size: 9px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
+  padding-top: 10px;
+}
+.tab.active { color: var(--accent); }
+
+/* sparkline / mini bars */
+.spark { display: flex; align-items: flex-end; gap: 3px; height: 38px; }
+.spark > i { flex: 1; border-radius: 3px 3px 2px 2px; background: var(--raise); }
+.spark > i.on { background: var(--accent); }
+
+/* list row */
+.lrow { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.lrow:last-child { border-bottom: 0; }
+.swatch { width: 34px; height: 34px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; }
+
+/* segmented control */
+.seg { display: inline-flex; padding: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-pill); gap: 2px; }
+.seg > button { border: 0; background: transparent; color: var(--muted); font: 600 13px var(--font); padding: 7px 14px; border-radius: var(--r-pill); }
+.seg > button.on { background: var(--raise); color: var(--text); }
+
+/* toggle */
+.tog { width: 46px; height: 28px; border-radius: 99px; background: var(--raise); position: relative; flex:none; }
+.tog.on { background: var(--accent); }
+.tog::after { content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:.2s; }
+.tog.on::after { left: 21px; }
+
+.divider { height: 1px; background: var(--border); margin: 4px 0; }

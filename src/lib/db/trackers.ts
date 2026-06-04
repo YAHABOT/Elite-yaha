@@ -9,7 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 const DEFAULT_COLOR = '#10b981'
 const DEFAULT_TYPE = 'custom'
 
-const TRACKER_COLUMNS = 'id, user_id, name, type, color, schema, created_at, updated_at'
+const TRACKER_COLUMNS = 'id, user_id, name, type, color, schema, created_at, updated_at, archived_at'
 
 function cachedGetTrackersBasic(userId: string) {
   return unstable_cache(
@@ -19,6 +19,7 @@ function cachedGetTrackersBasic(userId: string) {
         .from('trackers')
         .select(TRACKER_COLUMNS)
         .eq('user_id', userId)
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
       if (error) throw new Error(`Failed to fetch basic trackers: ${error.message}`)
       return data as Tracker[]
@@ -36,6 +37,7 @@ export async function getTrackersBasic(supabaseClient?: SupabaseClient): Promise
     const { data, error } = await supabaseClient
       .from('trackers')
       .select(TRACKER_COLUMNS)
+      .is('archived_at', null)
       .order('created_at', { ascending: false })
     if (error) throw new Error(`Failed to fetch basic trackers: ${error.message}`)
     return data as Tracker[]
@@ -58,6 +60,7 @@ export async function getTrackers(supabaseClient?: SupabaseClient): Promise<Trac
     supabase
       .from('trackers')
       .select(TRACKER_COLUMNS)
+      .is('archived_at', null)
       .order('created_at', { ascending: false }),
     supabase
       .from('tracker_logs')
@@ -211,4 +214,48 @@ export async function deleteTracker(id: string): Promise<void> {
     .eq('user_id', user.id)
 
   if (error) throw new Error(`Failed to delete tracker: ${error.message}`)
+}
+
+export async function archiveTracker(id: string): Promise<void> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { error } = await supabase
+    .from('trackers')
+    .update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) throw new Error(`Failed to archive tracker: ${error.message}`)
+}
+
+export async function unarchiveTracker(id: string): Promise<void> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { error } = await supabase
+    .from('trackers')
+    .update({ archived_at: null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) throw new Error(`Failed to unarchive tracker: ${error.message}`)
+}
+
+export async function getArchivedTrackers(): Promise<Tracker[]> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data, error } = await supabase
+    .from('trackers')
+    .select(TRACKER_COLUMNS)
+    .eq('user_id', user.id)
+    .not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false })
+
+  if (error) throw new Error(`Failed to fetch archived trackers: ${error.message}`)
+  return data as Tracker[]
 }

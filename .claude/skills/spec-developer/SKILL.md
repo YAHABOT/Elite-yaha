@@ -1,8 +1,6 @@
 ---
 name: spec-developer
 description: Discovery phase gatekeeper. Run before any code is written.
-model: claude-3-5-haiku-20241022
-disable model invocation: true
 ---
 
 # Spec Developer Skill — YAHA

@@ -2,8 +2,8 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { getSafeUser } from '@/lib/supabase/auth'
-import { createTracker, updateTracker, deleteTracker } from '@/lib/db/trackers'
-import type { CreateTrackerInput, UpdateTrackerInput } from '@/types/tracker'
+import { createTracker, updateTracker, deleteTracker, archiveTracker, unarchiveTracker, getArchivedTrackers } from '@/lib/db/trackers'
+import type { CreateTrackerInput, UpdateTrackerInput, Tracker } from '@/types/tracker'
 
 const MAX_NAME_LENGTH = 50
 const MAX_SCHEMA_FIELDS = 20
@@ -64,5 +64,42 @@ export async function deleteTrackerAction(
     return {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to delete tracker' }
+  }
+}
+
+export async function archiveTrackerAction(
+  id: string
+): Promise<{ error?: string }> {
+  try {
+    await archiveTracker(id)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`trackers-${user.id}`)
+    revalidatePath('/trackers')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to archive tracker' }
+  }
+}
+
+export async function unarchiveTrackerAction(
+  id: string
+): Promise<{ error?: string }> {
+  try {
+    await unarchiveTracker(id)
+    const user = await getSafeUser()
+    if (user) revalidateTag(`trackers-${user.id}`)
+    revalidatePath('/trackers')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to unarchive tracker' }
+  }
+}
+
+export async function getArchivedTrackersAction(): Promise<{ data?: Tracker[]; error?: string }> {
+  try {
+    const data = await getArchivedTrackers()
+    return { data }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to load archived trackers' }
   }
 }
