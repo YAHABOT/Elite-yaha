@@ -534,7 +534,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
           </div>
         )}
 
-        <div className="relative flex items-end gap-2 rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-2 pl-3 focus-within:border-[rgba(0,212,255,0.25)] focus-within:bg-white/[0.05]">
+        <div className="relative flex items-end gap-2 rounded-[28px] border border-[rgba(168,85,247,0.35)] bg-white/[0.03] p-2 pl-3 focus-within:border-[rgba(168,85,247,0.65)] focus-within:bg-white/[0.05]" style={{ boxShadow: '0 0 0 1px rgba(168,85,247,0.12)' }}>
           {/* Left controls: attach + agent selector */}
           <div className="mb-1 flex items-center gap-0.5 relative">
             {/* Attach menu popover */}
@@ -574,7 +574,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
             <button
               type="button"
               onClick={() => setIsAttachMenuOpen(v => !v)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-muted-foreground"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#00d4ff]/70 transition-all duration-200 hover:bg-[rgba(0,212,255,0.08)] hover:text-[#00d4ff]"
               aria-label="Attach file or image"
             >
               <Paperclip className="h-4 w-4" />
@@ -599,7 +599,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
               }
             }}
             placeholder="Type here to start a new chat..."
-            className="min-w-0 flex-1 resize-none bg-transparent py-2.5 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
+            className="min-w-0 flex-1 resize-none bg-transparent py-2.5 text-sm text-foreground placeholder:text-[#00d4ff]/50 focus:outline-none"
           />
           <button
             type="button"

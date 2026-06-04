@@ -330,7 +330,7 @@ export function AgentForgeList({ initialAgents }: Props) {
                     <p className="text-textPrimary truncate" style={{ fontSize: '13px', fontWeight: 700 }}>
                       {agent.name}
                     </p>
-                    <p className="text-textMuted/60 truncate mt-0.5" style={{ fontSize: '11px' }}>
+                    <p className="text-textMuted/60 line-clamp-2 mt-0.5 leading-relaxed" style={{ fontSize: '11px' }}>
                       {agent.description}
                     </p>
                   </div>
