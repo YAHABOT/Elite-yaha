@@ -306,9 +306,9 @@ export function WidgetCard({ widget, value, editMode, onDelete, onEdit, target, 
         )}
       </div>
 
-      {/* Sparkline — full-width cards get extra height */}
+      {/* Sparkline — always cyan so the line is clearly visible on OLED */}
       {value.trend && value.trend.length > 1 && (
-        <Sparkline trend={value.trend} color={color} />
+        <Sparkline trend={value.trend} color="#00d4ff" />
       )}
 
       {/* Multi-metric strip — shown on full-width cards with extra fields */}

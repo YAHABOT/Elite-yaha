@@ -28,11 +28,11 @@ export function ArchivesButton(): React.ReactElement {
         type="button"
         onClick={handleOpen}
         disabled={loading}
-        className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 font-ui transition-all hover:bg-white/[0.07] hover:border-white/20 active:scale-95 disabled:opacity-50"
-        style={{ fontSize: '11px', letterSpacing: '0.10em', color: 'rgba(255,255,255,0.45)' }}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.06] bg-transparent py-3 font-ui transition-all hover:border-white/[0.12] hover:bg-white/[0.02] active:scale-[0.99] disabled:opacity-40"
+        style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.25)' }}
       >
         <Archive className="h-3.5 w-3.5" />
-        {loading ? '...' : 'Archives'}
+        {loading ? 'LOADING...' : 'ARCHIVES'}
       </button>
 
       {open && archived && (
