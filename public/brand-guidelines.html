@@ -19,8 +19,8 @@
       --border:      rgba(0,212,255,0.13);
       --border2:     rgba(0,212,255,0.38);
       --text:        #e2e8f0;
-      --muted:       #94a3b8;
-      --faint:       #475569;
+      --muted:       #a855f7;
+      --faint:       #7c3aed;
       --accent:      #00d4ff;
       --accent2:     #a855f7;
       --nutrition:   #00ff9d;
@@ -275,14 +275,14 @@
       <!-- Backgrounds -->
       <p class="color-group-label">Backgrounds</p>
 
-      <div class="color-row">
-        <div class="swatch" style="background:#050c1a; box-shadow:inset 0 0 0 1px rgba(0,212,255,0.15);"></div>
+      <div class="color-row" style="border-color:rgba(0,212,255,0.25);">
+        <div class="swatch" style="background:#050c1a; box-shadow:inset 0 0 0 1px rgba(0,212,255,0.3), 0 0 20px rgba(0,212,255,0.12);"></div>
         <div>
-          <div class="color-token">background</div>
-          <div class="color-desc">Page background — deep navy. The base layer everything sits on.</div>
+          <div class="color-token">background — <span style="color:#00d4ff;font-family:'Share Tech Mono',monospace;font-size:12px;">NAVY</span></div>
+          <div class="color-desc">Page background. The darkest layer — deep navy, not black.</div>
         </div>
         <div class="color-hex">#050c1a</div>
-        <div class="color-badge" style="background:rgba(0,212,255,0.06);color:rgba(0,212,255,0.4);border:1px solid rgba(0,212,255,0.15);">BG</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.12);color:#00d4ff;border:1px solid rgba(0,212,255,0.35);">NAVY</div>
       </div>
 
       <div class="color-row">
@@ -349,26 +349,6 @@
         </div>
         <div class="color-hex">#e2e8f0</div>
         <div class="color-badge" style="background:rgba(226,232,240,0.08);color:rgba(226,232,240,0.5);border:1px solid rgba(226,232,240,0.12);">TEXT</div>
-      </div>
-
-      <div class="color-row">
-        <div class="swatch" style="background:#94a3b8;"></div>
-        <div>
-          <div class="color-token">textMuted</div>
-          <div class="color-desc">Labels, secondary text, descriptions.</div>
-        </div>
-        <div class="color-hex">#94a3b8</div>
-        <div class="color-badge" style="background:rgba(148,163,184,0.08);color:rgba(148,163,184,0.5);border:1px solid rgba(148,163,184,0.15);">MUTED</div>
-      </div>
-
-      <div class="color-row">
-        <div class="swatch" style="background:#475569;"></div>
-        <div>
-          <div class="color-token">faint</div>
-          <div class="color-desc">Placeholder text, disabled states, dividers.</div>
-        </div>
-        <div class="color-hex">#475569</div>
-        <div class="color-badge" style="background:rgba(71,85,105,0.15);color:rgba(71,85,105,0.8);border:1px solid rgba(71,85,105,0.25);">FAINT</div>
       </div>
 
       <!-- Accents -->
@@ -575,8 +555,8 @@
       </div>
 
       <div class="rule-card">
-        <div class="rule-label">Tracker = Accent</div>
-        <div class="rule-body">Tracker type colors are UI accents. Purple → agents/AI. Cyan → primary actions. Gold → mood. Neon green → nutrition.</div>
+        <div class="rule-label">Purple = Secondary UI</div>
+        <div class="rule-body">Purple (<code>#a855f7</code>) is the secondary accent — agent UI, active tab labels, gradients alongside cyan. Not just a tracker color.</div>
       </div>
 
       <div class="rule-card">
