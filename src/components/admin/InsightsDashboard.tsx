@@ -3,6 +3,8 @@
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Cell,
@@ -10,6 +12,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from 'recharts'
 import { useState } from 'react'
 import { Users, BarChart2, Zap, Activity, ChevronDown, Clock } from 'lucide-react'
@@ -152,15 +155,25 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
     usersWithTrackers,
     usersLoggedThisWeek,
     aiAccuracy7d,
+    aiAccuracyTrend,
+    trackerAccuracy,
     actionCardOutcomes30d,
     dailyActivity14d,
     topTrackers,
     recentEvents,
     routineHealth,
+    chatFailures7d,
     userProfiles,
   } = insights
 
   const accuracyColor = getAccuracyColor(aiAccuracy7d)
+
+  // Trend: compare this week vs last week
+  const thisWeekAcc  = aiAccuracyTrend[3]?.accuracy ?? null
+  const lastWeekAcc  = aiAccuracyTrend[2]?.accuracy ?? null
+  const trendDelta   = thisWeekAcc !== null && lastWeekAcc !== null ? thisWeekAcc - lastWeekAcc : null
+  const trendArrow   = trendDelta === null ? '' : trendDelta > 0 ? '↑' : trendDelta < 0 ? '↓' : '→'
+  const trendColor   = trendDelta === null ? '' : trendDelta > 0 ? '#10b981' : trendDelta < 0 ? '#ef4444' : '#6b7280'
 
   const outcomeTotal =
     actionCardOutcomes30d.confirmed_clean +
@@ -247,9 +260,16 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
               AI Accuracy 7d
             </span>
           </div>
-          <p className={`text-3xl font-black ${accuracyColor}`}>
-            {aiAccuracy7d === null ? '—' : `${aiAccuracy7d}%`}
-          </p>
+          <div className="flex items-end gap-2">
+            <p className={`text-3xl font-black ${accuracyColor}`}>
+              {aiAccuracy7d === null ? '—' : `${aiAccuracy7d}%`}
+            </p>
+            {trendArrow && (
+              <span className="text-base font-black mb-0.5" style={{ color: trendColor }}>
+                {trendArrow} {Math.abs(trendDelta!)}pp
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -347,6 +367,85 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
         </div>
       </div>
 
+      {/* AI Intelligence — trend + per-tracker accuracy + chat failures */}
+      <div className="grid grid-cols-2 gap-6">
+
+        {/* Week-over-week accuracy trend */}
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">Accuracy Trend</h2>
+            <div className="flex-1 border-t border-white/5" />
+            <span className="text-[10px] font-medium text-textMuted opacity-40">4 weeks</span>
+          </div>
+          {aiAccuracyTrend.every(w => w.total === 0) ? (
+            <div className="flex items-center justify-center h-40">
+              <p className="text-sm font-medium text-textMuted opacity-40">Not enough data yet</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={aiAccuracyTrend} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fill: '#6B7280', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  formatter={(v: unknown) => [`${v ?? '—'}%`, 'Accuracy']}
+                />
+                <ReferenceLine y={80} stroke="rgba(16,185,129,0.2)" strokeDasharray="4 4" />
+                <Line
+                  type="monotone"
+                  dataKey="accuracy"
+                  stroke={PURPLE}
+                  strokeWidth={2.5}
+                  dot={{ fill: PURPLE, r: 4, strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: PURPLE }}
+                  connectNulls={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          {/* Chat failures footnote */}
+          <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
+            <span className="text-[9px] font-black uppercase tracking-widest text-textMuted opacity-40">Chat failures (7d)</span>
+            <span className={`text-[13px] font-black ${chatFailures7d > 0 ? 'text-red-400' : 'text-green-400'}`}>
+              {chatFailures7d}
+            </span>
+          </div>
+        </div>
+
+        {/* Per-tracker AI accuracy */}
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">Per-Tracker Accuracy</h2>
+            <div className="flex-1 border-t border-white/5" />
+          </div>
+          {trackerAccuracy.length === 0 ? (
+            <div className="flex items-center justify-center h-40">
+              <p className="text-sm font-medium text-textMuted opacity-40">No confirmed cards yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3 overflow-y-auto max-h-52">
+              {trackerAccuracy.map(t => {
+                const accColor = t.accuracy >= 80 ? GREEN : t.accuracy >= 50 ? AMBER : RED
+                return (
+                  <div key={t.tracker_name} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] font-semibold text-textPrimary truncate max-w-[60%]" title={t.tracker_name}>{t.tracker_name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-textMuted opacity-40">{t.total} cards</span>
+                        <span className="text-[12px] font-black" style={{ color: accColor }}>{t.accuracy}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${t.accuracy}%`, backgroundColor: accColor, opacity: 0.7 }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Top Trackers */}
       <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
         <div className="flex items-center gap-3">
@@ -432,13 +531,23 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                   <div className="flex items-start gap-4">
                     <EngagementRing score={user.engagementScore} color={statusColor} />
                     <div className="flex-1 min-w-0 pt-1">
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1.5"
-                        style={{ backgroundColor: `${statusColor}18`, border: `1px solid ${statusColor}35`, fontSize: '8px', fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: statusColor, boxShadow: `0 0 4px ${statusColor}` }} />
-                        {user.status}
-                      </span>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+                          style={{ backgroundColor: `${statusColor}18`, border: `1px solid ${statusColor}35`, fontSize: '8px', fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: statusColor, boxShadow: `0 0 4px ${statusColor}` }} />
+                          {user.status}
+                        </span>
+                        {user.currentStreak > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5"
+                            style={{ backgroundColor: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.3)', fontSize: '8px', fontWeight: 900, letterSpacing: '0.08em', color: '#fb923c' }}
+                          >
+                            🔥 {user.currentStreak}d
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[13px] font-bold text-textPrimary truncate leading-tight" title={user.email}>{user.email}</p>
                       <p className="text-[9px] font-mono opacity-25 text-textMuted mt-0.5">{user.id.slice(0, 8)}···</p>
                     </div>

@@ -899,6 +899,15 @@ export async function POST(req: Request): Promise<Response> {
           const rawActions = parseActionCards(fullText)
           const sanitizedActions = buildSanitizedActions(rawActions)
 
+          // Analytics: track when AI returns a text response but no action cards
+          if (rawActions.length === 0 && fullText.trim().length > 0) {
+            void supabase.from('usage_events').insert({
+              user_id: user.id,
+              event_type: 'chat_no_action_card',
+              metadata: { had_active_routine: !!activeRoutine },
+            })
+          }
+
           console.log(`[ChatRoute DEBUG] parseActionCards result:`, {
             rawActionsCount: rawActions.length,
             sanitizedActionsCount: sanitizedActions.filter(a => a !== null).length,
