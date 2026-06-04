@@ -1,27 +1,7 @@
 import { getSafeUser } from '@/lib/supabase/auth'
 import { redirect } from 'next/navigation'
-import { Suspense } from 'react'
 import { DesktopSidebar } from '@/components/nav/DesktopSidebar'
 import { MobileBottomNav } from '@/components/nav/MobileBottomNav'
-import { RefreshGuard } from '@/components/nav/RefreshGuard'
-import { createServerClient } from '@/lib/supabase/server'
-
-// Fetch only the confirmOnRefresh preference — NOT awaited in the layout so it
-// never blocks page rendering. The Promise is passed to RefreshGuard which
-// resolves it via React use() inside a Suspense boundary.
-async function getConfirmOnRefresh(userId: string): Promise<boolean> {
-  try {
-    const supabase = await createServerClient()
-    const { data } = await supabase
-      .from('users')
-      .select('stats')
-      .eq('id', userId)
-      .maybeSingle()
-    return (data?.stats as { confirmOnRefresh?: boolean } | null)?.confirmOnRefresh ?? false
-  } catch {
-    return false
-  }
-}
 
 export default async function AppLayout({
   children,
@@ -34,10 +14,6 @@ export default async function AppLayout({
   if (!user) {
     redirect('/login')
   }
-
-  // Start the fetch but do NOT await — pass the Promise to RefreshGuard.
-  // This removes ~150ms of sequential DB work that was blocking every page render.
-  const confirmOnRefreshPromise = getConfirmOnRefresh(user.id)
 
   return (
     // EX11 FIX (v2): Use fixed inset-0 instead of h-dvh. On Android Chrome, overflow:hidden
@@ -58,10 +34,6 @@ export default async function AppLayout({
         backgroundAttachment: 'fixed',
       }}
     >
-      {/* RefreshGuard returns null — Suspense fallback is also null, zero visual impact */}
-      <Suspense fallback={null}>
-        <RefreshGuard confirmOnRefreshPromise={confirmOnRefreshPromise} />
-      </Suspense>
       <DesktopSidebar user={{ email: user.email ?? null }} />
       <MobileBottomNav />
       {/* No padding here — (content)/layout.tsx adds padding for regular pages.
