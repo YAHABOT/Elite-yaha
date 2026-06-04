@@ -800,7 +800,16 @@ export async function POST(req: Request): Promise<Response> {
                   ? { ...actionWithDate, trackerId: matchingTracker.id }
                   : actionWithDate
 
-                const schema = trackers.find(t => t.id === correctedAction.trackerId)?.schema ?? []
+                // ARCHIVE GUARD: trackers[] only contains active (non-archived) trackers.
+                // If the resolved trackerId is not in that list, the tracker is archived or
+                // unknown — drop the action card entirely rather than logging to a dead tracker.
+                const activeTracker = trackers.find(t => t.id === correctedAction.trackerId)
+                if (!activeTracker) {
+                  console.log(`[ChatRoute] Blocked LOG_DATA for archived/unknown tracker id=${correctedAction.trackerId} name="${correctedAction.trackerName}" — dropping action card`)
+                  return null
+                }
+
+                const schema = activeTracker.schema ?? []
                 const fieldLabels: Record<string, string> = {}
                 const fieldUnits: Record<string, string> = {}
                 const fieldOrder: string[] = []

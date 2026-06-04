@@ -24,6 +24,16 @@ export async function createLog(input: CreateLogInput): Promise<TrackerLog> {
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
+  // Defence-in-depth: never write a log to an archived tracker
+  const { data: trackerCheck } = await supabase
+    .from('trackers')
+    .select('id, archived_at')
+    .eq('id', input.tracker_id)
+    .single()
+  if (!trackerCheck || trackerCheck.archived_at !== null) {
+    throw new Error(`Cannot log to archived or unknown tracker: ${input.tracker_id}`)
+  }
+
   const { data, error } = await supabase
     .from('tracker_logs')
     .insert({
