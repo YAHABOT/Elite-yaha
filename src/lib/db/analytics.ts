@@ -40,8 +40,8 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   const now = new Date()
   const ago = (days: number) => new Date(now.getTime() - days * 864e5).toISOString()
 
-  const [usersRes, logsWkRes, accuracyRes, outcomesRes, dailyRes, trackersRes, recentRes] = await Promise.all([
-    supabase.from('users').select('id', { count: 'exact', head: true }),
+  const [authUsersRes, logsWkRes, accuracyRes, outcomesRes, dailyRes, trackersRes, recentRes] = await Promise.all([
+    supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from('usage_events').select('id', { count: 'exact', head: true }).eq('event_type', 'action_card_confirmed').gte('created_at', ago(7)),
     supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed').gte('created_at', ago(7)),
     supabase.from('usage_events').select('event_type, metadata').in('event_type', ['action_card_confirmed', 'action_card_dismissed']).gte('created_at', ago(30)),
@@ -81,7 +81,7 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   }
 
   return {
-    totalUsers: usersRes.count ?? 0,
+    totalUsers: authUsersRes.data?.users?.length ?? 0,
     logsThisWeek: logsWkRes.count ?? 0,
     aiAccuracy7d,
     actionCardOutcomes30d: { confirmed_clean, confirmed_edited, dismissed },
