@@ -25,6 +25,19 @@ export async function recordEvent(
   } catch { /* intentionally silent */ }
 }
 
+export type UserProfile = {
+  id: string
+  email: string
+  joinedAt: string
+  lastSeenAt: string | null
+  trackerCount: number
+  trackerNames: string[]
+  totalLogs: number
+  logsLast7d: number
+  lastLogAt: string | null
+  status: 'active' | 'dormant' | 'new'
+}
+
 export type AdminInsights = {
   totalSignups: number
   usersWithTrackers: number
@@ -34,6 +47,7 @@ export type AdminInsights = {
   dailyActivity14d: { date: string; count: number }[]
   topTrackers: { tracker_name: string; count: number }[]
   recentEvents: { id: string; user_id: string; event_type: string; metadata: Record<string, unknown>; created_at: string }[]
+  userProfiles: UserProfile[]
 }
 
 export async function getAdminInsights(): Promise<AdminInsights> {
@@ -41,7 +55,7 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   const now = new Date()
   const ago = (days: number) => new Date(now.getTime() - days * 864e5).toISOString()
 
-  const [authUsersRes, trackerUsersRes, loggedWkRes, accuracyRes, outcomesRes, dailyRes, trackersRes, recentRes] = await Promise.all([
+  const [authUsersRes, trackerUsersRes, loggedWkRes, accuracyRes, outcomesRes, dailyRes, trackersRes, recentRes, allTrackersRes, allLogsRes] = await Promise.all([
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from('trackers').select('user_id'),
     supabase.from('tracker_logs').select('user_id').gte('logged_at', ago(7)),
@@ -50,6 +64,8 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     supabase.from('usage_events').select('created_at').gte('created_at', ago(14)).order('created_at', { ascending: true }),
     supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed'),
     supabase.from('usage_events').select('id, user_id, event_type, metadata, created_at').order('created_at', { ascending: false }).limit(20),
+    supabase.from('trackers').select('user_id, name').order('created_at', { ascending: true }),
+    supabase.from('tracker_logs').select('user_id, logged_at').order('logged_at', { ascending: false }).limit(50000),
   ])
 
   // AI accuracy
@@ -85,8 +101,59 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   const usersWithTrackers = new Set((trackerUsersRes.data ?? []).map(r => r.user_id as string)).size
   const usersLoggedThisWeek = new Set((loggedWkRes.data ?? []).map(r => r.user_id as string)).size
 
+  // Per-user profiles
+  type TrackerRow = { user_id: string; name: string }
+  type LogRow = { user_id: string; logged_at: string }
+
+  const trackersByUser = new Map<string, string[]>()
+  for (const t of (allTrackersRes.data ?? []) as TrackerRow[]) {
+    const arr = trackersByUser.get(t.user_id) ?? []
+    arr.push(t.name)
+    trackersByUser.set(t.user_id, arr)
+  }
+
+  const logCountByUser = new Map<string, number>()
+  const lastLogByUser = new Map<string, string>()
+  const logLast7dByUser = new Map<string, number>()
+  const sevenDaysAgo = ago(7)
+  for (const l of (allLogsRes.data ?? []) as LogRow[]) {
+    logCountByUser.set(l.user_id, (logCountByUser.get(l.user_id) ?? 0) + 1)
+    if (!lastLogByUser.has(l.user_id)) lastLogByUser.set(l.user_id, l.logged_at)
+    if (l.logged_at >= sevenDaysAgo) {
+      logLast7dByUser.set(l.user_id, (logLast7dByUser.get(l.user_id) ?? 0) + 1)
+    }
+  }
+
+  const authUsers = authUsersRes.data?.users ?? []
+  const userProfiles: UserProfile[] = authUsers.map(u => {
+    const totalLogs = logCountByUser.get(u.id) ?? 0
+    const logsLast7d = logLast7dByUser.get(u.id) ?? 0
+    const lastLogAt = lastLogByUser.get(u.id) ?? null
+    const status: UserProfile['status'] =
+      logsLast7d > 0 ? 'active'
+      : totalLogs > 0 ? 'dormant'
+      : 'new'
+    return {
+      id: u.id,
+      email: u.email ?? '(no email)',
+      joinedAt: u.created_at,
+      lastSeenAt: u.last_sign_in_at ?? null,
+      trackerCount: (trackersByUser.get(u.id) ?? []).length,
+      trackerNames: trackersByUser.get(u.id) ?? [],
+      totalLogs,
+      logsLast7d,
+      lastLogAt,
+      status,
+    }
+  }).sort((a, b) => {
+    // active first, then dormant, then new; within group sort by totalLogs desc
+    const order = { active: 0, dormant: 1, new: 2 }
+    const diff = order[a.status] - order[b.status]
+    return diff !== 0 ? diff : b.totalLogs - a.totalLogs
+  })
+
   return {
-    totalSignups: authUsersRes.data?.users?.length ?? 0,
+    totalSignups: authUsers.length,
     usersWithTrackers,
     usersLoggedThisWeek,
     aiAccuracy7d,
@@ -94,5 +161,6 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     dailyActivity14d: Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })),
     topTrackers: Array.from(tMap.entries()).map(([tracker_name, count]) => ({ tracker_name, count })).sort((a, b) => b.count - a.count).slice(0, 8),
     recentEvents: (recentRes.data ?? []) as AdminInsights['recentEvents'],
+    userProfiles,
   }
 }

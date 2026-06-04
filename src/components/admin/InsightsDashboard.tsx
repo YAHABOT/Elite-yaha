@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Users, BarChart2, Zap, Activity } from 'lucide-react'
-import type { AdminInsights } from '@/lib/db/analytics'
+import type { AdminInsights, UserProfile } from '@/lib/db/analytics'
 
 type Props = {
   insights: AdminInsights
@@ -50,6 +50,15 @@ function getDayAbbr(dateStr: string): string {
   return days[new Date(dateStr).getDay()]
 }
 
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+}
+
+function getStatusColor(status: UserProfile['status']): string {
+  return status === 'active' ? '#10b981' : status === 'dormant' ? '#f59e0b' : '#4b5563'
+}
+
 function getAccuracyColor(value: number | null): string {
   if (value === null) return 'text-textMuted'
   if (value >= 80) return 'text-green-400'
@@ -76,6 +85,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
     dailyActivity14d,
     topTrackers,
     recentEvents,
+    userProfiles,
   } = insights
 
   const accuracyColor = getAccuracyColor(aiAccuracy7d)
@@ -306,6 +316,120 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
             </BarChart>
           </ResponsiveContainer>
         )}
+      </div>
+
+      {/* User Roster */}
+      <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">
+            User Roster
+          </h2>
+          <div className="flex-1 border-t border-white/5" />
+          <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10px] font-black text-textMuted opacity-70">
+            {userProfiles.length} users
+          </span>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-5 pb-1">
+          {(['active', 'dormant', 'new'] as const).map(s => (
+            <div key={s} className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: getStatusColor(s) }} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-textMuted opacity-50 capitalize">{s}</span>
+            </div>
+          ))}
+          <span className="text-[10px] text-textMuted opacity-30 ml-auto">active = logged in last 7d · dormant = logged before · new = never logged</span>
+        </div>
+
+        {/* Column headers */}
+        <div className="grid grid-cols-[20px_1fr_90px_90px_1fr_70px_60px_90px] gap-3 px-3 pb-1">
+          {['', 'USER', 'JOINED', 'LAST SEEN', 'TRACKERS', 'TOTAL', '7D', 'LAST LOG'].map((h, i) => (
+            <span key={i} className="text-[9px] font-black uppercase tracking-widest text-textMuted opacity-40 truncate">
+              {h}
+            </span>
+          ))}
+        </div>
+
+        {/* Rows */}
+        <div className="space-y-1">
+          {userProfiles.map(user => {
+            const statusColor = getStatusColor(user.status)
+            const displayTrackers = user.trackerNames.slice(0, 3)
+            const extraTrackers = user.trackerNames.length - displayTrackers.length
+            return (
+              <div
+                key={user.id}
+                className="grid grid-cols-[20px_1fr_90px_90px_1fr_70px_60px_90px] gap-3 items-center rounded-xl bg-white/[0.02] border border-white/[0.03] px-3 py-2.5 hover:bg-white/[0.04] hover:border-white/[0.06] transition-colors"
+              >
+                {/* Status dot */}
+                <div
+                  className="h-2 w-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: statusColor, boxShadow: `0 0 6px ${statusColor}60` }}
+                />
+
+                {/* Email */}
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-textPrimary truncate" title={user.email}>
+                    {user.email}
+                  </p>
+                  <p className="text-[9px] font-mono text-textMuted opacity-30 truncate">{user.id.slice(0, 8)}</p>
+                </div>
+
+                {/* Joined */}
+                <span className="text-[11px] text-textMuted opacity-60 truncate">
+                  {formatDate(user.joinedAt)}
+                </span>
+
+                {/* Last seen */}
+                <span className="text-[11px] text-textMuted opacity-60 truncate">
+                  {user.lastSeenAt ? formatRelativeTime(user.lastSeenAt) : '—'}
+                </span>
+
+                {/* Trackers */}
+                <div className="flex flex-wrap gap-1 min-w-0">
+                  {user.trackerCount === 0 ? (
+                    <span className="text-[10px] text-textMuted opacity-25">none</span>
+                  ) : (
+                    <>
+                      {displayTrackers.map(name => (
+                        <span
+                          key={name}
+                          className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[9px] font-bold text-textMuted truncate max-w-[80px]"
+                          title={name}
+                        >
+                          {name}
+                        </span>
+                      ))}
+                      {extraTrackers > 0 && (
+                        <span className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[9px] font-bold text-textMuted opacity-50">
+                          +{extraTrackers}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Total logs */}
+                <span className={`text-[13px] font-black ${user.totalLogs > 0 ? 'text-textPrimary' : 'text-textMuted opacity-30'}`}>
+                  {user.totalLogs}
+                </span>
+
+                {/* 7d logs */}
+                <span
+                  className="text-[13px] font-black"
+                  style={{ color: user.logsLast7d > 0 ? '#10b981' : '#4b5563' }}
+                >
+                  {user.logsLast7d}
+                </span>
+
+                {/* Last log */}
+                <span className="text-[11px] text-textMuted opacity-60 truncate">
+                  {user.lastLogAt ? formatRelativeTime(user.lastLogAt) : '—'}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Recent Activity Feed */}
