@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 import type { DayDetail, TargetDetail } from '@/app/(app)/(content)/dashboard/score/page'
 
@@ -217,7 +217,7 @@ export function ScoreDetailClient({ dayDetails }: Props): React.ReactElement {
         >
           <ChevronLeft className="h-4 w-4" />
         </Link>
-        <div>
+        <div className="flex-1">
           <p className="font-ui uppercase" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'rgba(148,163,184,0.4)' }}>
             DAILY SCORE
           </p>
@@ -225,6 +225,13 @@ export function ScoreDetailClient({ dayDetails }: Props): React.ReactElement {
             {displayDate}
           </h1>
         </div>
+        <Link
+          href="/settings/targets"
+          className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-textMuted transition-all hover:border-white/20 hover:text-textPrimary"
+        >
+          <SlidersHorizontal className="h-3 w-3" />
+          <span className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>MANAGE TARGETS</span>
+        </Link>
       </div>
 
       {/* Day bar chart — horizontal scroll */}

@@ -24,8 +24,7 @@ function getScoreColor(score: number): string {
 
 export function ScoreCard({ score, targets }: Props): React.ReactElement {
   const numericTargets = targets.filter(
-    t => t.trackerId !== '__correlations__' &&
-    ['number', 'rating', 'duration'].includes(t.fieldType)
+    t => ['number', 'rating', 'duration'].includes(t.fieldType)
   )
   const hasTargets = numericTargets.length > 0
 

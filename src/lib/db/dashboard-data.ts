@@ -582,12 +582,36 @@ export function computeDeltaPct(
   return Math.round(((current - previous) / previous) * 100 * 10) / 10
 }
 
-function computeTargetActual(target: UserTarget, dayLogs: TrackerLog[], correlations: CorrelationRecord[]): number {
+function computeTargetActual(
+  target: UserTarget,
+  dayLogs: TrackerLog[],
+  correlations: CorrelationRecord[],
+  trackers: Tracker[] = [],
+): number {
   if (target.trackerId === '__correlations__') {
     const corr = correlations.find(c => c.id === target.fieldId)
     if (!corr) return 0
     const result = evaluateFormula(corr.formula, buildFieldValueMap(dayLogs))
     return result !== null && Number.isFinite(result) ? result : 0
+  }
+  // Combined cross-tracker target: fieldId = "combined:{type}:{normalizedLabel}"
+  if (target.trackerId === '__combined__') {
+    const parts = target.fieldId.split(':')
+    if (parts.length < 3) return 0
+    const [, trackerType, normalizedLabel] = parts
+    const matchingTrackers = trackers.filter(t => t.type === trackerType)
+    let total = 0
+    for (const t of matchingTrackers) {
+      const field = t.schema.find(f => f.label.toLowerCase().trim() === normalizedLabel)
+      if (!field) continue
+      const tLogs = dayLogs.filter(l => l.tracker_id === t.id)
+      for (const log of tLogs) {
+        const raw = (log.fields as Record<string, unknown>)?.[field.fieldId]
+        const num = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) : NaN
+        if (Number.isFinite(num)) total += num
+      }
+    }
+    return total
   }
   const trackerLogs = dayLogs.filter(l => l.tracker_id === target.trackerId)
   const values = trackerLogs
@@ -603,7 +627,8 @@ function computeTargetActual(target: UserTarget, dayLogs: TrackerLog[], correlat
 export function computeDailyScore(
   dayLogs: TrackerLog[],
   targets: UserTarget[],
-  correlations: CorrelationRecord[] = []
+  correlations: CorrelationRecord[] = [],
+  trackers: Tracker[] = [],
 ): number | null {
   const numericTargets = targets.filter(
     t => ['number', 'rating', 'duration'].includes(t.fieldType) && t.value > 0
@@ -611,7 +636,7 @@ export function computeDailyScore(
   if (numericTargets.length === 0) return null
 
   const pcts = numericTargets.map(target => {
-    const actual = computeTargetActual(target, dayLogs, correlations)
+    const actual = computeTargetActual(target, dayLogs, correlations, trackers)
     if (target.direction === 'below') {
       return actual <= target.value ? 100 : Math.max(0, (target.value / actual) * 100)
     }
@@ -637,7 +662,8 @@ export function computeDailyScores(
   allLogs: TrackerLog[],
   targets: UserTarget[],
   nDays: number,
-  correlations: CorrelationRecord[] = []
+  correlations: CorrelationRecord[] = [],
+  trackers: Tracker[] = [],
 ): DayScore[] {
   const numericTargets = targets.filter(
     t => ['number', 'rating', 'duration'].includes(t.fieldType) && t.value > 0
@@ -655,7 +681,7 @@ export function computeDailyScores(
     let score = 0
     if (hasTargets) {
       const pcts = numericTargets.map(target => {
-        const actual = computeTargetActual(target, dayLogs, correlations)
+        const actual = computeTargetActual(target, dayLogs, correlations, trackers)
         if (target.direction === 'below') {
           return actual <= target.value ? 100 : Math.max(0, (target.value / actual) * 100)
         }

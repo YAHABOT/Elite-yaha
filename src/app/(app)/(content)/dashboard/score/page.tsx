@@ -56,22 +56,41 @@ function computeDayDetails(
 
     if (hasTargets) {
       const pcts = numericTargets.map(target => {
-        const trackerLogs = dayLogs.filter(l => l.tracker_id === target.trackerId)
-        const values = trackerLogs
-          .map(l => (l.fields as Record<string, unknown>)?.[target.fieldId])
-          .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
-        const actual = values.reduce((a, b) => a + b, 0)
+        // Combined cross-tracker target: fieldId = "combined:{type}:{normalizedLabel}"
+        let actual = 0
+        let trackerType = 'custom'
+        if (target.trackerId === '__combined__') {
+          const parts = target.fieldId.split(':')
+          const [, cType, normalizedLabel] = parts
+          trackerType = cType ?? 'custom'
+          const matchingTrackers = trackers.filter(t => t.type === cType)
+          for (const t of matchingTrackers) {
+            const field = t.schema.find(f => f.label.toLowerCase().trim() === normalizedLabel)
+            if (!field) continue
+            for (const log of dayLogs.filter(l => l.tracker_id === t.id)) {
+              const raw = (log.fields as Record<string, unknown>)?.[field.fieldId]
+              const num = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) : NaN
+              if (Number.isFinite(num)) actual += num
+            }
+          }
+        } else {
+          const trackerLogs = dayLogs.filter(l => l.tracker_id === target.trackerId)
+          const values = trackerLogs
+            .map(l => (l.fields as Record<string, unknown>)?.[target.fieldId])
+            .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+          actual = values.reduce((a, b) => a + b, 0)
+          trackerType = trackers.find(t => t.id === target.trackerId)?.type ?? 'custom'
+        }
         const direction = target.direction ?? 'above'
         const pct = direction === 'below'
           ? (actual <= target.value ? 100 : Math.max(0, (target.value / actual) * 100))
           : Math.min(actual / target.value, 1) * 100
 
-        const tracker = trackers.find(t => t.id === target.trackerId)
         targetDetails.push({
           id: target.id,
           fieldLabel: target.fieldLabel,
           trackerName: target.trackerName,
-          trackerType: tracker?.type ?? 'custom',
+          trackerType,
           fieldType: target.fieldType,
           unit: target.unit,
           targetValue: target.value,

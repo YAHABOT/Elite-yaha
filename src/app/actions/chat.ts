@@ -411,6 +411,7 @@ async function upsertScoreForDate(
 
   const targets = ((userRow?.targets ?? []) as UserTarget[]).filter(
     t => t.trackerId !== '__correlations__' &&
+    t.trackerId !== '__combined__' &&   // combined targets need tracker schemas — handled in dashboard
     ['number', 'rating', 'duration'].includes(t.fieldType) &&
     t.value > 0
   )

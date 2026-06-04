@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Plus, ChevronLeft } from 'lucide-react'
 import { createWidgetAction } from '@/app/actions/dashboard'
 import type { CreateWidgetInput, ExtraField, WidgetType, WidgetPeriod, TargetDisplay } from '@/types/widget'
@@ -58,13 +58,30 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
   // Combined-field state
   const [selectedCombinedType, setSelectedCombinedType]       = useState<CombinedTypeOption | null>(null)
   const [selectedCombinedFieldNl, setSelectedCombinedFieldNl] = useState('')
+  // Trackers sorted by user's drag order from the Trackers page
+  const [sortedTrackers, setSortedTrackers]                   = useState<Tracker[]>(trackers)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('yaha_tracker_order')
+      if (!saved) { setSortedTrackers(trackers); return }
+      const order: string[] = JSON.parse(saved)
+      setSortedTrackers([...trackers].sort((a, b) => {
+        const ai = order.indexOf(a.id)
+        const bi = order.indexOf(b.id)
+        if (ai === -1) return 1
+        if (bi === -1) return -1
+        return ai - bi
+      }))
+    } catch { setSortedTrackers(trackers) }
+  }, [trackers])
 
   const selectedTracker = trackers.find(t => t.id === selectedTrackerId) ?? null
 
   // Build one CombinedTypeOption per tracker-type that has ≥2 trackers with shared numeric fields
   const combinedTypeOptions: CombinedTypeOption[] = (() => {
     const byType = new Map<string, Tracker[]>()
-    for (const t of trackers) {
+    for (const t of sortedTrackers) {
       const arr = byType.get(t.type) ?? []
       arr.push(t)
       byType.set(t.type, arr)
@@ -315,8 +332,8 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
         {step === 'tracker' && (
           <div className="flex flex-col gap-2">
 
-            {/* Individual trackers */}
-            {trackers.map(t => (
+            {/* Individual trackers — user's saved order from Trackers page */}
+            {sortedTrackers.map(t => (
               <button
                 key={t.id}
                 type="button"
@@ -331,6 +348,19 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
                 <span className="shrink-0 text-[9px] text-textMuted/40">{t.schema.length} field{t.schema.length !== 1 ? 's' : ''}</span>
               </button>
             ))}
+
+            {/* Correlator formula — sits with individual trackers, before combined section */}
+            <button
+              type="button"
+              onClick={handleSelectCorrelator}
+              className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 text-left transition-all duration-200 hover:border-white/15 hover:bg-white/[0.05] active:scale-[0.98]"
+            >
+              <div className="h-2 w-2 shrink-0 rounded-full bg-textMuted/30" />
+              <div className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-textPrimary">Correlator Formula</span>
+                <span className="text-[9px] uppercase tracking-widest text-textMuted/40">custom formula</span>
+              </div>
+            </button>
 
             {/* Combined Fields — one row per tracker type */}
             {combinedTypeOptions.length > 0 && (
@@ -355,19 +385,6 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
                 ))}
               </>
             )}
-
-            {/* Correlator formula */}
-            <button
-              type="button"
-              onClick={handleSelectCorrelator}
-              className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 text-left transition-all duration-200 hover:border-white/15 hover:bg-white/[0.05] active:scale-[0.98]"
-            >
-              <div className="h-2 w-2 shrink-0 rounded-full bg-textMuted/30" />
-              <div className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-textPrimary">Correlator Formula</span>
-                <span className="text-[9px] uppercase tracking-widest text-textMuted/40">custom formula</span>
-              </div>
-            </button>
           </div>
         )}
 

@@ -113,8 +113,8 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     const todayDateStr = new Date().toISOString().split('T')[0]
     const todayActual = (nDayLogs as TrackerLog[]).filter(l => l.logged_at.startsWith(todayDateStr))
     const corrRecords = correlationRecords as import('@/lib/db/dashboard-data').CorrelationRecord[]
-    const dailyScore = computeDailyScore(todayActual, targets, corrRecords)
-    const dayScores = computeDailyScores(nDayLogs as TrackerLog[], targets, 30, corrRecords)
+    const dailyScore = computeDailyScore(todayActual, targets, corrRecords, trackers)
+    const dayScores = computeDailyScores(nDayLogs as TrackerLog[], targets, 30, corrRecords, trackers)
 
     // Derive display name: alias > email local part > 'there'
     const emailName = user.email?.split('@')[0] ?? 'there'
