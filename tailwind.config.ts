@@ -50,7 +50,7 @@ const config: Config = {
         raise: '#0f2040',      // hover states, progress tracks
         faint: '#475569',      // placeholder/disabled text
         textPrimary: '#e2e8f0',
-        textMuted: '#94a3b8',
+        textMuted: '#a855f7',
         // Brighter red — overrides Tailwind's default red-400/500 (#ef4444) app-wide
         red: {
           300: '#ff8080',
