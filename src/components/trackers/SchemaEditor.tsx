@@ -222,11 +222,10 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
                     onClick={() => setTrackerType(t.value)}
                     className="rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all duration-200 active:scale-95"
                     style={{
-                      backgroundColor: isActive ? `${t.color}20` : 'transparent',
-                      border: `1.5px solid ${isActive ? t.color : `${t.color}30`}`,
-                      color: isActive ? t.color : `${t.color}60`,
-                      opacity: isActive ? 1 : 0.4,
-                      boxShadow: isActive ? `0 0 10px -2px ${t.color}50` : 'none',
+                      backgroundColor: isActive ? `${t.color}20` : `${t.color}08`,
+                      border: `1.5px solid ${isActive ? t.color : `${t.color}55`}`,
+                      color: isActive ? t.color : `${t.color}99`,
+                      boxShadow: isActive ? `0 0 12px -2px ${t.color}60` : 'none',
                     }}
                   >
                     {t.label}

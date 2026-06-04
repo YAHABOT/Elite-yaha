@@ -51,6 +51,13 @@ const config: Config = {
         faint: '#475569',      // placeholder/disabled text
         textPrimary: '#e2e8f0',
         textMuted: '#94a3b8',
+        // Brighter red — overrides Tailwind's default red-400/500 (#ef4444) app-wide
+        red: {
+          300: '#ff8080',
+          400: '#ff5555',
+          500: '#ff2d2d',
+          600: '#e01c1c',
+        },
         // Health Category Tokens — MasterLog palette
         nutrition: '#00ff9d',
         sleep: '#a855f7',
