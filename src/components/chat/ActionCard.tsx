@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Pencil } from 'lucide-react'
 import { confirmLogAction, updateLogAction } from '@/app/actions/chat'
+import { recordEventAction } from '@/app/actions/analytics'
 import type { ActionCard as ActionCardType, UpdateDataCard } from '@/types/action-card'
 
 type ActionCardStatus = 'pending' | 'confirmed' | 'discarded' | 'loading'
@@ -88,16 +89,6 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
         if (value === null || value === undefined || value === '') return [key, '']
         // Multi-select array: join as comma-separated string for editing
         if (Array.isArray(value)) return [key, value.join(', ')]
-        const fieldType = card.fieldDefinitions?.[key]?.type
-        // Duration fields (type === 'duration'): DB stores raw seconds → convert to HH:MM:SS for display.
-        // Sleep tracker fields (Awake, REM, Light, Deep, Time in Bed, Actual Sleep Time) use this path.
-        if (fieldType === 'duration' && typeof value === 'number') {
-          const totalSecs = Math.round(value)
-          const h = Math.floor(totalSecs / 3600)
-          const m = Math.floor((totalSecs % 3600) / 60)
-          const s = totalSecs % 60
-          return [key, `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`]
-        }
         const unit = card.fieldUnits?.[key]
         // Duration fields (unit = HRS): convert decimal hours to HH:MM for the input.
         // The unit pill is outside the input so we never embed "HRS" in the value string.
@@ -138,12 +129,35 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
     }
 
     setStatus('confirmed')
+
+    // Fire analytics event (fire-and-forget, never awaited on the critical path)
+    const wasEdited = Object.keys(card.fields ?? {}).some(key => {
+      const original = card.fields?.[key]
+      const edited = editableFields[key]
+      return String(original ?? '') !== String(edited ?? '')
+    })
+    void recordEventAction('action_card_confirmed', {
+      tracker_id: card.trackerId ?? null,
+      tracker_name: card.trackerName ?? null,
+      was_edited: wasEdited,
+      fields_edited_count: wasEdited
+        ? Object.keys(card.fields ?? {}).filter(k => String(card.fields?.[k] ?? '') !== String(editableFields[k] ?? '')).length
+        : 0,
+    })
+
     onConfirm?.()
     onConfirmed?.()
   }
 
   function handleDiscard(): void {
     setStatus('discarded')
+
+    // Fire analytics event (fire-and-forget)
+    void recordEventAction('action_card_dismissed', {
+      tracker_id: card.trackerId ?? null,
+      tracker_name: card.trackerName ?? null,
+    })
+
     onDiscard?.()
   }
 
@@ -199,12 +213,12 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className={`h-2 w-2 rounded-full ${typeColors.text.replace('text-', 'bg-')} opacity-80`} />
-          <h3 className="font-display-heading text-base text-foreground">
+          <h3 className="text-base font-black tracking-tight text-foreground">
             {card.trackerName}
           </h3>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className={`font-ui rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
+          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
             {isEditExpanded ? 'Editing' : 'Pending Log'}
           </span>
           <button
@@ -218,61 +232,63 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
         </div>
       </div>
 
-      {/* Fields Grid — explicit 2-col so col-span-2 reliably spans full width (P2-2.6/BUG-V32-5 FIX) */}
-      <div className={`grid grid-cols-2 gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`}>
+      {/* Fields Grid */}
+      <div className={`grid gap-2.5 transition-all duration-200 w-full overflow-visible ${isEditExpanded ? 'rounded-2xl ring-1 ring-blue-500/30 p-1' : ''}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 100px), 1fr))' }}>
         {fieldEntries.map(([key, value]) => {
+          // Text fields and descriptions should take full width to avoid awkward wrapping
           const fieldLabel = card.fieldLabels?.[key] || key
-          const fieldType = card.fieldDefinitions?.[key]?.type
-          const isSelect = fieldType === 'select'
-          // text-type fields, select fields, long strings, or long labels → span full row
-          const isTextField = fieldType === 'text'
-          const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}(:\d{2})?$/)
-          const isLarge = isSelect || isTextField || isStringValue || String(value || '').length > 12 || fieldLabel.length > 14
+          const isTextField = fieldLabel.toLowerCase().includes('name') ||
+                              fieldLabel.toLowerCase().includes('item') ||
+                              fieldLabel.toLowerCase().includes('notes') ||
+                              fieldLabel.toLowerCase().includes('description')
+          const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}$/)
+          const isLarge = isTextField || isStringValue || String(value || '').length > 15 || (fieldLabel.length ?? 0) > 16
           const label = fieldLabel
           const unit = card.fieldUnits?.[key]
 
           return (
             <div
               key={key}
-              className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border transition-all duration-200 overflow-visible ${isEditExpanded ? 'border-blue-500/20 bg-blue-500/[0.03]' : 'border-white/[0.05]'} focus-within:border-blue-500/40 focus-within:bg-white/[0.05] ${isLarge ? 'col-span-2' : ''}`}
+              className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border transition-all duration-200 overflow-visible ${isEditExpanded ? 'border-blue-500/20 bg-blue-500/[0.03]' : 'border-white/[0.05]'} focus-within:border-blue-500/40 focus-within:bg-white/[0.05] ${isLarge ? 'col-span-full' : ''}`}
             >
               <div className="flex flex-wrap items-start gap-1 min-w-0">
-                <span className="font-ui-label min-w-0 flex-1 text-muted-foreground/60">
+                <span className="min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
                   {label}
                 </span>
               </div>
 
-              {isSelect ? (
-                /* SELECT fields are always interactive — can't pick from static text */
-                <select
-                  value={value ?? ''}
-                  onChange={(e) => handleFieldChange(key, e.target.value)}
-                  className="bg-background/60 text-sm font-bold text-foreground w-full rounded border border-white/10 px-2 py-1.5 cursor-pointer hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
-                >
-                  <option value="">Select option...</option>
-                  {(card.fieldDefinitions?.[key]?.selectOptions ?? []).map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              ) : isEditExpanded ? (
-                <input
-                  type="text"
-                  value={value ?? ''}
-                  onChange={(e) => handleFieldChange(key, e.target.value)}
-                  className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 focus:border-blue-500/40 px-2 py-1"
-                  placeholder="..."
-                />
+              {isEditExpanded ? (
+                card.fieldDefinitions?.[key]?.type === 'select' ? (
+                  <select
+                    value={value ?? ''}
+                    onChange={(e) => handleFieldChange(key, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 cursor-pointer hover:border-white/20 transition-colors z-10 relative"
+                  >
+                    <option value="">Select option...</option>
+                    {(card.fieldDefinitions?.[key]?.selectOptions ?? []).map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={value ?? ''}
+                    onChange={(e) => handleFieldChange(key, e.target.value)}
+                    className="bg-transparent text-sm font-bold text-foreground w-full min-w-0 placeholder:text-muted-foreground/20 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded border border-white/10 focus:border-blue-500/40"
+                    placeholder="..."
+                  />
+                )
               ) : (
-                <p className="font-data-value text-sm text-foreground w-full leading-snug break-words whitespace-pre-wrap flex items-baseline gap-1.5 flex-wrap">
+                <p className="text-sm font-bold text-foreground w-full leading-snug break-words whitespace-pre-wrap flex items-baseline gap-1.5 flex-wrap">
                   {value !== null && value !== undefined && value !== ''
                     ? (
                       <>
                         <span>{String(value)}</span>
-                        {/* Duration fields are already displayed as HH:MM:SS — never show a unit label alongside */}
-                        {unit && fieldType !== 'duration' && (
-                          <span className="font-ui text-[9px] uppercase tracking-wider text-muted-foreground/40 select-none">
+                        {unit && (
+                          <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/40 select-none">
                             {unit}
                           </span>
                         )}
@@ -305,30 +321,24 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
         <button
           onClick={handleConfirm}
           disabled={status === 'loading'}
-          className="flex-1 rounded-2xl px-4 py-3 font-ui text-[#000d1a] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:scale-100"
-          style={{
-            fontSize: '12px', letterSpacing: '0.10em',
-            background: 'linear-gradient(135deg, #00d4ff, #0090cc)',
-            boxShadow: '0 0 20px rgba(0,212,255,0.30)',
-          }}
+          className="flex-1 rounded-2xl bg-nutrition px-4 py-3 text-sm font-black text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)] active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:scale-100"
           data-testid="action-card-confirm"
         >
           {status === 'loading' ? (
             <span className="flex items-center justify-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#000d1a]/60 animate-bounce [animation-delay:0ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-[#000d1a]/60 animate-bounce [animation-delay:120ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-[#000d1a]/60 animate-bounce [animation-delay:240ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-black/60 animate-bounce [animation-delay:0ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-black/60 animate-bounce [animation-delay:120ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-black/60 animate-bounce [animation-delay:240ms]" />
             </span>
-          ) : '✓ Confirm'}
+          ) : 'Log Entry'}
         </button>
         <button
           onClick={handleDiscard}
           disabled={status === 'loading'}
-          className="rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3 font-ui text-muted-foreground/60 transition-all duration-200 hover:bg-white/[0.07] hover:text-muted-foreground active:scale-[0.98] disabled:opacity-30"
-          style={{ fontSize: '11px', letterSpacing: '0.08em' }}
+          className="rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3 text-sm font-bold text-muted-foreground/60 transition-all duration-200 hover:bg-white/[0.07] hover:text-muted-foreground active:scale-[0.98] disabled:opacity-30"
           data-testid="action-card-discard"
         >
-          ✕
+          Discard
         </button>
       </div>
     </div>
@@ -423,22 +433,22 @@ export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm,
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className={`h-2 w-2 rounded-full ${typeColors.text.replace('text-', 'bg-')} opacity-80`} />
-          <h3 className="font-display-heading text-base text-foreground">{card.trackerName}</h3>
+          <h3 className="text-base font-black tracking-tight text-foreground">{card.trackerName}</h3>
         </div>
-        <span className={`font-ui rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
+        <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${typeColors.text} border-current/20 bg-current/5`}>
           Pending Update
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 w-full overflow-visible">
+      <div className="grid gap-2.5 w-full overflow-visible" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))' }}>
         {fieldEntries.map(([key, value]) => {
           const fieldLabel = card.fieldLabels?.[key] || key
           const unit = card.fieldUnits?.[key]
           const isStringValue = typeof value === 'string' && value !== '' && isNaN(Number(value)) && !String(value).match(/^\d{2}:\d{2}$/)
           const isLarge = isStringValue || String(value || '').length > 15 || (fieldLabel.length ?? 0) > 16
           return (
-            <div key={key} className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border border-white/[0.05] overflow-visible ${isLarge ? 'col-span-2' : ''}`}>
-              <span className="font-ui-label text-muted-foreground/60">{fieldLabel}</span>
+            <div key={key} className={`flex flex-col gap-1.5 rounded-2xl bg-white/[0.03] p-3.5 border border-white/[0.05] overflow-visible ${isLarge ? 'col-span-full' : ''}`}>
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{fieldLabel}</span>
               <input
                 type="text"
                 value={value ?? ''}
