@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { Users, Activity, Zap, TrendingUp } from 'lucide-react'
+import { Users, BarChart2, Zap, Activity } from 'lucide-react'
 import type { AdminInsights } from '@/lib/db/analytics'
 
 type Props = {
@@ -57,13 +57,9 @@ function getAccuracyColor(value: number | null): string {
   return 'text-red-400'
 }
 
-function countActiveToday(recentEvents: AdminInsights['recentEvents']): number {
-  const todayStr = new Date().toISOString().split('T')[0]
-  return recentEvents.filter(e => e.created_at.startsWith(todayStr)).length
-}
 
 const TOOLTIP_STYLE = {
-  background: '#091424',
+  background: '#0e243a',
   border: '1px solid rgba(255,255,255,0.05)',
   borderRadius: '12px',
   color: '#f5f5f5',
@@ -72,8 +68,9 @@ const TOOLTIP_STYLE = {
 
 export function InsightsDashboard({ insights }: Props): React.ReactElement {
   const {
-    totalUsers,
-    logsThisWeek,
+    totalSignups,
+    usersWithTrackers,
+    usersLoggedThisWeek,
     aiAccuracy7d,
     actionCardOutcomes30d,
     dailyActivity14d,
@@ -81,7 +78,6 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
     recentEvents,
   } = insights
 
-  const activeToday = countActiveToday(recentEvents)
   const accuracyColor = getAccuracyColor(aiAccuracy7d)
 
   const outcomeTotal =
@@ -120,34 +116,47 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
 
       {/* Hero stats row */}
       <div className="grid grid-cols-4 gap-4">
-        {/* Total Users */}
-        <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-3">
+        {/* Total Signups */}
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10">
               <Users className="h-4 w-4 text-cyan-400" />
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest text-textMuted opacity-60">
-              Total Users
+              Total Signups
             </span>
           </div>
-          <p className="text-3xl font-black text-textPrimary">{totalUsers}</p>
+          <p className="text-3xl font-black text-textPrimary">{totalSignups}</p>
         </div>
 
-        {/* Logs This Week */}
-        <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-3">
+        {/* Users with Trackers */}
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-green-500/10">
-              <Activity className="h-4 w-4 text-green-400" />
+              <BarChart2 className="h-4 w-4 text-green-400" />
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest text-textMuted opacity-60">
-              Logs This Week
+              Made Trackers
             </span>
           </div>
-          <p className="text-3xl font-black text-textPrimary">{logsThisWeek}</p>
+          <p className="text-3xl font-black text-textPrimary">{usersWithTrackers}</p>
+        </div>
+
+        {/* Logged This Week */}
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10">
+              <Activity className="h-4 w-4 text-amber-400" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-textMuted opacity-60">
+              Logged 7d
+            </span>
+          </div>
+          <p className="text-3xl font-black text-textPrimary">{usersLoggedThisWeek}</p>
         </div>
 
         {/* AI Accuracy */}
-        <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-3">
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10">
               <Zap className="h-4 w-4 text-purple-400" />
@@ -160,26 +169,13 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
             {aiAccuracy7d === null ? '—' : `${aiAccuracy7d}%`}
           </p>
         </div>
-
-        {/* Active Today */}
-        <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10">
-              <TrendingUp className="h-4 w-4 text-amber-400" />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-textMuted opacity-60">
-              Active Today
-            </span>
-          </div>
-          <p className="text-3xl font-black text-textPrimary">{activeToday}</p>
-        </div>
       </div>
 
       {/* Two column row: Daily Activity + Outcomes */}
       <div className="grid grid-cols-2 gap-6">
 
         {/* Daily Activity */}
-        <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-4">
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
           <div className="flex items-center gap-3">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">
               Daily Activity
@@ -212,7 +208,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
         </div>
 
         {/* Action Card Outcomes */}
-        <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-4">
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
           <div className="flex items-center gap-3">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">
               Action Card Outcomes
@@ -270,7 +266,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
       </div>
 
       {/* Top Trackers */}
-      <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-4">
+      <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
         <div className="flex items-center gap-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">
             Top Trackers
@@ -313,7 +309,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
       </div>
 
       {/* Recent Activity Feed */}
-      <div className="rounded-2xl border border-white/5 bg-[#091424] p-5 space-y-4">
+      <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
         <div className="flex items-center gap-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">
             Recent Activity

@@ -23,7 +23,7 @@ export default async function AppLayout({
     <div
       className="fixed inset-0 overflow-hidden"
       style={{
-        backgroundColor: '#050c1a',
+        backgroundColor: '#0b1a28',
         backgroundImage: `
           radial-gradient(120% 60% at 80% -10%, rgba(0,212,255,0.09), transparent 60%),
           radial-gradient(60% 40% at 10% 95%, rgba(168,85,247,0.06), transparent 55%),

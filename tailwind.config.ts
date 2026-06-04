@@ -7,7 +7,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#050c1a',
+        background: '#0b1a28',
         foreground: 'hsl(var(--foreground))',
         card: {
           DEFAULT: 'hsl(var(--card))',
@@ -44,10 +44,10 @@ const config: Config = {
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         // MasterLog Surface Tokens
-        surface: '#091424',
-        surfaceHighlight: '#0e1d34',
-        surface2: '#0e1d34',   // alias for surfaceHighlight — inner cards
-        raise: '#0f2040',      // hover states, progress tracks
+        surface: '#0e243a',
+        surfaceHighlight: '#152e47',
+        surface2: '#152e47',   // alias for surfaceHighlight — inner cards
+        raise: '#1c3858',      // hover states, progress tracks
         faint: '#475569',      // placeholder/disabled text
         textPrimary: '#e2e8f0',
         textMuted: '#a855f7',

@@ -87,7 +87,7 @@ function getSourceBadgeStyle(source: string): React.CSSProperties {
   }
   // manual / default
   return {
-    background: '#0f2040',
+    background: '#1c3858',
     color: '#94a3b8',
     border: '1px solid rgba(0,212,255,0.13)',
   }
@@ -245,7 +245,7 @@ export function LogEntryCard({ log, schema, trackerId }: Props): React.ReactElem
 
   return (
     <div
-      className={`group rounded-[14px] border border-white/5 bg-[#0e1d34] px-4 py-3.5 transition-all duration-300 hover:border-white/10 hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] ${isDeleting ? 'opacity-50 scale-[0.99]' : ''}`}
+      className={`group rounded-[14px] border border-white/5 bg-[#152e47] px-4 py-3.5 transition-all duration-300 hover:border-white/10 hover:shadow-[0_4px_24px_rgba(0,0,0,0.3)] ${isDeleting ? 'opacity-50 scale-[0.99]' : ''}`}
     >
       {/* Header row */}
       <div className="mb-3 flex items-center justify-between">

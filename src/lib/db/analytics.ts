@@ -26,8 +26,9 @@ export async function recordEvent(
 }
 
 export type AdminInsights = {
-  totalUsers: number
-  logsThisWeek: number
+  totalSignups: number
+  usersWithTrackers: number
+  usersLoggedThisWeek: number
   aiAccuracy7d: number | null
   actionCardOutcomes30d: { confirmed_clean: number; confirmed_edited: number; dismissed: number }
   dailyActivity14d: { date: string; count: number }[]
@@ -40,9 +41,10 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   const now = new Date()
   const ago = (days: number) => new Date(now.getTime() - days * 864e5).toISOString()
 
-  const [authUsersRes, logsWkRes, accuracyRes, outcomesRes, dailyRes, trackersRes, recentRes] = await Promise.all([
+  const [authUsersRes, trackerUsersRes, loggedWkRes, accuracyRes, outcomesRes, dailyRes, trackersRes, recentRes] = await Promise.all([
     supabase.auth.admin.listUsers({ perPage: 1000 }),
-    supabase.from('usage_events').select('id', { count: 'exact', head: true }).eq('event_type', 'action_card_confirmed').gte('created_at', ago(7)),
+    supabase.from('trackers').select('user_id'),
+    supabase.from('tracker_logs').select('user_id').gte('logged_at', ago(7)),
     supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed').gte('created_at', ago(7)),
     supabase.from('usage_events').select('event_type, metadata').in('event_type', ['action_card_confirmed', 'action_card_dismissed']).gte('created_at', ago(30)),
     supabase.from('usage_events').select('created_at').gte('created_at', ago(14)).order('created_at', { ascending: true }),
@@ -80,9 +82,13 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     if (name) tMap.set(name, (tMap.get(name) ?? 0) + 1)
   }
 
+  const usersWithTrackers = new Set((trackerUsersRes.data ?? []).map(r => r.user_id as string)).size
+  const usersLoggedThisWeek = new Set((loggedWkRes.data ?? []).map(r => r.user_id as string)).size
+
   return {
-    totalUsers: authUsersRes.data?.users?.length ?? 0,
-    logsThisWeek: logsWkRes.count ?? 0,
+    totalSignups: authUsersRes.data?.users?.length ?? 0,
+    usersWithTrackers,
+    usersLoggedThisWeek,
     aiAccuracy7d,
     actionCardOutcomes30d: { confirmed_clean, confirmed_edited, dismissed },
     dailyActivity14d: Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })),

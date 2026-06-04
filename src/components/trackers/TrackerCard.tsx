@@ -14,7 +14,7 @@ export function TrackerCard({ tracker, dragHandleProps }: Props): React.ReactEle
 
   return (
     <div
-      className="group flex items-center gap-3 rounded-2xl bg-[#091424] p-4 transition-all duration-200"
+      className="group flex items-center gap-3 rounded-2xl bg-surface p-4 transition-all duration-200"
       style={{ border: `1px solid ${tracker.color}18` }}
       data-testid="tracker-card"
     >
