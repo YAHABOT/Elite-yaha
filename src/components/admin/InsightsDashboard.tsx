@@ -438,6 +438,21 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
                       <div className="h-full rounded-full" style={{ width: `${t.accuracy}%`, backgroundColor: accColor, opacity: 0.7 }} />
                     </div>
+                    {t.frequentlyMissedFields.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        <span className="text-[9px] text-textMuted opacity-50 self-center">AI misses:</span>
+                        {t.frequentlyMissedFields.map(f => (
+                          <span
+                            key={f.field}
+                            className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: AMBER }}
+                            title={`Left blank in ${f.missRate}% of logs`}
+                          >
+                            {f.field} <span className="opacity-60">{f.missRate}%</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}

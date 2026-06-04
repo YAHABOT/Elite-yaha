@@ -11,7 +11,7 @@ export type UsageEventType =
   | 'manual_log_created'
   | 'chat_no_action_card'
 
-export type UsageEventMetadata = Record<string, string | number | boolean | null>
+export type UsageEventMetadata = Record<string, string | number | boolean | null | string[]>
 
 /** Fire-and-forget — never throws, never blocks the calling flow */
 export async function recordEvent(
@@ -56,7 +56,12 @@ export type AdminInsights = {
   usersLoggedThisWeek: number
   aiAccuracy7d: number | null
   aiAccuracyTrend: { label: string; accuracy: number | null; total: number }[]  // 4 weeks, oldest→newest
-  trackerAccuracy: { tracker_name: string; accuracy: number; total: number }[]  // sorted by total desc
+  trackerAccuracy: {
+    tracker_name: string
+    accuracy: number
+    total: number
+    frequentlyMissedFields: { field: string; missRate: number }[]  // fields AI blanks >20% of logs
+  }[]  // sorted by total desc
   actionCardOutcomes30d: { confirmed_clean: number; confirmed_edited: number; dismissed: number }
   dailyActivity14d: { date: string; count: number }[]
   topTrackers: { tracker_name: string; count: number }[]
@@ -131,22 +136,41 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     }
   })
 
-  // Per-tracker accuracy
-  const tAccMap = new Map<string, { clean: number; total: number }>()
+  // Per-tracker accuracy + field-level miss rate detection
+  const tAccMap = new Map<string, {
+    clean: number
+    total: number
+    fieldMissCounts: Map<string, number>  // fieldLabel → times AI left it blank + user filled
+  }>()
   for (const e of outcomes.filter(e => e.event_type === 'action_card_confirmed')) {
     const name = e.metadata?.tracker_name as string | undefined
     if (!name) continue
-    const prev = tAccMap.get(name) ?? { clean: 0, total: 0 }
+    const prev = tAccMap.get(name) ?? { clean: 0, total: 0, fieldMissCounts: new Map() }
     prev.total++
     if (e.metadata?.was_edited === false) prev.clean++
+    // user_fields_added_names: fields AI left blank that the user completed
+    const addedNames = e.metadata?.user_fields_added_names
+    if (Array.isArray(addedNames)) {
+      for (const fieldLabel of addedNames as string[]) {
+        prev.fieldMissCounts.set(fieldLabel, (prev.fieldMissCounts.get(fieldLabel) ?? 0) + 1)
+      }
+    }
     tAccMap.set(name, prev)
   }
   const trackerAccuracy = [...tAccMap.entries()]
-    .map(([tracker_name, { clean, total }]) => ({
-      tracker_name,
-      accuracy: Math.round((clean / total) * 100),
-      total,
-    }))
+    .map(([tracker_name, { clean, total, fieldMissCounts }]) => {
+      // A field is "frequently missed" if AI leaves it blank in >20% of confirmed logs
+      const frequentlyMissedFields = [...fieldMissCounts.entries()]
+        .filter(([, count]) => count / total >= 0.2)
+        .map(([field, count]) => ({ field, missRate: Math.round((count / total) * 100) }))
+        .sort((a, b) => b.missRate - a.missRate)
+      return {
+        tracker_name,
+        accuracy: Math.round((clean / total) * 100),
+        total,
+        frequentlyMissedFields,
+      }
+    })
     .sort((a, b) => b.total - a.total)
 
   // ── Daily activity ────────────────────────────────────────────────────────
