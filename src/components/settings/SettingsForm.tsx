@@ -97,13 +97,13 @@ export function SettingsForm({ initialValues }: Props): React.ReactElement {
             <div className="grid grid-cols-2 gap-3">
               <DeveloperButton
                 icon={Bot}
-                label="Agent Forge"
+                label="Agent Management"
                 href="/settings/agent-forge"
                 colorClass="hover:border-sleep/30 hover:shadow-sleep/5 text-sleep/80 hover:text-sleep"
               />
               <DeveloperButton
                 icon={Workflow}
-                label="Routines"
+                label="Routine Management"
                 href="/settings/routines"
                 colorClass="hover:border-purple-500/30 hover:shadow-purple-500/5 text-purple-400/80 hover:text-purple-400"
               />

@@ -23,10 +23,10 @@ export default async function AgentForgePage() {
              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-lg shadow-primary/10">
                <Bot className="h-6 w-6" />
              </div>
-             <h1 className="text-5xl font-black tracking-tighter text-textPrimary">Agent Forge</h1>
+             <h1 className="text-5xl font-black tracking-tighter text-textPrimary">Agent Management</h1>
           </div>
           <p className="text-sm font-medium text-textMuted opacity-60">
-            Create custom personas to automate your chat experience.
+            Create custom agents and enable pre-built personas for your chat.
           </p>
         </div>
         
