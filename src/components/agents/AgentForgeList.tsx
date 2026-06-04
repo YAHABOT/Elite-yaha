@@ -133,7 +133,9 @@ Internet search allowed for menus and averages`,
   },
 ]
 
-const LIBRARY_ENABLED_KEY = 'yaha_library_agents_enabled'
+export const LIBRARY_ENABLED_KEY = 'yaha_library_agents_enabled'
+export { LIBRARY_AGENTS }
+export type { LibraryAgent }
 // Stores disabled agent IDs — absence means enabled (default on)
 export const MY_AGENTS_DISABLED_KEY = 'yaha_my_agents_disabled'
 

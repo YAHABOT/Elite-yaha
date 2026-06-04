@@ -25,6 +25,7 @@ import type { ChatAttachment } from '@/types/action-card'
 import { AgentSelector } from '@/components/chat/AgentSelector'
 import { deleteSessionAction, deleteSessionsAction, renameSessionAction } from '@/app/actions/chat'
 import { getAgentsAction } from '@/app/actions/agents'
+import { LIBRARY_AGENTS, LIBRARY_ENABLED_KEY } from '@/components/agents/AgentForgeList'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone — avoids UTC midnight boundary issues
 function getLocalDateStr(): string {
@@ -97,7 +98,19 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    getAgentsAction().then(setAgents)
+    getAgentsAction().then(dbAgents => {
+      try {
+        const raw = localStorage.getItem(LIBRARY_ENABLED_KEY)
+        const enabledIds: string[] = raw ? (JSON.parse(raw) as string[]) : []
+        const libAgents = LIBRARY_AGENTS
+          .filter(la => enabledIds.includes(la.id))
+          .map(la => ({
+            id: la.id, user_id: '', name: la.name, trigger: '', exit_trigger: '',
+            system_prompt: la.system_prompt, color: la.color, schema: [], created_at: '', updated_at: '',
+          } as Agent))
+        setAgents([...dbAgents, ...libAgents])
+      } catch { setAgents(dbAgents) }
+    })
   }, [])
 
   // Close attach menu on outside click
@@ -222,6 +235,9 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
     if ((!trimmed && attachedFiles.length === 0) || isSubmitting) return
     setIsSubmitting(true)
     const snapshotAttachments = attachedFiles.length > 0 ? attachedFiles : undefined
+    const activeAgent = agents.find(a => a.id === activeAgentId)
+    const activeLibraryExtras = activeAgentId?.startsWith('library-') && activeAgent?.system_prompt
+      ? { agentSystemPrompt: activeAgent.system_prompt } : {}
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -232,6 +248,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
           agentId: activeAgentId,
           attachments: snapshotAttachments,
           date: getLocalDateStr(),
+          ...activeLibraryExtras,
         }),
       })
       if (!res.ok) throw new Error('Failed to start chat')

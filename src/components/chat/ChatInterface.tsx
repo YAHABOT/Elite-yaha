@@ -12,6 +12,7 @@ import type { ChatAttachment } from '@/types/action-card'
 import type { Agent } from '@/types/agent'
 import type { Routine } from '@/types/routine'
 import { getAgentsAction } from '@/app/actions/agents'
+import { LIBRARY_AGENTS, LIBRARY_ENABLED_KEY } from '@/components/agents/AgentForgeList'
 import { renameSessionAction } from '@/app/actions/chat'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone — avoids UTC midnight boundary issues
@@ -211,9 +212,31 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     return () => document.removeEventListener('click', handleOutsideClick)
   }, [isAttachMenuOpen])
 
-  // Fetch Agents
+  // Fetch Agents — merge DB agents with enabled Library agents
   useEffect(() => {
-    getAgentsAction().then(setAgents)
+    getAgentsAction().then(dbAgents => {
+      try {
+        const raw = localStorage.getItem(LIBRARY_ENABLED_KEY)
+        const enabledIds: string[] = raw ? (JSON.parse(raw) as string[]) : []
+        const libAgents = LIBRARY_AGENTS
+          .filter(la => enabledIds.includes(la.id))
+          .map(la => ({
+            id: la.id,
+            user_id: '',
+            name: la.name,
+            trigger: '',
+            exit_trigger: '',
+            system_prompt: la.system_prompt,
+            color: la.color,
+            schema: [],
+            created_at: '',
+            updated_at: '',
+          } as Agent))
+        setAgents([...dbAgents, ...libAgents])
+      } catch {
+        setAgents(dbAgents)
+      }
+    })
   }, [])
 
   // Auto-trigger ritual if routine param is provided.
@@ -266,7 +289,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: currentSessionId, agentId: agentId || null, message: "Switching agent...", date: getLocalDateStr() })
+        body: JSON.stringify({ sessionId: currentSessionId, agentId: agentId || null, message: "Switching agent...", date: getLocalDateStr(), ...(agentId?.startsWith('library-') ? { agentSystemPrompt: agents.find(a => a.id === agentId)?.system_prompt } : {}) })
       })
       if (!res.ok) return
 
@@ -335,7 +358,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId: sessId, agentId: activeAgentId, date: getLocalDateStr() }),
+        body: JSON.stringify({ message: text, sessionId: sessId, agentId: activeAgentId, date: getLocalDateStr(), ...activeLibraryExtras }),
         signal: abortControllerRef.current?.signal
       })
       if (!res.ok) return
@@ -460,7 +483,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId: currentSessionId, routineId, agentId: activeAgentId, date: getLocalDateStr() }),
+        body: JSON.stringify({ message: text, sessionId: currentSessionId, routineId, agentId: activeAgentId, date: getLocalDateStr(), ...activeLibraryExtras }),
         signal: controller.signal,
       })
       if (!res.ok) {
@@ -687,6 +710,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           agentId: activeAgentId,
           attachments: snapshotAttachments,
           date: getLocalDateStr(),
+          ...activeLibraryExtras,
         }),
         signal: controller.signal,
       })
@@ -822,6 +846,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   }
 
   const activeAgent = agents.find(a => a.id === activeAgentId)
+  // Library agents are client-only (no DB row) — pass their system_prompt in every request body
+  const activeLibraryExtras = activeAgentId?.startsWith('library-') && activeAgent?.system_prompt
+    ? { agentSystemPrompt: activeAgent.system_prompt }
+    : {}
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-background text-foreground">
@@ -1149,6 +1177,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     agentId: activeAgentId,
                     attachments: [],
                     date: getLocalDateStr(),
+                    ...activeLibraryExtras,
                   }),
                   signal: controller.signal,
                 })

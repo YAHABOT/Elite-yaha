@@ -72,6 +72,8 @@ type ChatRequestBody = {
   }>
   date?: string
   agentId?: string
+  /** System prompt passed by client for Library agents (no DB row — never write to active_agent_id) */
+  agentSystemPrompt?: string
 }
 
 
@@ -217,9 +219,14 @@ export async function POST(req: Request): Promise<Response> {
 
         try {
           // Explicit Agent selection from dropdown
+          // Library agents (id starts with "library-") are client-only — never write to active_agent_id
+          // (FK constraint on agents table would reject the non-UUID value)
           if (body.agentId !== undefined) {
-            await updateSession(session.id, { active_agent_id: body.agentId || null })
-            session.active_agent_id = body.agentId || null
+            const isLibraryAgent = body.agentId?.startsWith('library-')
+            if (!isLibraryAgent) {
+              await updateSession(session.id, { active_agent_id: body.agentId || null })
+              session.active_agent_id = body.agentId || null
+            }
           }
 
           // 1. Detect Routine Trigger (Prioritize explicit routineId)
@@ -446,6 +453,22 @@ export async function POST(req: Request): Promise<Response> {
             await updateSession(session.id, { active_agent_id: agentTrigger.id })
             session.active_agent_id = agentTrigger.id
             activeAgent = agentTrigger
+          }
+
+          // Library agent override — client passes system_prompt directly; no DB row exists
+          if (!activeAgent && body.agentId?.startsWith('library-') && body.agentSystemPrompt) {
+            activeAgent = {
+              id: body.agentId,
+              user_id: '',
+              name: body.agentId.replace('library-', '').replace(/-/g, ' '),
+              trigger: '',
+              exit_trigger: '',
+              system_prompt: body.agentSystemPrompt,
+              color: '#00ff9d',
+              schema: [],
+              created_at: '',
+              updated_at: '',
+            }
           }
 
           // BUG-V32-6 FIX: Enforce Start Day guard — reject starting day if session already open
