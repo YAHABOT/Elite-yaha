@@ -363,7 +363,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
         </div>
       ) : (
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-none px-2 py-3" aria-label="Chat sessions">
-          <p className="mb-2 px-3 font-ui text-textMuted/40" style={{ fontSize: '9px', letterSpacing: '0.25em' }}>
+          <p className="mb-2 px-3 font-ui text-textMuted/70" style={{ fontSize: '9px', letterSpacing: '0.25em' }}>
             My Sessions
           </p>
           <ul className="space-y-0.5">
@@ -446,14 +446,14 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-ui opacity-25 group-hover:opacity-60 transition-opacity" style={{ fontSize: '9px', letterSpacing: '0.18em' }}>
+                      <span className="font-ui opacity-60 group-hover:opacity-90 transition-opacity" style={{ fontSize: '9px', letterSpacing: '0.18em' }}>
                         {session.active_agent_id ? 'Agent' : 'Neutral'}
                       </span>
-                      <span className="font-data-value text-[10px] tabular-nums opacity-25 group-hover:opacity-50 transition-opacity">
+                      <span className="font-data-value text-[10px] tabular-nums opacity-55 group-hover:opacity-80 transition-opacity">
                         {mounted ? formatRelativeTime(session.updated_at) : ''}
                       </span>
                     </div>
-                    <span className="truncate text-sm font-bold tracking-tight text-textPrimary/70 pr-16">
+                    <span className="truncate text-sm font-bold tracking-tight text-textPrimary/90 pr-16">
                       {session.title}
                     </span>
                   </Link>

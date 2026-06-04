@@ -108,7 +108,7 @@ function computeDayDetails(
 
     const label = i === 0
       ? 'TODAY'
-      : d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
+      : String(d.getDate())
 
     result.push({ date: dateStr, label, score, logCount, hasTargets, targets: targetDetails })
   }
