@@ -34,6 +34,8 @@ export type UserProfile = {
   trackerNames: string[]
   totalLogs: number
   logsLast7d: number
+  logsLast7dByDay: number[]   // [day-6, day-5, ..., today] — 7 values
+  engagementScore: number     // 0-100: (logsLast7d / 7) * 100, capped at 100
   lastLogAt: string | null
   status: 'active' | 'dormant' | 'new'
 }
@@ -112,22 +114,37 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     trackersByUser.set(t.user_id, arr)
   }
 
+  // Build per-user day keys for last 7 days (index 0 = today-6, index 6 = today)
+  const dayKeys: string[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i)
+    dayKeys.push(d.toISOString().split('T')[0])
+  }
+  const sevenDaysAgo = dayKeys[0] + 'T00:00:00.000Z'
+
   const logCountByUser = new Map<string, number>()
   const lastLogByUser = new Map<string, string>()
-  const logLast7dByUser = new Map<string, number>()
-  const sevenDaysAgo = ago(7)
+  // per-user per-day counts: Map<userId, Map<dateStr, count>>
+  const logDaysByUser = new Map<string, Map<string, number>>()
+
   for (const l of (allLogsRes.data ?? []) as LogRow[]) {
     logCountByUser.set(l.user_id, (logCountByUser.get(l.user_id) ?? 0) + 1)
     if (!lastLogByUser.has(l.user_id)) lastLogByUser.set(l.user_id, l.logged_at)
     if (l.logged_at >= sevenDaysAgo) {
-      logLast7dByUser.set(l.user_id, (logLast7dByUser.get(l.user_id) ?? 0) + 1)
+      const dateStr = l.logged_at.split('T')[0]
+      if (!logDaysByUser.has(l.user_id)) logDaysByUser.set(l.user_id, new Map())
+      const dayMap = logDaysByUser.get(l.user_id)!
+      dayMap.set(dateStr, (dayMap.get(dateStr) ?? 0) + 1)
     }
   }
 
   const authUsers = authUsersRes.data?.users ?? []
   const userProfiles: UserProfile[] = authUsers.map(u => {
     const totalLogs = logCountByUser.get(u.id) ?? 0
-    const logsLast7d = logLast7dByUser.get(u.id) ?? 0
+    const dayMap = logDaysByUser.get(u.id)
+    const logsLast7dByDay = dayKeys.map(k => dayMap?.get(k) ?? 0)
+    const logsLast7d = logsLast7dByDay.reduce((a, b) => a + b, 0)
+    const engagementScore = Math.min(100, Math.round((logsLast7d / 7) * 100))
     const lastLogAt = lastLogByUser.get(u.id) ?? null
     const status: UserProfile['status'] =
       logsLast7d > 0 ? 'active'
@@ -142,6 +159,8 @@ export async function getAdminInsights(): Promise<AdminInsights> {
       trackerNames: trackersByUser.get(u.id) ?? [],
       totalLogs,
       logsLast7d,
+      logsLast7dByDay,
+      engagementScore,
       lastLogAt,
       status,
     }
