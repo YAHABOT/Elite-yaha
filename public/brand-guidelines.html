@@ -6,231 +6,255 @@
   <title>YAHA — Brand Guidelines</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Chakra+Petch:ital,wght@1,700&family=Inter:wght@400;500;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ── Fusion Design Tokens ── */
     :root {
-      --bg:               #050505;
-      --surface:          #0A0A0A;
-      --surface-hi:       #121212;
-      --border:           #1E1E1E;
-      --text-primary:     #F5F5F5;
-      --text-muted:       #6B7280;
-      --nutrition:        #10b981;
-      --sleep:            #3b82f6;
-      --workout:          #f97316;
-      --mood:             #a855f7;
-      --water:            #06b6d4;
-      --primary:          #00d4ff;
-
-      --font-display:     'Chakra Petch', 'Orbitron', monospace;
-      --font-orbitron:    'Orbitron', monospace;
-      --font-ui:          'Audiowide', system-ui, sans-serif;
-      --font-mono:        'Share Tech Mono', monospace;
-      --font-sans:        'Inter', system-ui, sans-serif;
+      --bg:          #050c1a;
+      --surface:     #091424;
+      --surface2:    #0e1d34;
+      --raise:       #0f2040;
+      --border:      rgba(0,212,255,0.13);
+      --border2:     rgba(0,212,255,0.38);
+      --text:        #e2e8f0;
+      --muted:       #94a3b8;
+      --faint:       #475569;
+      --accent:      #00d4ff;
+      --accent2:     #a855f7;
+      --nutrition:   #00ff9d;
+      --sleep:       #a855f7;
+      --workout:     #ff6b35;
+      --mood:        #ffd700;
+      --water:       #00d4ff;
+      --heart:       #ef4444;
+      --glow: 0 0 16px -4px rgba(0,212,255,0.45), 0 0 0 1px rgba(0,212,255,0.15);
     }
 
     body {
-      background: var(--bg);
-      color: var(--text-primary);
-      font-family: var(--font-sans);
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(120% 60% at 80% -10%, rgba(0,212,255,0.09), transparent 60%),
+        radial-gradient(60% 40% at 10% 95%, rgba(168,85,247,0.06), transparent 55%),
+        linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
       min-height: 100vh;
       padding: 48px 24px 80px;
     }
 
-    .page {
-      max-width: 860px;
-      margin: 0 auto;
-    }
+    .page { max-width: 880px; margin: 0 auto; }
 
     /* ── Header ── */
-    .header {
-      margin-bottom: 64px;
-    }
-    .header-eyebrow {
-      font-family: var(--font-ui);
+    .eyebrow {
+      font-family: 'Audiowide', system-ui;
       font-size: 9px;
       letter-spacing: 0.22em;
-      color: var(--primary);
+      text-transform: uppercase;
+      color: var(--accent);
       opacity: 0.7;
       margin-bottom: 12px;
     }
-    .header h1 {
-      font-family: var(--font-display);
+    h1 {
+      font-family: 'Chakra Petch', monospace;
       font-style: italic;
       font-weight: 700;
-      font-size: clamp(32px, 6vw, 52px);
-      letter-spacing: 0.06em;
+      font-size: clamp(30px, 6vw, 50px);
       text-transform: uppercase;
-      background: linear-gradient(135deg, var(--sleep) 0%, var(--mood) 100%);
+      letter-spacing: 0.06em;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
       line-height: 1.1;
+      margin-bottom: 12px;
     }
-    .header p {
-      font-family: var(--font-sans);
+    .header-sub {
       font-size: 14px;
-      color: var(--text-muted);
-      margin-top: 12px;
+      color: var(--muted);
       opacity: 0.7;
+      margin-bottom: 64px;
     }
 
     /* ── Section ── */
-    .section {
-      margin-bottom: 56px;
-    }
-    .section-title {
-      font-family: var(--font-ui);
+    .section { margin-bottom: 52px; }
+    .section-label {
+      font-family: 'Audiowide', system-ui;
       font-size: 9px;
       letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: var(--text-muted);
-      opacity: 0.5;
-      margin-bottom: 20px;
+      color: var(--muted);
+      opacity: 0.45;
       padding-bottom: 12px;
+      margin-bottom: 16px;
       border-bottom: 1px solid var(--border);
     }
 
     /* ── Color rows ── */
-    .color-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+    .color-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .color-group-label {
+      font-family: 'Audiowide', system-ui;
+      font-size: 8px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin: 14px 0 6px 4px;
     }
+    .color-group-label:first-child { margin-top: 0; }
+
     .color-row {
       display: grid;
-      grid-template-columns: 48px 1fr auto auto;
+      grid-template-columns: 44px 1fr 90px 80px;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 14px 20px;
+      padding: 12px 18px;
       transition: border-color 0.2s;
     }
-    .color-row:hover {
-      border-color: rgba(255,255,255,0.1);
-    }
+    .color-row:hover { border-color: var(--border2); }
+
     .swatch {
-      width: 40px;
-      height: 40px;
+      width: 40px; height: 40px;
       border-radius: 12px;
       flex-shrink: 0;
       border: 1px solid rgba(255,255,255,0.08);
     }
-    .color-info { flex: 1; min-width: 0; }
     .color-token {
-      font-family: var(--font-mono);
+      font-family: 'Share Tech Mono', monospace;
       font-size: 12px;
-      color: var(--text-primary);
+      color: var(--text);
     }
     .color-desc {
-      font-family: var(--font-sans);
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--muted);
       margin-top: 3px;
-      opacity: 0.6;
+      opacity: 0.55;
     }
     .color-hex {
-      font-family: var(--font-mono);
+      font-family: 'Share Tech Mono', monospace;
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--muted);
       opacity: 0.5;
-      white-space: nowrap;
+      text-align: right;
     }
     .color-badge {
-      font-family: var(--font-ui);
+      font-family: 'Audiowide', system-ui;
       font-size: 8px;
       letter-spacing: 0.1em;
-      padding: 3px 8px;
+      text-transform: uppercase;
+      padding: 3px 9px;
       border-radius: 99px;
+      text-align: center;
       white-space: nowrap;
     }
 
     /* ── Font rows ── */
-    .font-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .font-list { display: flex; flex-direction: column; gap: 6px; }
     .font-row {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 20px 24px;
+      padding: 20px 22px;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 24px;
       align-items: center;
       transition: border-color 0.2s;
     }
-    .font-row:hover {
-      border-color: rgba(255,255,255,0.1);
-    }
-    .font-meta {}
+    .font-row:hover { border-color: var(--border2); }
     .font-class {
-      font-family: var(--font-mono);
+      font-family: 'Share Tech Mono', monospace;
       font-size: 12px;
-      color: var(--primary);
-      opacity: 0.9;
+      color: var(--accent);
     }
     .font-name {
-      font-family: var(--font-sans);
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--muted);
       opacity: 0.5;
       margin-top: 4px;
     }
+    .font-swap {
+      font-size: 10px;
+      color: var(--accent2);
+      opacity: 0.6;
+      margin-top: 4px;
+    }
     .font-usage {
-      font-family: var(--font-sans);
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--muted);
       opacity: 0.4;
       margin-top: 6px;
+      line-height: 1.4;
     }
-    .font-preview {
-      text-align: right;
+    .font-preview { text-align: right; }
+
+    /* ── Background treatment card ── */
+    .bg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 22px;
+      margin-bottom: 6px;
+    }
+    .bg-preview {
+      width: 100%;
+      height: 80px;
+      border-radius: 12px;
+      margin-top: 14px;
+      border: 1px solid var(--border2);
+      background-color: #050c1a;
+      background-image:
+        radial-gradient(120% 60% at 80% -10%, rgba(0,212,255,0.13), transparent 60%),
+        radial-gradient(60% 40% at 10% 95%, rgba(168,85,247,0.09), transparent 55%),
+        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
     }
 
-    /* ── Design tokens ── */
-    .token-grid {
+    /* ── Rules grid ── */
+    .rules-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 6px;
     }
-    .token-card {
+    .rule-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 16px 18px;
     }
-    .token-card-label {
-      font-family: var(--font-ui);
-      font-size: 9px;
-      letter-spacing: 0.12em;
-      color: var(--text-muted);
+    .rule-label {
+      font-family: 'Audiowide', system-ui;
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
       opacity: 0.4;
       margin-bottom: 8px;
     }
-    .token-card-value {
-      font-family: var(--font-mono);
+    .rule-body {
       font-size: 12px;
-      color: var(--text-primary);
+      color: var(--muted);
+      opacity: 0.65;
+      line-height: 1.5;
+    }
+    code {
+      font-family: 'Share Tech Mono', monospace;
+      color: var(--accent);
+      font-size: 11px;
     }
 
-    /* ── Divider ── */
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 48px 0;
-    }
+    .divider { height: 1px; background: var(--border); margin: 48px 0; }
 
     @media (max-width: 600px) {
-      .font-row { grid-template-columns: 1fr; }
-      .font-preview { text-align: left; margin-top: 12px; }
-      .color-row { grid-template-columns: 40px 1fr; }
+      .font-row, .color-row { grid-template-columns: 1fr; }
+      .font-preview { text-align: left; margin-top: 10px; }
       .color-hex, .color-badge { display: none; }
     }
   </style>
@@ -239,139 +263,198 @@
 <div class="page">
 
   <!-- Header -->
-  <div class="header">
-    <p class="header-eyebrow">Internal Reference · v1.0</p>
-    <h1>Brand Guidelines</h1>
-    <p>YAHA design system — colors, typography, and usage rules for consistent UI.</p>
-  </div>
+  <p class="eyebrow">Fusion Theme · Internal Reference</p>
+  <h1>Brand Guidelines</h1>
+  <p class="header-sub">YAHA design system — Fusion theme. Navy palette + cyan/purple accents + three-font typographic system.</p>
 
-  <!-- ── COLORS ────────────────────────────────── -->
+  <!-- ── COLORS ── -->
   <div class="section">
-    <p class="section-title">Color Palette</p>
-    <div class="color-grid">
+    <p class="section-label">Color Palette</p>
+    <div class="color-list">
 
       <!-- Backgrounds -->
+      <p class="color-group-label">Backgrounds</p>
+
       <div class="color-row">
-        <div class="swatch" style="background:#050505; box-shadow: 0 0 0 1px #333 inset;"></div>
-        <div class="color-info">
+        <div class="swatch" style="background:#050c1a; box-shadow:inset 0 0 0 1px rgba(0,212,255,0.15);"></div>
+        <div>
           <div class="color-token">background</div>
-          <div class="color-desc">Page background — true OLED black</div>
+          <div class="color-desc">Page background — deep navy. The base layer everything sits on.</div>
         </div>
-        <div class="color-hex">#050505</div>
-        <div class="color-badge" style="background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.3); border:1px solid rgba(255,255,255,0.08);">BG</div>
+        <div class="color-hex">#050c1a</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.06);color:rgba(0,212,255,0.4);border:1px solid rgba(0,212,255,0.15);">BG</div>
       </div>
 
       <div class="color-row">
-        <div class="swatch" style="background:#0A0A0A; box-shadow: 0 0 0 1px #222 inset;"></div>
-        <div class="color-info">
+        <div class="swatch" style="background:#091424; box-shadow:inset 0 0 0 1px rgba(0,212,255,0.12);"></div>
+        <div>
           <div class="color-token">surface</div>
-          <div class="color-desc">Cards, panels, modals</div>
+          <div class="color-desc">Cards, panels, modals.</div>
         </div>
-        <div class="color-hex">#0A0A0A</div>
-        <div class="color-badge" style="background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.3); border:1px solid rgba(255,255,255,0.08);">SURFACE</div>
+        <div class="color-hex">#091424</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.06);color:rgba(0,212,255,0.4);border:1px solid rgba(0,212,255,0.15);">CARD</div>
       </div>
 
       <div class="color-row">
-        <div class="swatch" style="background:#121212;"></div>
-        <div class="color-info">
-          <div class="color-token">surfaceHighlight</div>
-          <div class="color-desc">Hover states, elevated surfaces</div>
+        <div class="swatch" style="background:#0e1d34;"></div>
+        <div>
+          <div class="color-token">surfaceHighlight / surface2</div>
+          <div class="color-desc">Inner cards, nested surfaces, deeper panels.</div>
         </div>
-        <div class="color-hex">#121212</div>
-        <div class="color-badge" style="background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.3); border:1px solid rgba(255,255,255,0.08);">HOVER</div>
+        <div class="color-hex">#0e1d34</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.06);color:rgba(0,212,255,0.4);border:1px solid rgba(0,212,255,0.15);">INNER</div>
       </div>
 
       <div class="color-row">
-        <div class="swatch" style="background:#1E1E1E;"></div>
-        <div class="color-info">
-          <div class="color-token">border</div>
-          <div class="color-desc">Default borders, dividers</div>
+        <div class="swatch" style="background:#0f2040;"></div>
+        <div>
+          <div class="color-token">raise</div>
+          <div class="color-desc">Hover states, progress tracks, segmented controls.</div>
         </div>
-        <div class="color-hex">#1E1E1E</div>
-        <div class="color-badge" style="background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.3); border:1px solid rgba(255,255,255,0.08);">BORDER</div>
+        <div class="color-hex">#0f2040</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.06);color:rgba(0,212,255,0.4);border:1px solid rgba(0,212,255,0.15);">HOVER</div>
+      </div>
+
+      <!-- Borders -->
+      <p class="color-group-label">Borders</p>
+
+      <div class="color-row">
+        <div class="swatch" style="background:rgba(0,212,255,0.13); border:1px solid rgba(0,212,255,0.3);"></div>
+        <div>
+          <div class="color-token">border (default)</div>
+          <div class="color-desc">Default card border — subtle cyan tint.</div>
+        </div>
+        <div class="color-hex">cyan 13%</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.06);color:rgba(0,212,255,0.4);border:1px solid rgba(0,212,255,0.2);">DEFAULT</div>
+      </div>
+
+      <div class="color-row">
+        <div class="swatch" style="background:rgba(0,212,255,0.38); border:1px solid rgba(0,212,255,0.5);"></div>
+        <div>
+          <div class="color-token">border2 (emphasis)</div>
+          <div class="color-desc">Active states, selected cards, modal edges.</div>
+        </div>
+        <div class="color-hex">cyan 38%</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.1);color:rgba(0,212,255,0.7);border:1px solid rgba(0,212,255,0.35);">ACTIVE</div>
       </div>
 
       <!-- Text -->
+      <p class="color-group-label">Text</p>
+
       <div class="color-row">
-        <div class="swatch" style="background:#F5F5F5;"></div>
-        <div class="color-info">
+        <div class="swatch" style="background:#e2e8f0;"></div>
+        <div>
           <div class="color-token">textPrimary</div>
-          <div class="color-desc">Body text, headings</div>
+          <div class="color-desc">Body text, headings — warm white (not pure white).</div>
         </div>
-        <div class="color-hex">#F5F5F5</div>
-        <div class="color-badge" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.4); border:1px solid rgba(255,255,255,0.1);">TEXT</div>
+        <div class="color-hex">#e2e8f0</div>
+        <div class="color-badge" style="background:rgba(226,232,240,0.08);color:rgba(226,232,240,0.5);border:1px solid rgba(226,232,240,0.12);">TEXT</div>
       </div>
 
       <div class="color-row">
-        <div class="swatch" style="background:#6B7280;"></div>
-        <div class="color-info">
+        <div class="swatch" style="background:#94a3b8;"></div>
+        <div>
           <div class="color-token">textMuted</div>
-          <div class="color-desc">Labels, secondary / disabled text</div>
+          <div class="color-desc">Labels, secondary text, descriptions.</div>
         </div>
-        <div class="color-hex">#6B7280</div>
-        <div class="color-badge" style="background:rgba(107,114,128,0.12); color:#6B7280; border:1px solid rgba(107,114,128,0.2);">MUTED</div>
+        <div class="color-hex">#94a3b8</div>
+        <div class="color-badge" style="background:rgba(148,163,184,0.08);color:rgba(148,163,184,0.5);border:1px solid rgba(148,163,184,0.15);">MUTED</div>
       </div>
 
-      <!-- Primary -->
-      <div class="color-row" style="border-color:rgba(0,212,255,0.15);">
-        <div class="swatch" style="background:#00d4ff; box-shadow:0 0 16px rgba(0,212,255,0.4);"></div>
-        <div class="color-info">
-          <div class="color-token">primary</div>
-          <div class="color-desc">Main interactive / highlight color, links</div>
+      <div class="color-row">
+        <div class="swatch" style="background:#475569;"></div>
+        <div>
+          <div class="color-token">faint</div>
+          <div class="color-desc">Placeholder text, disabled states, dividers.</div>
+        </div>
+        <div class="color-hex">#475569</div>
+        <div class="color-badge" style="background:rgba(71,85,105,0.15);color:rgba(71,85,105,0.8);border:1px solid rgba(71,85,105,0.25);">FAINT</div>
+      </div>
+
+      <!-- Accents -->
+      <p class="color-group-label">Accents</p>
+
+      <div class="color-row" style="border-color:rgba(0,212,255,0.25);">
+        <div class="swatch" style="background:#00d4ff; box-shadow:0 0 18px rgba(0,212,255,0.5);"></div>
+        <div>
+          <div class="color-token">accent / primary</div>
+          <div class="color-desc">Main CTA, active tabs, links, highlights, glow effects.</div>
         </div>
         <div class="color-hex">#00d4ff</div>
-        <div class="color-badge" style="background:rgba(0,212,255,0.12); color:#00d4ff; border:1px solid rgba(0,212,255,0.3);">PRIMARY</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.12);color:#00d4ff;border:1px solid rgba(0,212,255,0.35);">CYAN</div>
       </div>
 
-      <!-- Tracker types -->
-      <div class="color-row" style="border-color:rgba(16,185,129,0.15);">
-        <div class="swatch" style="background:#10b981; box-shadow:0 0 16px rgba(16,185,129,0.4);"></div>
-        <div class="color-info">
-          <div class="color-token">nutrition</div>
-          <div class="color-desc">Food, nutrition tracker · also used for success states &amp; CTAs</div>
-        </div>
-        <div class="color-hex">#10b981</div>
-        <div class="color-badge" style="background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.3);">NUTRITION</div>
-      </div>
-
-      <div class="color-row" style="border-color:rgba(59,130,246,0.15);">
-        <div class="swatch" style="background:#3b82f6; box-shadow:0 0 16px rgba(59,130,246,0.4);"></div>
-        <div class="color-info">
-          <div class="color-token">sleep</div>
-          <div class="color-desc">Sleep tracker · blue accents</div>
-        </div>
-        <div class="color-hex">#3b82f6</div>
-        <div class="color-badge" style="background:rgba(59,130,246,0.12); color:#3b82f6; border:1px solid rgba(59,130,246,0.3);">SLEEP</div>
-      </div>
-
-      <div class="color-row" style="border-color:rgba(249,115,22,0.15);">
-        <div class="swatch" style="background:#f97316; box-shadow:0 0 16px rgba(249,115,22,0.4);"></div>
-        <div class="color-info">
-          <div class="color-token">workout</div>
-          <div class="color-desc">Exercise, workout tracker · orange energy</div>
-        </div>
-        <div class="color-hex">#f97316</div>
-        <div class="color-badge" style="background:rgba(249,115,22,0.12); color:#f97316; border:1px solid rgba(249,115,22,0.3);">WORKOUT</div>
-      </div>
-
-      <div class="color-row" style="border-color:rgba(168,85,247,0.15);">
-        <div class="swatch" style="background:#a855f7; box-shadow:0 0 16px rgba(168,85,247,0.4);"></div>
-        <div class="color-info">
-          <div class="color-token">mood</div>
-          <div class="color-desc">Mood tracker · agent / AI-related UI</div>
+      <div class="color-row" style="border-color:rgba(168,85,247,0.25);">
+        <div class="swatch" style="background:#a855f7; box-shadow:0 0 18px rgba(168,85,247,0.5);"></div>
+        <div>
+          <div class="color-token">accent2</div>
+          <div class="color-desc">Secondary accent — gradients, active tab labels, agent/AI UI.</div>
         </div>
         <div class="color-hex">#a855f7</div>
-        <div class="color-badge" style="background:rgba(168,85,247,0.12); color:#a855f7; border:1px solid rgba(168,85,247,0.3);">MOOD</div>
+        <div class="color-badge" style="background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid rgba(168,85,247,0.35);">PURPLE</div>
       </div>
 
-      <div class="color-row" style="border-color:rgba(6,182,212,0.15);">
-        <div class="swatch" style="background:#06b6d4; box-shadow:0 0 16px rgba(6,182,212,0.4);"></div>
-        <div class="color-info">
-          <div class="color-token">water</div>
-          <div class="color-desc">Hydration / water tracker</div>
+      <!-- Category colors -->
+      <p class="color-group-label">Health Category Colors</p>
+
+      <div class="color-row" style="border-color:rgba(0,255,157,0.18);">
+        <div class="swatch" style="background:#00ff9d; box-shadow:0 0 18px rgba(0,255,157,0.45);"></div>
+        <div>
+          <div class="color-token">nutrition</div>
+          <div class="color-desc">Food / nutrition tracker. Also used for success states and primary CTAs.</div>
         </div>
-        <div class="color-hex">#06b6d4</div>
-        <div class="color-badge" style="background:rgba(6,182,212,0.12); color:#06b6d4; border:1px solid rgba(6,182,212,0.3);">WATER</div>
+        <div class="color-hex">#00ff9d</div>
+        <div class="color-badge" style="background:rgba(0,255,157,0.1);color:#00ff9d;border:1px solid rgba(0,255,157,0.3);">FOOD</div>
+      </div>
+
+      <div class="color-row" style="border-color:rgba(168,85,247,0.18);">
+        <div class="swatch" style="background:#a855f7; box-shadow:0 0 18px rgba(168,85,247,0.45);"></div>
+        <div>
+          <div class="color-token">sleep</div>
+          <div class="color-desc">Sleep tracker.</div>
+        </div>
+        <div class="color-hex">#a855f7</div>
+        <div class="color-badge" style="background:rgba(168,85,247,0.1);color:#a855f7;border:1px solid rgba(168,85,247,0.3);">SLEEP</div>
+      </div>
+
+      <div class="color-row" style="border-color:rgba(255,107,53,0.18);">
+        <div class="swatch" style="background:#ff6b35; box-shadow:0 0 18px rgba(255,107,53,0.45);"></div>
+        <div>
+          <div class="color-token">workout</div>
+          <div class="color-desc">Exercise / training tracker.</div>
+        </div>
+        <div class="color-hex">#ff6b35</div>
+        <div class="color-badge" style="background:rgba(255,107,53,0.1);color:#ff6b35;border:1px solid rgba(255,107,53,0.3);">WORKOUT</div>
+      </div>
+
+      <div class="color-row" style="border-color:rgba(255,215,0,0.18);">
+        <div class="swatch" style="background:#ffd700; box-shadow:0 0 18px rgba(255,215,0,0.45);"></div>
+        <div>
+          <div class="color-token">mood</div>
+          <div class="color-desc">Mood tracker — gold.</div>
+        </div>
+        <div class="color-hex">#ffd700</div>
+        <div class="color-badge" style="background:rgba(255,215,0,0.1);color:#ffd700;border:1px solid rgba(255,215,0,0.3);">MOOD</div>
+      </div>
+
+      <div class="color-row" style="border-color:rgba(0,212,255,0.18);">
+        <div class="swatch" style="background:#00d4ff; box-shadow:0 0 18px rgba(0,212,255,0.45);"></div>
+        <div>
+          <div class="color-token">water</div>
+          <div class="color-desc">Hydration tracker — same as accent cyan.</div>
+        </div>
+        <div class="color-hex">#00d4ff</div>
+        <div class="color-badge" style="background:rgba(0,212,255,0.1);color:#00d4ff;border:1px solid rgba(0,212,255,0.3);">WATER</div>
+      </div>
+
+      <div class="color-row" style="border-color:rgba(239,68,68,0.18);">
+        <div class="swatch" style="background:#ef4444; box-shadow:0 0 18px rgba(239,68,68,0.45);"></div>
+        <div>
+          <div class="color-token">heart</div>
+          <div class="color-desc">Heart rate tracker. Also used for destructive / delete actions.</div>
+        </div>
+        <div class="color-hex">#ef4444</div>
+        <div class="color-badge" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">HEART</div>
       </div>
 
     </div>
@@ -379,55 +462,60 @@
 
   <div class="divider"></div>
 
-  <!-- ── TYPOGRAPHY ─────────────────────────────── -->
+  <!-- ── TYPOGRAPHY ── -->
   <div class="section">
-    <p class="section-title">Typography</p>
-    <div class="font-grid">
+    <p class="section-label">Typography</p>
+    <div class="font-list">
 
       <div class="font-row">
-        <div class="font-meta">
+        <div>
           <div class="font-class">font-display-heading</div>
-          <div class="font-name">Chakra Petch → Orbitron</div>
-          <div class="font-usage">Page titles. Renders bold, italic &amp; uppercase automatically — never fight it.</div>
+          <div class="font-name">Chakra Petch 700 italic → Orbitron fallback</div>
+          <div class="font-swap">↑ Premium swap: Cyberhype</div>
+          <div class="font-usage">Page titles (h1), tracker names, section headers, modal titles. Renders bold + italic + uppercase automatically — never override.</div>
         </div>
         <div class="font-preview">
-          <div style="font-family:'Chakra Petch',monospace; font-style:italic; font-weight:700; font-size:22px; text-transform:uppercase; letter-spacing:0.06em; color:#F5F5F5;">Agent Management</div>
-          <div style="font-family:'Chakra Petch',monospace; font-style:italic; font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:6px;">Daily Targets</div>
+          <div style="font-family:'Chakra Petch',monospace;font-style:italic;font-weight:700;font-size:22px;text-transform:uppercase;letter-spacing:0.06em;background:linear-gradient(135deg,#00d4ff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Agent Management</div>
+          <div style="font-family:'Chakra Petch',monospace;font-style:italic;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.06em;color:#e2e8f0;margin-top:8px;">Daily Targets</div>
         </div>
       </div>
 
       <div class="font-row">
-        <div class="font-meta">
-          <div class="font-class">font-ui / font-ui-label</div>
-          <div class="font-name">Audiowide</div>
-          <div class="font-usage">Labels, buttons, nav items, tags. Uppercase with wide tracking.</div>
-        </div>
-        <div class="font-preview">
-          <div style="font-family:'Audiowide',system-ui; font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#F5F5F5;">New Agent</div>
-          <div style="font-family:'Audiowide',system-ui; font-size:9px; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-muted); margin-top:8px; opacity:0.5;">Daily Score · 7 Days</div>
-        </div>
-      </div>
-
-      <div class="font-row">
-        <div class="font-meta">
+        <div>
           <div class="font-class">font-mono</div>
           <div class="font-name">Share Tech Mono</div>
-          <div class="font-usage">Numbers, scores, data values, hex codes.</div>
+          <div class="font-swap">↑ Premium swap: Unhuman</div>
+          <div class="font-usage">All numeric values ("502 kcal", "7:01 hrs", scores), timestamps, hex codes. Never use for labels.</div>
         </div>
         <div class="font-preview">
-          <div style="font-family:'Share Tech Mono',monospace; font-size:32px; font-weight:900; color:#00d4ff;">87</div>
-          <div style="font-family:'Share Tech Mono',monospace; font-size:12px; color:var(--text-muted); margin-top:4px; opacity:0.5;">2:45:30 · #10b981</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:36px;color:#00d4ff;letter-spacing:0.04em;background:linear-gradient(135deg,#00d4ff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">87</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:13px;color:#94a3b8;margin-top:4px;letter-spacing:0.04em;">502 kcal · 7:01 · 36.92g</div>
         </div>
       </div>
 
       <div class="font-row">
-        <div class="font-meta">
-          <div class="font-class">font-sans</div>
-          <div class="font-name">Inter</div>
-          <div class="font-usage">Body text, descriptions, longer readable content.</div>
+        <div>
+          <div class="font-class">font-ui / font-ui-label</div>
+          <div class="font-name">Audiowide</div>
+          <div class="font-swap">↑ Premium swap: Omnitrinx</div>
+          <div class="font-usage">All labels, buttons, tab bar, badges, eyebrow text. Always uppercase, 9–11px, wide tracking (0.10–0.18em).</div>
         </div>
         <div class="font-preview">
-          <div style="font-family:'Inter',system-ui; font-size:14px; font-weight:500; color:#F5F5F5; line-height:1.5;">Log your workouts, meals,<br/>sleep, and mood — all in one place.</div>
+          <div style="font-family:'Audiowide',system-ui;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#e2e8f0;">New Agent</div>
+          <div style="font-family:'Audiowide',system-ui;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#94a3b8;margin-top:8px;opacity:0.5;">Daily Score · 7 Days</div>
+          <div style="font-family:'Audiowide',system-ui;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:#00d4ff;margin-top:6px;opacity:0.7;">Agent Selector</div>
+        </div>
+      </div>
+
+      <div class="font-row">
+        <div>
+          <div class="font-class">font-sans (body)</div>
+          <div class="font-name">Inter 400 / 500 / 700</div>
+          <div class="font-swap">No swap planned — Inter stays.</div>
+          <div class="font-usage">Chat messages, descriptions, body copy, button labels, longer readable text.</div>
+        </div>
+        <div class="font-preview">
+          <div style="font-family:'Inter',system-ui;font-size:14px;font-weight:500;color:#e2e8f0;line-height:1.5;">Log your workouts, meals,<br/>sleep, and mood — all in one place.</div>
         </div>
       </div>
 
@@ -436,47 +524,82 @@
 
   <div class="divider"></div>
 
-  <!-- ── RULES ─────────────────────────────────── -->
+  <!-- ── BACKGROUND TREATMENT ── -->
   <div class="section">
-    <p class="section-title">Quick Rules</p>
-    <div class="token-grid">
+    <p class="section-label">Background Treatment</p>
+    <div class="bg-card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+        <div>
+          <div class="font-class" style="margin-bottom:8px;">Every screen uses this background</div>
+          <div style="font-size:12px;color:var(--muted);opacity:0.6;line-height:1.6;">
+            Navy base + cyan radial glow (top-right) + purple radial glow (bottom-left) + subtle 44px cyan grid. Applied to root layout, not individual pages.
+          </div>
+          <div style="margin-top:12px;font-size:11px;color:var(--faint);font-family:'Share Tech Mono',monospace;">
+            radial-gradient(cyan 9% → transparent)<br/>
+            radial-gradient(purple 6% → transparent)<br/>
+            grid: 44×44px, cyan 2.2% opacity
+          </div>
+        </div>
+        <div>
+          <div class="bg-preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      <div class="token-card">
-        <div class="token-card-label">OLED First</div>
-        <div class="token-card-value" style="font-family:'Inter',system-ui; font-size:12px; color:var(--text-muted); opacity:0.7; line-height:1.5;">Never use <code style="font-family:'Share Tech Mono'; color:#f97316;">bg-white</code> or <code style="font-family:'Share Tech Mono'; color:#f97316;">bg-gray-*</code>. Always use surface tokens.</div>
+  <div class="divider"></div>
+
+  <!-- ── QUICK RULES ── -->
+  <div class="section">
+    <p class="section-label">Quick Rules</p>
+    <div class="rules-grid">
+
+      <div class="rule-card">
+        <div class="rule-label">Navy, Not Black</div>
+        <div class="rule-body">Background is <code>#050c1a</code> — deep navy. Never <code>bg-black</code> or pure <code>#000000</code>.</div>
       </div>
 
-      <div class="token-card">
-        <div class="token-card-label">Tracker = Accent</div>
-        <div class="token-card-value" style="font-family:'Inter',system-ui; font-size:12px; color:var(--text-muted); opacity:0.7; line-height:1.5;">Tracker type colors double as UI accents. Purple = agents/AI. Cyan = primary actions.</div>
+      <div class="rule-card">
+        <div class="rule-label">Cyan Borders</div>
+        <div class="rule-body">Default border = <code>rgba(0,212,255,0.13)</code>. Active/hover = <code>rgba(0,212,255,0.38)</code>. Not solid lines.</div>
       </div>
 
-      <div class="token-card">
-        <div class="token-card-label">Numbers → Mono</div>
-        <div class="token-card-value" style="font-family:'Inter',system-ui; font-size:12px; color:var(--text-muted); opacity:0.7; line-height:1.5;">All scores, values, and data points use <code style="font-family:'Share Tech Mono'; color:#00d4ff;">font-mono</code>.</div>
+      <div class="rule-card">
+        <div class="rule-label">Tracker = Accent</div>
+        <div class="rule-body">Tracker type colors are UI accents. Purple → agents/AI. Cyan → primary actions. Gold → mood. Neon green → nutrition.</div>
       </div>
 
-      <div class="token-card">
-        <div class="token-card-label">Uppercase Titles</div>
-        <div class="token-card-value" style="font-family:'Inter',system-ui; font-size:12px; color:var(--text-muted); opacity:0.7; line-height:1.5;"><code style="font-family:'Share Tech Mono'; color:#a855f7;">font-display-heading</code> auto-uppercases. Don't fight it — lean in.</div>
+      <div class="rule-card">
+        <div class="rule-label">Numbers → Mono</div>
+        <div class="rule-body">All scores, values, data: <code>font-mono</code> (Share Tech Mono). Gradient fill on hero numbers: cyan → purple.</div>
       </div>
 
-      <div class="token-card">
-        <div class="token-card-label">Borders</div>
-        <div class="token-card-value" style="font-family:'Inter',system-ui; font-size:12px; color:var(--text-muted); opacity:0.7; line-height:1.5;">Default <code style="font-family:'Share Tech Mono'; color:#00d4ff;">border-border</code>. Hover states use <code style="font-family:'Share Tech Mono'; color:#00d4ff;">white/10</code>. Colored borders use <code style="font-family:'Share Tech Mono'; color:#00d4ff;">color/20–30</code>.</div>
+      <div class="rule-card">
+        <div class="rule-label">Labels → Audiowide</div>
+        <div class="rule-body">Every field label, button, tab, badge uses <code>font-ui</code>. Uppercase, 9–11px, letter-spacing 0.10–0.18em.</div>
       </div>
 
-      <div class="token-card">
-        <div class="token-card-label">Glow Effects</div>
-        <div class="token-card-value" style="font-family:'Inter',system-ui; font-size:12px; color:var(--text-muted); opacity:0.7; line-height:1.5;">Use <code style="font-family:'Share Tech Mono'; color:#00d4ff;">drop-shadow</code> or <code style="font-family:'Share Tech Mono'; color:#00d4ff;">box-shadow</code> with tracker color at 20–40% opacity.</div>
+      <div class="rule-card">
+        <div class="rule-label">Titles → Chakra Petch</div>
+        <div class="rule-body"><code>font-display-heading</code> auto applies bold + italic + uppercase. Lean into it — never override the transform.</div>
+      </div>
+
+      <div class="rule-card">
+        <div class="rule-label">Glow Effects</div>
+        <div class="rule-body">Active swatches: <code>drop-shadow(0 0 16px color 45%)</code>. Active borders: add <code>box-shadow: var(--glow)</code>.</div>
+      </div>
+
+      <div class="rule-card">
+        <div class="rule-label">Font Roadmap</div>
+        <div class="rule-body">Current free fonts swap to premium when purchased: Chakra Petch → <code>Cyberhype</code>, Share Tech Mono → <code>Unhuman</code>, Audiowide → <code>Omnitrinx</code>.</div>
       </div>
 
     </div>
   </div>
 
   <!-- Footer -->
-  <div style="margin-top:64px; text-align:center;">
-    <p style="font-family:'Audiowide',system-ui; font-size:8px; letter-spacing:0.2em; text-transform:uppercase; color:var(--text-muted); opacity:0.2;">YAHA · Internal Reference · Do Not Distribute</p>
+  <div style="margin-top:56px;text-align:center;">
+    <p style="font-family:'Audiowide',system-ui;font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--faint);opacity:0.35;">YAHA · Fusion Theme · Internal Reference · Do Not Distribute</p>
   </div>
 
 </div>
