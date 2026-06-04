@@ -11,7 +11,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { Users, BarChart2, Zap, Activity } from 'lucide-react'
+import { useState } from 'react'
+import { Users, BarChart2, Zap, Activity, ChevronDown, Clock } from 'lucide-react'
 import type { AdminInsights, UserProfile } from '@/lib/db/analytics'
 
 type Props = {
@@ -136,7 +137,16 @@ const TOOLTIP_STYLE = {
   fontSize: 12,
 }
 
+function formatHour(h: number): string {
+  if (h === 0) return '12am'
+  if (h < 12) return `${h}am`
+  if (h === 12) return '12pm'
+  return `${h - 12}pm`
+}
+
 export function InsightsDashboard({ insights }: Props): React.ReactElement {
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+
   const {
     totalSignups,
     usersWithTrackers,
@@ -146,6 +156,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
     dailyActivity14d,
     topTrackers,
     recentEvents,
+    routineHealth,
     userProfiles,
   } = insights
 
@@ -402,121 +413,187 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
         <div className="grid grid-cols-2 gap-4">
           {userProfiles.map(user => {
             const statusColor = getStatusColor(user.status)
-            const displayTrackers = user.trackerNames.slice(0, 4)
-            const extraTrackers = user.trackerNames.length - displayTrackers.length
+            const isExpanded = expandedUserId === user.id
+            const usedTrackers = user.trackerBreakdown.filter(t => !t.unused)
+            const unusedTrackers = user.trackerBreakdown.filter(t => t.unused)
             return (
               <div
                 key={user.id}
-                className="rounded-2xl p-4 transition-all hover:brightness-110"
+                className="rounded-2xl overflow-hidden transition-all"
                 style={{
                   background: `linear-gradient(135deg, ${statusColor}08 0%, transparent 60%), #0e243a`,
                   border: `1px solid ${statusColor}25`,
                   boxShadow: `0 0 20px ${statusColor}0a`,
                 }}
               >
-                {/* Top row: ring + identity */}
-                <div className="flex items-start gap-4">
-                  <EngagementRing score={user.engagementScore} color={statusColor} />
-
-                  <div className="flex-1 min-w-0 pt-1">
-                    {/* Status badge */}
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1.5"
-                      style={{
-                        backgroundColor: `${statusColor}18`,
-                        border: `1px solid ${statusColor}35`,
-                        fontSize: '8px', fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase',
-                        color: statusColor,
-                      }}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: statusColor, boxShadow: `0 0 4px ${statusColor}` }} />
-                      {user.status}
-                    </span>
-
-                    {/* Email */}
-                    <p className="text-[13px] font-bold text-textPrimary truncate leading-tight" title={user.email}>
-                      {user.email}
-                    </p>
-                    <p className="text-[9px] font-mono opacity-25 text-textMuted mt-0.5">
-                      {user.id.slice(0, 8)}···
-                    </p>
-                  </div>
-                </div>
-
-                {/* 7-day activity bars */}
-                <div className="mt-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-30">7-day activity</span>
-                    <span className="text-[8px] font-black opacity-50" style={{ color: statusColor }}>
-                      {user.logsLast7d} logs
-                    </span>
-                  </div>
-                  <ActivityBars days={user.logsLast7dByDay} color={statusColor} />
-                </div>
-
-                {/* Stats row */}
-                <div className="flex items-center gap-0 mt-3 rounded-xl overflow-hidden border border-white/[0.04]">
-                  {[
-                    { label: 'Total Logs', value: user.totalLogs, color: 'text-textPrimary' },
-                    { label: 'Trackers', value: user.trackerCount, color: 'text-textMuted' },
-                    { label: 'Last Log', value: user.lastLogAt ? formatRelativeTime(user.lastLogAt) : '—', color: 'text-textMuted', small: true },
-                  ].map((stat, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 flex flex-col items-center py-2 gap-0.5 border-r border-white/[0.04] last:border-r-0"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                    >
-                      <span className={`font-black ${stat.small ? 'text-[10px]' : 'text-[16px]'} ${stat.color}`}>
-                        {stat.value}
+                {/* Card body */}
+                <div className="p-4">
+                  {/* Top row: ring + identity */}
+                  <div className="flex items-start gap-4">
+                    <EngagementRing score={user.engagementScore} color={statusColor} />
+                    <div className="flex-1 min-w-0 pt-1">
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1.5"
+                        style={{ backgroundColor: `${statusColor}18`, border: `1px solid ${statusColor}35`, fontSize: '8px', fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: statusColor, boxShadow: `0 0 4px ${statusColor}` }} />
+                        {user.status}
                       </span>
-                      <span className="text-[7px] font-black uppercase tracking-widest text-textMuted opacity-35">
-                        {stat.label}
-                      </span>
+                      <p className="text-[13px] font-bold text-textPrimary truncate leading-tight" title={user.email}>{user.email}</p>
+                      <p className="text-[9px] font-mono opacity-25 text-textMuted mt-0.5">{user.id.slice(0, 8)}···</p>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* 7-day activity bars */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-30">7-day activity</span>
+                      <span className="text-[8px] font-black opacity-50" style={{ color: statusColor }}>{user.logsLast7d} logs</span>
+                    </div>
+                    <ActivityBars days={user.logsLast7dByDay} color={statusColor} />
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="flex items-center mt-3 rounded-xl overflow-hidden border border-white/[0.04]">
+                    {[
+                      { label: 'Total Logs', value: String(user.totalLogs), small: false },
+                      { label: 'Trackers', value: String(user.trackerCount), small: false },
+                      { label: 'Peak Time', value: user.peakHour !== null ? formatHour(user.peakHour) : '—', small: true },
+                      { label: 'Last Log', value: user.lastLogAt ? formatRelativeTime(user.lastLogAt) : '—', small: true },
+                    ].map((stat, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center py-2 gap-0.5 border-r border-white/[0.04] last:border-r-0" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                        <span className={`font-black ${stat.small ? 'text-[10px] text-textMuted' : 'text-[16px] text-textPrimary'}`}>{stat.value}</span>
+                        <span className="text-[7px] font-black uppercase tracking-widest text-textMuted opacity-35">{stat.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tracker chips (compact, always visible) */}
+                  {usedTrackers.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-3">
+                      {usedTrackers.slice(0, 4).map(t => (
+                        <span
+                          key={t.name}
+                          className="rounded-full px-2 py-0.5 text-[9px] font-bold truncate max-w-[90px]"
+                          style={{ backgroundColor: `${statusColor}12`, border: `1px solid ${statusColor}25`, color: statusColor }}
+                          title={`${t.name}: ${t.count} logs`}
+                        >
+                          {t.name}
+                        </span>
+                      ))}
+                      {usedTrackers.length > 4 && (
+                        <span className="rounded-full px-2 py-0.5 text-[9px] font-bold" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>
+                          +{usedTrackers.length - 4} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Footer + expand toggle */}
+                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/[0.04]">
+                    <span className="text-[9px] text-textMuted opacity-35">Joined {formatDate(user.joinedAt)}</span>
+                    <button
+                      onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
+                      className="flex items-center gap-1 rounded-lg px-2 py-0.5 transition-all hover:opacity-80"
+                      style={{ backgroundColor: `${statusColor}15`, border: `1px solid ${statusColor}25` }}
+                    >
+                      <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: statusColor }}>
+                        {isExpanded ? 'Hide' : 'Full Breakdown'}
+                      </span>
+                      <ChevronDown
+                        className="h-3 w-3 transition-transform"
+                        style={{ color: statusColor, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Tracker chips */}
-                {user.trackerCount > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    {displayTrackers.map(name => (
-                      <span
-                        key={name}
-                        className="rounded-full px-2 py-0.5 text-[9px] font-bold truncate max-w-[90px]"
-                        style={{
-                          backgroundColor: `${statusColor}12`,
-                          border: `1px solid ${statusColor}25`,
-                          color: statusColor,
-                        }}
-                        title={name}
-                      >
-                        {name}
-                      </span>
-                    ))}
-                    {extraTrackers > 0 && (
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[9px] font-bold"
-                        style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}
-                      >
-                        +{extraTrackers} more
-                      </span>
+                {/* ── Expanded drill-down ── */}
+                {isExpanded && (
+                  <div className="border-t px-4 py-4 space-y-4" style={{ borderColor: `${statusColor}20`, backgroundColor: `${statusColor}06` }}>
+
+                    {/* Tracker activity breakdown */}
+                    {user.trackerBreakdown.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Tracker Activity</p>
+                        {user.trackerBreakdown.map(t => {
+                          const maxCount = user.trackerBreakdown[0]?.count ?? 1
+                          const barPct = t.unused ? 0 : Math.max(4, Math.round((t.count / Math.max(maxCount, 1)) * 100))
+                          return (
+                            <div key={t.name} className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-semibold text-textPrimary truncate max-w-[55%]" title={t.name}>{t.name}</span>
+                                <span className="text-[10px] font-black" style={{ color: t.unused ? '#4b5563' : statusColor }}>
+                                  {t.unused ? 'never used' : `${t.count} log${t.count !== 1 ? 's' : ''}`}
+                                </span>
+                              </div>
+                              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${barPct}%`, backgroundColor: t.unused ? '#1f2937' : statusColor, opacity: t.unused ? 0.3 : 0.7 }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-textMuted opacity-30 text-center py-2">No trackers created yet</p>
+                    )}
+
+                    {/* Unused trackers callout */}
+                    {unusedTrackers.length > 0 && (
+                      <div className="rounded-xl px-3 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                        <p className="text-[8px] font-black uppercase tracking-widest text-amber-400 opacity-70 mb-1">Set up but never used</p>
+                        <p className="text-[11px] text-textMuted opacity-60">
+                          {unusedTrackers.map(t => t.name).join(', ')}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Peak hour */}
+                    {user.peakHour !== null && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3 opacity-40" style={{ color: statusColor }} />
+                        <span className="text-[11px] text-textMuted opacity-60">
+                          Usually logs around <span className="font-black text-textPrimary">{formatHour(user.peakHour)}</span>
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}
-
-                {/* Footer metadata */}
-                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/[0.04]">
-                  <span className="text-[9px] text-textMuted opacity-35">
-                    Joined {formatDate(user.joinedAt)}
-                  </span>
-                  <span className="text-[9px] text-textMuted opacity-35">
-                    Seen {user.lastSeenAt ? formatRelativeTime(user.lastSeenAt) : 'never'}
-                  </span>
-                </div>
               </div>
             )
           })}
         </div>
+      </div>
+
+      {/* Routine Health */}
+      <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">Routine Health</h2>
+          <div className="flex-1 border-t border-white/5" />
+        </div>
+        {routineHealth.completions === 0 && routineHealth.skips === 0 ? (
+          <p className="text-sm font-medium text-textMuted opacity-40 text-center py-6">No routine data yet</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center space-y-1">
+              <p className="text-3xl font-black text-green-400">{routineHealth.completions}</p>
+              <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Completions</p>
+            </div>
+            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center space-y-1">
+              <p className="text-3xl font-black text-amber-400">{routineHealth.skips}</p>
+              <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Steps Skipped</p>
+            </div>
+            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center space-y-1">
+              <p className="text-xl font-black text-textPrimary truncate" title={routineHealth.topSkippedStep ?? '—'}>
+                {routineHealth.topSkippedStep ?? '—'}
+              </p>
+              <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Most Skipped Step</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Recent Activity Feed */}
