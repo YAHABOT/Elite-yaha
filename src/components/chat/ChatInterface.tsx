@@ -107,6 +107,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   const abortControllerRef = useRef<AbortController | null>(null)
   // Ref to the stop function for the "pending server response" poll (new-chat early navigation)
   const serverPollStopRef = useRef<(() => void) | null>(null)
+  // BUG-V34-EX31: Auto-advance stale closure fix — always stores latest handleSendSilent so
+  // the setTimeout callback doesn't capture a stale version with isLoading=true.
+  const handleSendSilentRef = useRef<((text: string, sessionIdOverride?: string) => Promise<void>) | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const triggerSent = useRef(false)
@@ -447,6 +450,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       if (isMountedRef.current) setIsLoading(false)
     }
   }
+  // BUG-V34-EX31: Update ref on every render so setTimeout always calls the latest version
+  handleSendSilentRef.current = handleSendSilent
 
   async function handleSendInternal(text: string, routineId?: string) {
     if (isLoading) return
@@ -552,7 +557,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                   setIsAutoPrompting(true)
                   setTimeout(() => {
                     if (isMountedRef.current) {
-                      void handleSendSilent('continue', capturedSessionId)
+                      // BUG-V34-EX31: Use ref to call the LATEST handleSendSilent — the direct
+                      // closure reference captures the stale version with isLoading=true and
+                      // immediately returns, silently blocking every auto-advance after step 1.
+                      void handleSendSilentRef.current?.('continue', capturedSessionId)
                       setIsAutoPrompting(false)
                     }
                   }, 600)
