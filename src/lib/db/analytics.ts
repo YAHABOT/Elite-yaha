@@ -27,10 +27,18 @@ export async function recordEvent(
   } catch { /* intentionally silent */ }
 }
 
+export type TrackerFieldStat = {
+  fieldId: string
+  label: string
+  type: string
+  count: number  // times this field appeared in logs (30d window)
+}
+
 export type TrackerStat = {
   name: string
   count: number    // all-time logs
   unused: boolean  // created but never logged
+  fields: TrackerFieldStat[]  // schema fields sorted by log frequency
 }
 
 export type UserProfile = {
@@ -49,6 +57,7 @@ export type UserProfile = {
   currentStreak: number            // consecutive days with logs, ending today or yesterday
   lastLogAt: string | null
   status: 'active' | 'dormant' | 'new'
+  widgetTypes: { type: string; count: number }[]  // dashboard widget types and counts
 }
 
 export type AdminInsights = {
@@ -67,7 +76,8 @@ export type AdminInsights = {
   actionCardOutcomes30d: { confirmed_clean: number; confirmed_edited: number; dismissed: number }
   dailyActivity14d: { date: string; count: number }[]
   topTrackers: { tracker_name: string; count: number }[]
-  recentEvents: { id: string; user_id: string; event_type: string; metadata: Record<string, unknown>; created_at: string }[]
+  recentEvents: { id: string; user_id: string; user_email: string; event_type: string; metadata: Record<string, unknown>; created_at: string }[]
+  topFields: { fieldLabel: string; trackerName: string; count: number }[]  // top logged fields (30d)
   routineHealth: {
     completions: number
     skips: number
@@ -96,6 +106,8 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     allLogsRes,
     routineEventsRes,
     chatFailuresRes,
+    widgetsRes,
+    fieldLogsRes,
   ] = await Promise.all([
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from('trackers').select('user_id'),
@@ -105,10 +117,12 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     supabase.from('usage_events').select('created_at').gte('created_at', ago(14)).order('created_at', { ascending: true }),
     supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed'),
     supabase.from('usage_events').select('id, user_id, event_type, metadata, created_at').order('created_at', { ascending: false }).limit(20),
-    supabase.from('trackers').select('id, user_id, name').order('created_at', { ascending: true }),
+    supabase.from('trackers').select('id, user_id, name, schema').order('created_at', { ascending: true }),
     supabase.from('tracker_logs').select('user_id, tracker_id, logged_at').order('logged_at', { ascending: false }).limit(50000),
     supabase.from('usage_events').select('event_type, metadata, created_at, user_id').in('event_type', ['routine_start', 'routine_completed', 'routine_step_skipped']).order('created_at', { ascending: true }),
     supabase.from('usage_events').select('id').eq('event_type', 'chat_no_action_card').gte('created_at', ago(7)),
+    supabase.from('widgets').select('user_id, type'),
+    supabase.from('tracker_logs').select('user_id, tracker_id, fields').gte('logged_at', ago(30)).limit(10000),
   ])
 
   // ── AI accuracy (7d) ─────────────────────────────────────────────────────
@@ -231,15 +245,72 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   const chatFailures7d      = (chatFailuresRes.data ?? []).length
 
   // ── Per-user profiles ─────────────────────────────────────────────────────
-  type TrackerRow = { id: string; user_id: string; name: string }
+  type SchemaField = { fieldId: string; label: string; type: string; unit?: string }
+  type TrackerRow = { id: string; user_id: string; name: string; schema: SchemaField[] }
   type LogRow = { user_id: string; tracker_id: string; logged_at: string }
+  type FieldLogRow = { user_id: string; tracker_id: string; fields: Record<string, unknown> }
 
-  const trackersByUser = new Map<string, { id: string; name: string }[]>()
-  for (const t of (allTrackersRes.data ?? []) as TrackerRow[]) {
+  const allTrackers = (allTrackersRes.data ?? []) as TrackerRow[]
+
+  const trackersByUser = new Map<string, { id: string; name: string; schema: SchemaField[] }[]>()
+  for (const t of allTrackers) {
     const arr = trackersByUser.get(t.user_id) ?? []
-    arr.push({ id: t.id, name: t.name })
+    arr.push({ id: t.id, name: t.name, schema: Array.isArray(t.schema) ? t.schema : [] })
     trackersByUser.set(t.user_id, arr)
   }
+
+  // Widget type counts per user
+  const widgetsByUser = new Map<string, Map<string, number>>()
+  for (const w of (widgetsRes.data ?? []) as { user_id: string; type: string }[]) {
+    if (!widgetsByUser.has(w.user_id)) widgetsByUser.set(w.user_id, new Map())
+    const typeMap = widgetsByUser.get(w.user_id)!
+    typeMap.set(w.type, (typeMap.get(w.type) ?? 0) + 1)
+  }
+
+  // Field-level counts per user+tracker (30d window)
+  // fieldId → fieldLabel+trackerName resolution uses tracker schemas
+  const fieldCountByUserTracker = new Map<string, Map<string, Map<string, number>>>()
+  const fieldCountGlobal = new Map<string, number>()  // fieldId → count
+  for (const log of (fieldLogsRes.data ?? []) as FieldLogRow[]) {
+    const fields = log.fields as Record<string, unknown> | null
+    if (!fields) continue
+    if (!fieldCountByUserTracker.has(log.user_id))
+      fieldCountByUserTracker.set(log.user_id, new Map())
+    const byTracker = fieldCountByUserTracker.get(log.user_id)!
+    if (!byTracker.has(log.tracker_id))
+      byTracker.set(log.tracker_id, new Map())
+    const byField = byTracker.get(log.tracker_id)!
+    for (const [fieldId, val] of Object.entries(fields)) {
+      if (val === null || val === undefined || val === '') continue
+      byField.set(fieldId, (byField.get(fieldId) ?? 0) + 1)
+      fieldCountGlobal.set(fieldId, (fieldCountGlobal.get(fieldId) ?? 0) + 1)
+    }
+  }
+
+  // Build fieldId → { label, trackerName } lookup from all tracker schemas
+  const fieldMeta = new Map<string, { label: string; trackerName: string }>()
+  for (const t of allTrackers) {
+    for (const f of t.schema) {
+      if (!fieldMeta.has(f.fieldId)) {
+        fieldMeta.set(f.fieldId, { label: f.label, trackerName: t.name })
+      }
+    }
+  }
+
+  // Global top fields (30d)
+  const topFields = [...fieldCountGlobal.entries()]
+    .filter(([fieldId]) => fieldMeta.has(fieldId))
+    .map(([fieldId, count]) => ({
+      fieldLabel: fieldMeta.get(fieldId)!.label,
+      trackerName: fieldMeta.get(fieldId)!.trackerName,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20)
+
+  // User email map (for recent events)
+  const authUsers = authUsersRes.data?.users ?? []
+  const userEmailMap = new Map(authUsers.map(u => [u.id, u.email ?? '(no email)']))
 
   // 7-day keys: index 0 = today-6, index 6 = today
   const dayKeys: string[] = []
@@ -319,8 +390,6 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     : null
 
   // ── Build user profiles ───────────────────────────────────────────────────
-  const authUsers = authUsersRes.data?.users ?? []
-
   const userProfiles: UserProfile[] = authUsers.map(u => {
     const totalLogs      = logCountByUser.get(u.id) ?? 0
     const dayMap         = logDaysByUser.get(u.id)
@@ -329,19 +398,34 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     const engagementScore = Math.min(100, Math.round((logsLast7d / 7) * 100))
     const lastLogAt      = lastLogByUser.get(u.id) ?? null
 
-    // tracker breakdown
+    // tracker breakdown (with per-field stats)
     const userTrackers    = trackersByUser.get(u.id) ?? []
     const userTrackerLogs = logByUserTracker.get(u.id)
     const trackerBreakdown: TrackerStat[] = userTrackers
-      .map(t => ({
-        name: t.name,
-        count: userTrackerLogs?.get(t.id) ?? 0,
-        unused: !(userTrackerLogs?.has(t.id)),
-      }))
+      .map(t => {
+        const fieldCounts = fieldCountByUserTracker.get(u.id)?.get(t.id) ?? new Map<string, number>()
+        const fields: TrackerFieldStat[] = t.schema.map(f => ({
+          fieldId: f.fieldId,
+          label: f.label,
+          type: f.type,
+          count: fieldCounts.get(f.fieldId) ?? 0,
+        })).sort((a, b) => b.count - a.count)
+        return {
+          name: t.name,
+          count: userTrackerLogs?.get(t.id) ?? 0,
+          unused: !(userTrackerLogs?.has(t.id)),
+          fields,
+        }
+      })
       .sort((a, b) => {
         if (a.unused !== b.unused) return a.unused ? 1 : -1
         return b.count - a.count
       })
+
+    // dashboard widget types
+    const widgetTypes = [...(widgetsByUser.get(u.id) ?? new Map<string, number>()).entries()]
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count)
 
     // peak hour
     const hMap = hoursByUser.get(u.id)
@@ -383,6 +467,7 @@ export async function getAdminInsights(): Promise<AdminInsights> {
       currentStreak,
       lastLogAt,
       status,
+      widgetTypes,
     }
   }).sort((a, b) => {
     const order = { active: 0, dormant: 1, new: 2 }
@@ -400,9 +485,13 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     actionCardOutcomes30d: { confirmed_clean, confirmed_edited, dismissed },
     dailyActivity14d: Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })),
     topTrackers: Array.from(topMap.entries()).map(([tracker_name, count]) => ({ tracker_name, count })).sort((a, b) => b.count - a.count).slice(0, 8),
-    recentEvents: (recentRes.data ?? []) as AdminInsights['recentEvents'],
+    recentEvents: (recentRes.data ?? []).map(e => ({
+      ...(e as Omit<AdminInsights['recentEvents'][0], 'user_email'>),
+      user_email: userEmailMap.get((e as { user_id: string }).user_id) ?? '—',
+    })),
     routineHealth: { completions: routineCompletions, skips: routineSkips, topSkippedStep, avgCompletionMinutes },
     chatFailures7d,
+    topFields,
     userProfiles,
   }
 }

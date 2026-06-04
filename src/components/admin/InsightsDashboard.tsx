@@ -15,7 +15,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { useState } from 'react'
-import { Users, BarChart2, Zap, Activity, ChevronDown, Clock } from 'lucide-react'
+import { Users, BarChart2, Zap, Activity, ChevronDown, Clock, EyeOff, Eye, X as XIcon } from 'lucide-react'
 import type { AdminInsights, UserProfile } from '@/lib/db/analytics'
 
 type Props = {
@@ -149,6 +149,8 @@ function formatHour(h: number): string {
 
 export function InsightsDashboard({ insights }: Props): React.ReactElement {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [hiddenUserIds, setHiddenUserIds] = useState<Set<string>>(new Set())
+  const [showHidden, setShowHidden] = useState(false)
 
   const {
     totalSignups,
@@ -163,8 +165,12 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
     recentEvents,
     routineHealth,
     chatFailures7d,
+    topFields,
     userProfiles,
   } = insights
+
+  const visibleUsers = showHidden ? userProfiles : userProfiles.filter(u => !hiddenUserIds.has(u.id))
+  const hiddenCount = hiddenUserIds.size
 
   const accuracyColor = getAccuracyColor(aiAccuracy7d)
 
@@ -519,6 +525,40 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
         )}
       </div>
 
+      {/* Top Fields (30d) */}
+      {topFields.length > 0 && (
+        <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">
+              Top Logged Fields
+            </h2>
+            <div className="flex-1 border-t border-white/5" />
+            <span className="text-[10px] font-medium text-textMuted opacity-40">30d</span>
+          </div>
+          <div className="space-y-2">
+            {topFields.slice(0, 12).map((f, i) => {
+              const maxCount = topFields[0]?.count ?? 1
+              const barPct = Math.max(4, Math.round((f.count / maxCount) * 100))
+              const fieldColor = i < 3 ? CYAN : i < 6 ? PURPLE : '#6B7280'
+              return (
+                <div key={`${f.trackerName}-${f.fieldLabel}`} className="space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[11px] font-semibold text-textPrimary truncate">{f.fieldLabel}</span>
+                      <span className="text-[9px] text-textMuted opacity-40 shrink-0">· {f.trackerName}</span>
+                    </div>
+                    <span className="text-[11px] font-black shrink-0 ml-2" style={{ color: fieldColor }}>{f.count}×</span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${barPct}%`, backgroundColor: fieldColor, opacity: 0.6 }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* User Roster — card grid */}
       <div className="space-y-4">
         {/* Header */}
@@ -535,12 +575,24 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
             <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10px] font-black text-textMuted opacity-70 ml-1">
               {userProfiles.length}
             </span>
+            {hiddenCount > 0 && (
+              <button
+                onClick={() => setShowHidden(v => !v)}
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 border transition-all hover:opacity-80"
+                style={{ backgroundColor: 'rgba(107,114,128,0.12)', borderColor: 'rgba(107,114,128,0.3)', color: '#9ca3af' }}
+              >
+                {showHidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  {showHidden ? 'Hide hidden' : `${hiddenCount} hidden`}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Cards grid */}
         <div className="grid grid-cols-2 gap-4">
-          {userProfiles.map(user => {
+          {visibleUsers.map(user => {
             const statusColor = getStatusColor(user.status)
             const isExpanded = expandedUserId === user.id
             const usedTrackers = user.trackerBreakdown.filter(t => !t.unused)
@@ -557,7 +609,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
               >
                 {/* Card body */}
                 <div className="p-4">
-                  {/* Top row: ring + identity */}
+                  {/* Top row: ring + identity + hide button */}
                   <div className="flex items-start gap-4">
                     <EngagementRing score={user.engagementScore} color={statusColor} />
                     <div className="flex-1 min-w-0 pt-1">
@@ -577,6 +629,19 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                             🔥 {user.currentStreak}d
                           </span>
                         )}
+                        {/* Hide button */}
+                        <button
+                          onClick={() => setHiddenUserIds(prev => {
+                            const next = new Set(prev)
+                            next.has(user.id) ? next.delete(user.id) : next.add(user.id)
+                            return next
+                          })}
+                          className="ml-auto flex h-5 w-5 items-center justify-center rounded-full transition-all hover:opacity-80"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.25)' }}
+                          title={hiddenUserIds.has(user.id) ? 'Unhide user' : 'Hide user'}
+                        >
+                          <XIcon className="h-2.5 w-2.5" />
+                        </button>
                       </div>
                       <p className="text-[13px] font-bold text-textPrimary truncate leading-tight" title={user.email}>{user.email}</p>
                       <p className="text-[9px] font-mono opacity-25 text-textMuted mt-0.5">{user.id.slice(0, 8)}···</p>
@@ -651,15 +716,16 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                 {isExpanded && (
                   <div className="border-t px-4 py-4 space-y-4" style={{ borderColor: `${statusColor}20`, backgroundColor: `${statusColor}06` }}>
 
-                    {/* Tracker activity breakdown */}
+                    {/* Tracker + field breakdown */}
                     {user.trackerBreakdown.length > 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Tracker Activity</p>
+                      <div className="space-y-3">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Trackers & Fields</p>
                         {user.trackerBreakdown.map(t => {
                           const maxCount = user.trackerBreakdown[0]?.count ?? 1
                           const barPct = t.unused ? 0 : Math.max(4, Math.round((t.count / Math.max(maxCount, 1)) * 100))
                           return (
-                            <div key={t.name} className="space-y-1">
+                            <div key={t.name} className="space-y-1.5">
+                              {/* Tracker row */}
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-semibold text-textPrimary truncate max-w-[55%]" title={t.name}>{t.name}</span>
                                 <span className="text-[10px] font-black" style={{ color: t.unused ? '#4b5563' : statusColor }}>
@@ -672,6 +738,25 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                                   style={{ width: `${barPct}%`, backgroundColor: t.unused ? '#1f2937' : statusColor, opacity: t.unused ? 0.3 : 0.7 }}
                                 />
                               </div>
+                              {/* Fields under this tracker */}
+                              {t.fields.length > 0 && (
+                                <div className="pl-3 border-l-2 space-y-1 mt-1" style={{ borderColor: `${statusColor}25` }}>
+                                  {t.fields.map(f => (
+                                    <div key={f.fieldId} className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="text-[9px] text-textMuted opacity-60 truncate">{f.label}</span>
+                                        <span className="text-[8px] text-textMuted opacity-25 shrink-0">·{f.type}</span>
+                                      </div>
+                                      <span
+                                        className="text-[9px] font-bold shrink-0 ml-2"
+                                        style={{ color: f.count > 0 ? statusColor : '#4b5563' }}
+                                      >
+                                        {f.count > 0 ? `${f.count}×` : '—'}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )
                         })}
@@ -687,6 +772,25 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                         <p className="text-[11px] text-textMuted opacity-60">
                           {unusedTrackers.map(t => t.name).join(', ')}
                         </p>
+                      </div>
+                    )}
+
+                    {/* Dashboard widget types */}
+                    {user.widgetTypes.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Dashboard Widgets</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {user.widgetTypes.map(wt => (
+                            <span
+                              key={wt.type}
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+                              style={{ backgroundColor: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', fontSize: '9px', fontWeight: 700, color: '#00d4ff' }}
+                            >
+                              {wt.type.replace(/_/g, ' ')}
+                              <span style={{ color: 'rgba(0,212,255,0.6)', fontWeight: 900 }}>×{wt.count}</span>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -762,18 +866,41 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
             <p className="text-sm font-medium text-textMuted opacity-40">No events yet</p>
           </div>
         ) : (
+          <>
+          {/* Column headers */}
+          <div className="grid gap-4 px-4 pb-1" style={{ gridTemplateColumns: '160px 1fr 1fr 1fr 56px' }}>
+            {['Event', 'Who', 'Tracker', 'What was logged', 'When'].map(h => (
+              <span key={h} className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-30">{h}</span>
+            ))}
+          </div>
           <div className="space-y-1.5">
             {recentEvents.map((event) => {
               const badgeColor = EVENT_TYPE_COLORS[event.event_type] ?? '#6B7280'
               const trackerName = (event.metadata?.tracker_name as string | undefined) ?? null
+              const routineName = (event.metadata?.routine_name as string | undefined) ?? null
+              // What was logged: field names from confirmed cards, routine names for routine events
+              const loggedContent: string | null = (() => {
+                if (event.event_type === 'action_card_confirmed') {
+                  const fields = event.metadata?.ai_fields_total_names as string[] | undefined
+                  return fields && fields.length > 0 ? fields.slice(0, 4).join(', ') + (fields.length > 4 ? ` +${fields.length - 4}` : '') : null
+                }
+                if (event.event_type === 'routine_completed') return routineName ? `Completed: ${routineName}` : null
+                if (event.event_type === 'routine_step_skipped') {
+                  const step = event.metadata?.step_name as string | undefined
+                  return step ? `Skipped: ${step}` : routineName ?? null
+                }
+                return null
+              })()
+              const displayEmail = event.user_email === '(no email)' ? event.user_id.slice(0, 8) + '···' : event.user_email
               return (
                 <div
                   key={event.id}
-                  className="flex items-center gap-4 rounded-xl bg-white/[0.02] border border-white/[0.03] px-4 py-2.5 transition-colors hover:bg-white/[0.04]"
+                  className="grid gap-4 items-center rounded-xl bg-white/[0.02] border border-white/[0.03] px-4 py-2.5 transition-colors hover:bg-white/[0.04]"
+                  style={{ gridTemplateColumns: '160px 1fr 1fr 1fr 56px' }}
                 >
                   {/* Event type badge */}
                   <span
-                    className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest"
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest w-fit"
                     style={{
                       backgroundColor: `${badgeColor}20`,
                       color: badgeColor,
@@ -783,24 +910,30 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                     {event.event_type.replace(/_/g, ' ')}
                   </span>
 
+                  {/* User email */}
+                  <span className="truncate text-[11px] font-medium text-textMuted" title={event.user_email}>
+                    {displayEmail}
+                  </span>
+
                   {/* Tracker name */}
-                  <span className="flex-1 truncate text-xs font-medium text-textMuted">
+                  <span className="truncate text-[11px] font-medium text-textMuted">
                     {trackerName ?? <span className="opacity-30">—</span>}
                   </span>
 
-                  {/* User ID */}
-                  <span className="shrink-0 font-mono text-[10px] text-textMuted opacity-40">
-                    {event.user_id.slice(0, 8)}
+                  {/* What was logged */}
+                  <span className="truncate text-[11px] text-textMuted opacity-60" title={loggedContent ?? ''}>
+                    {loggedContent ?? <span className="opacity-30">—</span>}
                   </span>
 
                   {/* Timestamp */}
-                  <span className="shrink-0 text-[10px] font-medium text-textMuted opacity-50">
+                  <span className="shrink-0 text-[10px] font-medium text-textMuted opacity-50 text-right">
                     {formatRelativeTime(event.created_at)}
                   </span>
                 </div>
               )
             })}
           </div>
+          </>
         )}
       </div>
     </div>
