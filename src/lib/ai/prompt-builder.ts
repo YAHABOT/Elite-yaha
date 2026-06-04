@@ -712,7 +712,12 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
 
   // Build explicit field ID templates so the AI cannot hallucinate field IDs from other trackers.
   // Using actual fld_* IDs + labels prevents the AI from copying field names from step history.
+  // BUG-V34-EX30 FIX: Fall back to name lookup if ID is stale (tracker recreated or routine edited).
   const stepTracker = trackers.find(t => t.id === currentStep.trackerId)
+    ?? trackers.find(t => t.name === currentStep.trackerName)
+  // Use the DB-verified tracker ID in the prompt so Gemini gets the correct UUID even when
+  // the routine step was created with a now-stale ID.
+  const resolvedTrackerId = stepTracker?.id ?? currentStep.trackerId
   const fieldsJsonTemplate = currentStep.targetFields
     .map(fid => {
       const field = stepTracker?.schema.find(f => f.fieldId === fid)
@@ -732,19 +737,17 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
     .join(', ')
 
   const getFieldsInfo = (step: RoutineStep) => {
-    const tracker = trackers.find(t => t.id === step.trackerId)
+    // BUG-V34-EX30: name fallback when step ID is stale
+    const tracker = trackers.find(t => t.id === step.trackerId) ?? trackers.find(t => t.name === step.trackerName)
     return step.targetFields.map(fid => {
       const field = tracker?.schema.find(f => f.fieldId === fid)
       return field ? `${field.label} (${field.type}${field.unit ? `, ${field.unit}` : ''})` : fid
     }).join(', ')
   }
 
-  const getTrackerIdForStep = (step: RoutineStep): string => {
-    return step.trackerId
-  }
-
   const getUnitsMap = (step: RoutineStep) => {
-    const tracker = trackers.find(t => t.id === step.trackerId)
+    // BUG-V34-EX30: name fallback when step ID is stale
+    const tracker = trackers.find(t => t.id === step.trackerId) ?? trackers.find(t => t.name === step.trackerName)
     const map: Record<string, string> = {}
     step.targetFields.forEach(fid => {
       const field = tracker?.schema.find(f => f.fieldId === fid)
@@ -758,7 +761,8 @@ export function buildRoutineSystemPrompt(routine: Routine, trackers: Tracker[], 
 
   // FIX: BUG-V32-EX20 — Build SELECT field constraints for validation
   const getSelectConstraints = (step: RoutineStep) => {
-    const tracker = trackers.find(t => t.id === step.trackerId)
+    // BUG-V34-EX30: name fallback when step ID is stale
+    const tracker = trackers.find(t => t.id === step.trackerId) ?? trackers.find(t => t.name === step.trackerName)
     const constraints: Record<string, string[]> = {}
     step.targetFields.forEach(fid => {
       const field = tracker?.schema.find(f => f.fieldId === fid)
@@ -886,7 +890,7 @@ ${fullSequence}
 ${summary}
 ${targetsSection}${historicalSection ? `\n${historicalSection}\n` : ''}
 ## ACTIVE STEP: ${currentStepIndex + 1} of ${routine.steps.length} — ${currentStep.trackerName}
-- **Tracker ID** (use in action card): \`${getTrackerIdForStep(currentStep)}\`
+- **Tracker ID** (use in action card): \`${resolvedTrackerId}\`
 - **Fields to collect**: ${currentFields}
 
 ## FLOW RULES:
@@ -903,7 +907,7 @@ ${targetsSection}${historicalSection ? `\n${historicalSection}\n` : ''}
 5. **Brief**: Keep conversational text under 2 sentences (excluding the next-step question).
 
 ## DATA FORMAT
-Tracker ID: \`${currentStep.trackerId}\`
+Tracker ID: \`${resolvedTrackerId}\`
 Metric IDs: \`${currentStep.targetFields.join(', ')}\`
 Units: \`${currentUnits}\`
 
@@ -931,7 +935,7 @@ REQUIRED JSON FORMAT (use EXACTLY these field IDs — do NOT substitute field ID
 [
   {
     "type": "LOG_DATA",
-    "trackerId": "${currentStep.trackerId}",
+    "trackerId": "${resolvedTrackerId}",
     "trackerName": "${currentStep.trackerName}",
     "fields": {
       ${fieldsJsonTemplate}

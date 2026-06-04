@@ -898,15 +898,28 @@ export async function POST(req: Request): Promise<Response> {
               currentStepTrackerId: currentStep?.trackerId || 'null',
             })
 
+            // BUG-V34-EX30 FIX: Routine step auto-advance mismatch
+            // buildSanitizedActions name-corrects a.trackerId to the DB's current UUID,
+            // but currentStep.trackerId holds the UUID stored in the routine JSON at creation time.
+            // If the tracker was recreated or the routine edited, these diverge and hasLoggedCurrentStep
+            // is permanently false → step never auto-advances.
+            // Fix: also accept a trackerName match as fallback (same name = same logical tracker).
             const hasLoggedCurrentStep = isSkipIntent
               ? true
-              : (currentStep ? sanitizedActions.some(a => a && a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId) : false)
+              : (currentStep ? sanitizedActions.some(a =>
+                  a && a.type === 'LOG_DATA' &&
+                  (a.trackerId === currentStep.trackerId ||
+                   (currentStep.trackerName && (a as { trackerName?: string }).trackerName === currentStep.trackerName))
+                ) : false)
 
             console.log(`[ChatRoute DEBUG] hasLoggedCurrentStep evaluated:`, {
               result: hasLoggedCurrentStep,
               isSkipIntent,
               currentStepExists: !!currentStep,
-              matchingLogData: currentStep ? sanitizedActions.filter(a => a && a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId).length : 0,
+              currentStepTrackerId: currentStep?.trackerId,
+              currentStepTrackerName: currentStep?.trackerName,
+              matchingByTrackerId: currentStep ? sanitizedActions.filter(a => a && a.type === 'LOG_DATA' && a.trackerId === currentStep.trackerId).length : 0,
+              matchingByTrackerName: currentStep?.trackerName ? sanitizedActions.filter(a => a && a.type === 'LOG_DATA' && (a as { trackerName?: string }).trackerName === currentStep.trackerName).length : 0,
             })
 
             if (hasLoggedCurrentStep) {
