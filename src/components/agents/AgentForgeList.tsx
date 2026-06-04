@@ -18,7 +18,8 @@ type LibraryAgent = {
 const LIBRARY_AGENTS: LibraryAgent[] = []
 
 const LIBRARY_ENABLED_KEY = 'yaha_library_agents_enabled'
-const MY_AGENTS_ENABLED_KEY = 'yaha_my_agents_enabled'
+// Stores disabled agent IDs — absence means enabled (default on)
+export const MY_AGENTS_DISABLED_KEY = 'yaha_my_agents_disabled'
 
 type Props = { initialAgents: Agent[] }
 type Tab = 'my_agents' | 'library'
@@ -29,14 +30,15 @@ export function AgentForgeList({ initialAgents }: Props) {
   const [isDesigning, setIsDesigning] = useState(false)
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [enabledLibraryIds, setEnabledLibraryIds] = useState<Set<string>>(new Set())
-  const [enabledMyAgentIds, setEnabledMyAgentIds] = useState<Set<string>>(new Set())
+  // Stores IDs of agents that are DISABLED — absence = enabled (default on)
+  const [disabledMyAgentIds, setDisabledMyAgentIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     try {
       const lib = localStorage.getItem(LIBRARY_ENABLED_KEY)
       if (lib) setEnabledLibraryIds(new Set(JSON.parse(lib) as string[]))
-      const my = localStorage.getItem(MY_AGENTS_ENABLED_KEY)
-      if (my) setEnabledMyAgentIds(new Set(JSON.parse(my) as string[]))
+      const my = localStorage.getItem(MY_AGENTS_DISABLED_KEY)
+      if (my) setDisabledMyAgentIds(new Set(JSON.parse(my) as string[]))
     } catch { /* ignore */ }
   }, [])
 
@@ -50,10 +52,10 @@ export function AgentForgeList({ initialAgents }: Props) {
   }
 
   const toggleMyAgent = (id: string) => {
-    setEnabledMyAgentIds(prev => {
+    setDisabledMyAgentIds(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
-      try { localStorage.setItem(MY_AGENTS_ENABLED_KEY, JSON.stringify([...next])) } catch { /* ignore */ }
+      try { localStorage.setItem(MY_AGENTS_DISABLED_KEY, JSON.stringify([...next])) } catch { /* ignore */ }
       return next
     })
   }
@@ -110,7 +112,7 @@ export function AgentForgeList({ initialAgents }: Props) {
             </div>
           ) : (
             agents.map(agent => {
-              const enabled = enabledMyAgentIds.has(agent.id)
+              const enabled = !disabledMyAgentIds.has(agent.id)
               return (
                 <div
                   key={agent.id}

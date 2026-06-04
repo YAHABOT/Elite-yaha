@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Plus, Check, ChevronDown, Bot } from 'lucide-react'
 import type { Agent } from '@/types/agent'
 
+const MY_AGENTS_DISABLED_KEY = 'yaha_my_agents_disabled'
+
 type Props = {
   agents: Agent[]
   activeAgentId: string | null
@@ -13,8 +15,18 @@ type Props = {
 export function AgentSelector({ agents, activeAgentId, onSelect }: Props): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  
-  const activeAgent = agents.find(a => a.id === activeAgentId)
+  const [disabledIds, setDisabledIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(MY_AGENTS_DISABLED_KEY)
+      if (stored) setDisabledIds(new Set(JSON.parse(stored) as string[]))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Only show agents that haven't been toggled off
+  const visibleAgents = agents.filter(a => !disabledIds.has(a.id))
+  const activeAgent = visibleAgents.find(a => a.id === activeAgentId)
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -47,7 +59,7 @@ export function AgentSelector({ agents, activeAgentId, onSelect }: Props): React
       {isOpen && (
         <div className="absolute bottom-full left-0 mb-4 w-72 origin-bottom-left rounded-[32px] border border-white/10 bg-black/80 p-3 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 z-50">
           <div className="px-4 py-3 mb-2">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-textMuted opacity-30">Cognitive Layer</h3>
+            <h3 className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.18em', color: '#a855f7', opacity: 0.8 }}>AGENT SELECTOR</h3>
           </div>
           
           <div className="space-y-1.5">
@@ -76,7 +88,7 @@ export function AgentSelector({ agents, activeAgentId, onSelect }: Props): React
 
             <div className="h-px bg-white/5 mx-2 my-2" />
 
-            {agents.map((agent) => (
+            {visibleAgents.map((agent) => (
               <button
                 key={agent.id}
                 onClick={() => {
@@ -105,9 +117,9 @@ export function AgentSelector({ agents, activeAgentId, onSelect }: Props): React
               </button>
             ))}
 
-            {agents.length === 0 && (
+            {visibleAgents.length === 0 && (
               <div className="px-4 py-8 text-center">
-                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted opacity-20 italic">No agents forged</p>
+                <p className="font-ui text-textMuted opacity-20" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>NO AGENTS ENABLED</p>
               </div>
             )}
           </div>

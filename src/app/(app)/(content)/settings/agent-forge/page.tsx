@@ -17,7 +17,17 @@ export default async function AgentForgePage() {
           <ChevronLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h1 className="font-display-heading text-lg text-textPrimary">Agent Management</h1>
+          <h1
+            className="font-display-heading text-lg"
+            style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #a855f7 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Agent Management
+          </h1>
           <p className="font-ui text-textMuted/50 mt-0.5" style={{ fontSize: '9px', letterSpacing: '0.10em' }}>
             CREATE AGENTS · EXPLORE THE LIBRARY
           </p>
