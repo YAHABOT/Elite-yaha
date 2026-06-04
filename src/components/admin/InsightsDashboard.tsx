@@ -453,6 +453,21 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                         ))}
                       </div>
                     )}
+                    {t.mostCommonEdits.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        <span className="text-[9px] text-textMuted opacity-50 self-center">Typical corrections:</span>
+                        {t.mostCommonEdits.map(e => (
+                          <span
+                            key={e.field}
+                            className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#60a5fa' }}
+                            title={`Corrected ${e.count}×`}
+                          >
+                            {e.field} <span className="opacity-80">{e.avgDelta > 0 ? `+${e.avgDelta}` : e.avgDelta}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -701,7 +716,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
         {routineHealth.completions === 0 && routineHealth.skips === 0 ? (
           <p className="text-sm font-medium text-textMuted opacity-40 text-center py-6">No routine data yet</p>
         ) : (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center space-y-1">
               <p className="text-3xl font-black text-green-400">{routineHealth.completions}</p>
               <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Completions</p>
@@ -709,6 +724,19 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
             <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center space-y-1">
               <p className="text-3xl font-black text-amber-400">{routineHealth.skips}</p>
               <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Steps Skipped</p>
+            </div>
+            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center space-y-1">
+              {routineHealth.avgCompletionMinutes !== null ? (
+                <>
+                  <p className="text-3xl font-black text-blue-400">{routineHealth.avgCompletionMinutes}<span className="text-sm font-bold text-textMuted opacity-60 ml-0.5">m</span></p>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Avg Duration</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-black text-textMuted opacity-30">—</p>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-40">Avg Duration</p>
+                </>
+              )}
             </div>
             <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center space-y-1">
               <p className="text-xl font-black text-textPrimary truncate" title={routineHealth.topSkippedStep ?? '—'}>

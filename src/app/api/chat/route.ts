@@ -376,6 +376,12 @@ export async function POST(req: Request): Promise<Response> {
               session.active_routine_id = routine.id
               session.current_step_index = 0
               activeRoutine = routine
+              // Analytics: track routine start for completion-time computation
+              void supabase.from('usage_events').insert({
+                user_id: user.id,
+                event_type: 'routine_start',
+                metadata: { routine_id: routine.id, routine_name: routine.name, routine_type: routine.type },
+              })
               // Start Day: lock the logging date at TRIGGER time (not at completion)
               if (routine.type === 'day_start') {
                 markDayStarted(today).catch(e => console.error('[DayState] markDayStarted (trigger) failed:', e))
@@ -404,6 +410,12 @@ export async function POST(req: Request): Promise<Response> {
             session.active_routine_id = routineMatch.id
             session.current_step_index = 0
             activeRoutine = routineMatch
+            // Analytics: track routine start for completion-time computation
+            void supabase.from('usage_events').insert({
+              user_id: user.id,
+              event_type: 'routine_start',
+              metadata: { routine_id: routineMatch.id, routine_name: routineMatch.name, routine_type: routineMatch.type },
+            })
             // Start Day: lock the logging date at TRIGGER time (not at completion)
             if (routineMatch.type === 'day_start') {
               markDayStarted(today).catch(e => console.error('[DayState] markDayStarted (trigger) failed:', e))
@@ -965,6 +977,22 @@ export async function POST(req: Request): Promise<Response> {
 
             if (hasLoggedCurrentStep) {
               const nextStepIndex = session.current_step_index + 1
+
+              // Analytics: track step skips separately from normal completions
+              if (isSkipIntent) {
+                const currentStep = activeRoutine.steps[session.current_step_index]
+                void supabase.from('usage_events').insert({
+                  user_id: user.id,
+                  event_type: 'routine_step_skipped',
+                  metadata: {
+                    routine_id: activeRoutine.id,
+                    routine_name: activeRoutine.name,
+                    step_index: session.current_step_index,
+                    step_name: currentStep?.trackerName ?? null,
+                  },
+                })
+              }
+
               console.log(`[ChatRoute DEBUG] Advancing routine step:`, {
                 currentIndex: session.current_step_index,
                 nextIndex: nextStepIndex,
@@ -982,6 +1010,13 @@ export async function POST(req: Request): Promise<Response> {
                 // Also clear from chat_sessions for consistency
                 await updateSession(session.id, { active_routine_id: null, current_step_index: 0 })
                 console.log(`[ChatRoute DEBUG] updateSession called - routine cleared from chat_sessions`)
+
+                // Analytics: track routine completion (pairs with routine_start for timing)
+                void supabase.from('usage_events').insert({
+                  user_id: user.id,
+                  event_type: 'routine_completed',
+                  metadata: { routine_id: activeRoutine.id, routine_name: activeRoutine.name, routine_type: activeRoutine.type, total_steps: activeRoutine.steps.length },
+                })
 
                 if (activeRoutine.type === 'day_end') {
                   // Only mark ended if not already ended (prevent double-end race condition)

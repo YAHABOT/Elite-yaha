@@ -156,12 +156,20 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
     // Resolve human-readable labels for field keys (e.g. "fld_001" → "Calories")
     const labelFor = (key: string) => card.fieldLabels?.[key] ?? key
 
+    // For each AI-changed field, capture before (AI value) and after (user correction)
+    // Used in admin analytics to surface "AI usually overestimates Calories by ~200"
+    const fieldEditNames   = aiChangedKeys.map(labelFor)
+    const fieldEditsBefore = aiChangedKeys.map(key => String(card.fields?.[key] ?? ''))
+    const fieldEditsAfter  = aiChangedKeys.map(key => String(editableFields[key] ?? ''))
+
     void recordEventAction('action_card_confirmed', {
       tracker_id: card.trackerId ?? null,
       tracker_name: card.trackerName ?? null,
       was_edited: aiChangedKeys.length > 0,            // true only if AI's value was corrected
       ai_fields_changed: aiChangedKeys.length,          // how many AI values the user overrode
-      ai_fields_changed_names: aiChangedKeys.map(labelFor), // which fields (for per-field accuracy)
+      ai_fields_changed_names: fieldEditNames,          // which fields (for per-field accuracy)
+      field_edits_before: fieldEditsBefore,             // AI's original values (parallel to names)
+      field_edits_after: fieldEditsAfter,               // user's corrected values (parallel to names)
       ai_fields_total: aiFilledKeys.length,             // how many fields AI actually filled
       ai_fields_total_names: aiFilledKeys.map(labelFor),    // which fields AI filled
       user_fields_added: userAddedKeys.length,          // how many blanks the user completed

@@ -8,6 +8,7 @@ export type UsageEventType =
   | 'action_card_dismissed'
   | 'routine_step_skipped'
   | 'routine_completed'
+  | 'routine_start'
   | 'manual_log_created'
   | 'chat_no_action_card'
 
@@ -61,12 +62,18 @@ export type AdminInsights = {
     accuracy: number
     total: number
     frequentlyMissedFields: { field: string; missRate: number }[]  // fields AI blanks >20% of logs
+    mostCommonEdits: { field: string; avgDelta: number; count: number }[]  // top corrections sorted by frequency
   }[]  // sorted by total desc
   actionCardOutcomes30d: { confirmed_clean: number; confirmed_edited: number; dismissed: number }
   dailyActivity14d: { date: string; count: number }[]
   topTrackers: { tracker_name: string; count: number }[]
   recentEvents: { id: string; user_id: string; event_type: string; metadata: Record<string, unknown>; created_at: string }[]
-  routineHealth: { completions: number; skips: number; topSkippedStep: string | null }
+  routineHealth: {
+    completions: number
+    skips: number
+    topSkippedStep: string | null
+    avgCompletionMinutes: number | null  // median from routine_start→routine_completed pairs
+  }
   chatFailures7d: number
   userProfiles: UserProfile[]
 }
@@ -100,7 +107,7 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     supabase.from('usage_events').select('id, user_id, event_type, metadata, created_at').order('created_at', { ascending: false }).limit(20),
     supabase.from('trackers').select('id, user_id, name').order('created_at', { ascending: true }),
     supabase.from('tracker_logs').select('user_id, tracker_id, logged_at').order('logged_at', { ascending: false }).limit(50000),
-    supabase.from('usage_events').select('event_type, metadata').in('event_type', ['routine_completed', 'routine_step_skipped']),
+    supabase.from('usage_events').select('event_type, metadata, created_at, user_id').in('event_type', ['routine_start', 'routine_completed', 'routine_step_skipped']).order('created_at', { ascending: true }),
     supabase.from('usage_events').select('id').eq('event_type', 'chat_no_action_card').gte('created_at', ago(7)),
   ])
 
@@ -136,16 +143,17 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     }
   })
 
-  // Per-tracker accuracy + field-level miss rate detection
+  // Per-tracker accuracy + field-level miss rate + most common edits
   const tAccMap = new Map<string, {
     clean: number
     total: number
-    fieldMissCounts: Map<string, number>  // fieldLabel → times AI left it blank + user filled
+    fieldMissCounts: Map<string, number>             // fieldLabel → times AI left blank + user filled
+    fieldEditDeltas: Map<string, { sum: number; count: number }>  // fieldLabel → delta stats
   }>()
   for (const e of outcomes.filter(e => e.event_type === 'action_card_confirmed')) {
     const name = e.metadata?.tracker_name as string | undefined
     if (!name) continue
-    const prev = tAccMap.get(name) ?? { clean: 0, total: 0, fieldMissCounts: new Map() }
+    const prev = tAccMap.get(name) ?? { clean: 0, total: 0, fieldMissCounts: new Map(), fieldEditDeltas: new Map() }
     prev.total++
     if (e.metadata?.was_edited === false) prev.clean++
     // user_fields_added_names: fields AI left blank that the user completed
@@ -155,20 +163,47 @@ export async function getAdminInsights(): Promise<AdminInsights> {
         prev.fieldMissCounts.set(fieldLabel, (prev.fieldMissCounts.get(fieldLabel) ?? 0) + 1)
       }
     }
+    // field_edits_*: parallel arrays capturing before/after for each AI-filled field the user changed
+    const editNames  = e.metadata?.ai_fields_changed_names
+    const editBefore = e.metadata?.field_edits_before
+    const editAfter  = e.metadata?.field_edits_after
+    if (Array.isArray(editNames) && Array.isArray(editBefore) && Array.isArray(editAfter)) {
+      for (let i = 0; i < (editNames as string[]).length; i++) {
+        const field  = (editNames as string[])[i]
+        const before = parseFloat((editBefore as string[])[i])
+        const after  = parseFloat((editAfter as string[])[i])
+        if (!field || isNaN(before) || isNaN(after)) continue
+        const existing = prev.fieldEditDeltas.get(field) ?? { sum: 0, count: 0 }
+        existing.sum   += after - before   // negative = AI overestimated
+        existing.count += 1
+        prev.fieldEditDeltas.set(field, existing)
+      }
+    }
     tAccMap.set(name, prev)
   }
   const trackerAccuracy = [...tAccMap.entries()]
-    .map(([tracker_name, { clean, total, fieldMissCounts }]) => {
+    .map(([tracker_name, { clean, total, fieldMissCounts, fieldEditDeltas }]) => {
       // A field is "frequently missed" if AI leaves it blank in >20% of confirmed logs
       const frequentlyMissedFields = [...fieldMissCounts.entries()]
         .filter(([, count]) => count / total >= 0.2)
         .map(([field, count]) => ({ field, missRate: Math.round((count / total) * 100) }))
         .sort((a, b) => b.missRate - a.missRate)
+      // Most common edits: numeric fields with 2+ corrections, sorted by frequency
+      const mostCommonEdits = [...fieldEditDeltas.entries()]
+        .filter(([, { count }]) => count >= 2)
+        .map(([field, { sum, count }]) => ({
+          field,
+          avgDelta: Math.round(sum / count),  // negative = AI overestimates
+          count,
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 4)
       return {
         tracker_name,
         accuracy: Math.round((clean / total) * 100),
         total,
         frequentlyMissedFields,
+        mostCommonEdits,
       }
     })
     .sort((a, b) => b.total - a.total)
@@ -247,7 +282,7 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   }
 
   // ── Routine health ────────────────────────────────────────────────────────
-  type RoutineEventRow = { event_type: string; metadata: Record<string, unknown> }
+  type RoutineEventRow = { event_type: string; metadata: Record<string, unknown>; created_at: string; user_id: string }
   const routineEvents    = (routineEventsRes.data ?? []) as RoutineEventRow[]
   const routineCompletions = routineEvents.filter(e => e.event_type === 'routine_completed').length
   const routineSkips       = routineEvents.filter(e => e.event_type === 'routine_step_skipped').length
@@ -258,6 +293,29 @@ export async function getAdminInsights(): Promise<AdminInsights> {
   }
   const topSkippedStep = skipStepCounts.size > 0
     ? [...skipStepCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    : null
+
+  // Average completion time: pair each routine_start with the next routine_completed
+  // for the same user + routine_id within a 3-hour window (avoids stale pairs)
+  const completionMinutes: number[] = []
+  const starts = routineEvents.filter(e => e.event_type === 'routine_start')
+  const completeds = routineEvents.filter(e => e.event_type === 'routine_completed')
+  for (const start of starts) {
+    const startRoutineId = start.metadata?.routine_id as string | undefined
+    const startTime = new Date(start.created_at).getTime()
+    const match = completeds.find(c =>
+      c.user_id === start.user_id &&
+      (c.metadata?.routine_id as string | undefined) === startRoutineId &&
+      new Date(c.created_at).getTime() > startTime &&
+      new Date(c.created_at).getTime() - startTime < 3 * 60 * 60 * 1000 // within 3h
+    )
+    if (match) {
+      const mins = (new Date(match.created_at).getTime() - startTime) / 60000
+      completionMinutes.push(mins)
+    }
+  }
+  const avgCompletionMinutes = completionMinutes.length > 0
+    ? Math.round(completionMinutes.reduce((a, b) => a + b, 0) / completionMinutes.length)
     : null
 
   // ── Build user profiles ───────────────────────────────────────────────────
@@ -343,7 +401,7 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     dailyActivity14d: Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })),
     topTrackers: Array.from(topMap.entries()).map(([tracker_name, count]) => ({ tracker_name, count })).sort((a, b) => b.count - a.count).slice(0, 8),
     recentEvents: (recentRes.data ?? []) as AdminInsights['recentEvents'],
-    routineHealth: { completions: routineCompletions, skips: routineSkips, topSkippedStep },
+    routineHealth: { completions: routineCompletions, skips: routineSkips, topSkippedStep, avgCompletionMinutes },
     chatFailures7d,
     userProfiles,
   }
