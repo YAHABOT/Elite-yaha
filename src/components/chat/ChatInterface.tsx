@@ -111,6 +111,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // BUG-V34-EX31: Auto-advance stale closure fix — always stores latest handleSendSilent so
   // the setTimeout callback doesn't capture a stale version with isLoading=true.
   const handleSendSilentRef = useRef<((text: string, sessionIdOverride?: string) => Promise<void>) | null>(null)
+  // Step-index guard: prevents auto-advance timer from re-asking a step the user already passed.
+  // Set to capturedStepIndex when scheduling the timer; reset to -1 when the user manually sends.
+  const autoAdvanceStepRef = useRef<number>(-1)
   const router = useRouter()
   const searchParams = useSearchParams()
   const triggerSent = useRef(false)
@@ -376,6 +379,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        let silentShouldAutoPrompt = false
         for (;;) {
           const { done, value } = await reader.read()
           if (done) break
@@ -385,7 +389,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue
             try {
-              const event = JSON.parse(line.slice(6)) as { type: string; text?: string; messageId?: string; sessionId?: string; content?: string; actions?: unknown[] }
+              const event = JSON.parse(line.slice(6)) as { type: string; text?: string; messageId?: string; sessionId?: string; content?: string; actions?: unknown[]; shouldAutoPromptNextStep?: boolean }
               if (event.type === 'chunk' && event.text) {
                 // Stream chunks so the step-N prompt appears progressively (not all-at-once)
                 setStreamingText(prev => prev + event.text)
@@ -394,10 +398,29 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 finalSessionId = event.sessionId ?? currentSessionId
                 finalContent = event.content ?? ''
                 finalActions = event.actions ?? []
+                silentShouldAutoPrompt = event.shouldAutoPromptNextStep ?? false
                 setStreamingText('')
               }
             } catch { /* ignore parse errors */ }
           }
+        }
+        // Chain auto-advance through silent messages so the routine continues past step 1
+        if (silentShouldAutoPrompt && finalSessionId && finalSessionId !== 'new' && isMountedRef.current) {
+          const capturedSessionId = finalSessionId
+          const capturedStepIndex = session?.current_step_index ?? 0
+          autoAdvanceStepRef.current = capturedStepIndex
+          setIsLoading(false)
+          setIsAutoPrompting(true)
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              if (autoAdvanceStepRef.current !== capturedStepIndex) {
+                setIsAutoPrompting(false)
+                return
+              }
+              void handleSendSilentRef.current?.('continue', capturedSessionId)
+              setIsAutoPrompting(false)
+            }
+          }, 600)
         }
       } else {
         const data = await res.json()
@@ -457,6 +480,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
   async function handleSendInternal(text: string, routineId?: string) {
     if (isLoading) return
+    // Reset step-index guard — user manually sent, so any pending auto-advance for the
+    // same step should be suppressed (it would re-ask a step they already answered).
+    autoAdvanceStepRef.current = -1
     setIsLoading(true)
 
     // User message is optimistic
@@ -503,6 +529,12 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        // Lifted out of the done-event block so the post-loop session refresh can use them.
+        // shouldScheduleAutoAdvance is a plain boolean (not React state) so it's readable
+        // synchronously in the post-loop block without waiting for a re-render.
+        let sseResolvedSessionId: string = currentSessionId
+        let shouldScheduleAutoAdvance = false
+        let capturedSessionId: string = currentSessionId
 
         for (;;) {
           const { done, value } = await reader.read()
@@ -526,6 +558,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 if (!isMountedRef.current) return
                 const newMsgId = event.messageId
                 const finalSessionId = event.sessionId ?? currentSessionId
+                sseResolvedSessionId = finalSessionId
                 const shouldAutoPromptNextStep = (event as { shouldAutoPromptNextStep?: boolean }).shouldAutoPromptNextStep ?? false
                 // Replace streaming placeholder with final persisted message
                 setStreamingText('')
@@ -546,26 +579,17 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 if (routineId && finalSessionId) {
                   sessionStorage.setItem(`yaha_trigger_session_${routineId}`, finalSessionId)
                 }
-                // Auto-trigger the next routine step prompt if the current step just completed
+                // Auto-trigger the next routine step prompt if the current step just completed.
+                // BUG #4 fix: Set isAutoPrompting so the submit button isn't blocked.
+                // EX6/EX20 FIX: Send 'continue' (server rejects blank messages).
+                // SC2 FIX: capturedSessionId lifted out so the post-SSE block can use it.
+                // CR FIX: capturedStepIndex now captured AFTER session refresh (post-SSE block)
+                // to avoid reading a stale pre-advance value from session state.
                 if (shouldAutoPromptNextStep && finalSessionId && isMountedRef.current) {
-                  // Schedule auto-send of empty message to trigger Step 2 prompt, with a small delay
-                  // to allow UI to render the completion message first
-                  // BUG #4 fix: Set isAutoPrompting flag to prevent submit button from being blocked
-                  // EX6/EX20 FIX: Send 'continue' not '' — empty string causes a 400 (server rejects blank messages)
-                  // SC2 FIX: Capture finalSessionId before any re-render — the closure in setTimeout
-                  // would otherwise read currentSessionId='new' on the very first message.
-                  const capturedSessionId = finalSessionId
+                  capturedSessionId = finalSessionId
+                  shouldScheduleAutoAdvance = true
                   setIsLoading(false)   // unblock handleSendSilent before the timer fires
                   setIsAutoPrompting(true)
-                  setTimeout(() => {
-                    if (isMountedRef.current) {
-                      // BUG-V34-EX31: Use ref to call the LATEST handleSendSilent — the direct
-                      // closure reference captures the stale version with isLoading=true and
-                      // immediately returns, silently blocking every auto-advance after step 1.
-                      void handleSendSilentRef.current?.('continue', capturedSessionId)
-                      setIsAutoPrompting(false)
-                    }
-                  }, 600)
                   // DO NOT return here — let the outer for(;;) reader loop continue to natural end
                 }
               } else if (event.type === 'error') {
@@ -575,6 +599,44 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               // Ignore malformed SSE lines
               if (parseErr instanceof SyntaxError) continue
               throw parseErr
+            }
+          }
+        }
+
+        // Refresh session state after SSE stream ends so the routine step badge reflects
+        // the newly advanced step index (Bug 2A fix — handleSendInternal was missing this).
+        if (sseResolvedSessionId && sseResolvedSessionId !== 'new' && isMountedRef.current) {
+          const sessRes = await fetch(`/api/chat/sessions/${sseResolvedSessionId}`)
+          if (sessRes.ok) {
+            const nextSession = await sessRes.json()
+            if (!isMountedRef.current) return
+            setSession(nextSession)
+            // CR FIX: Step-index guard captures from the REFRESHED session (post-advance value),
+            // not the pre-refresh session state. This prevents the stale capturedStepIndex bug
+            // where the guard compared against the index BEFORE the server incremented it.
+            const capturedStepIndex = (nextSession as { current_step_index?: number }).current_step_index ?? 0
+            autoAdvanceStepRef.current = capturedStepIndex
+            // Schedule auto-advance timer now that we have the fresh step index
+            if (shouldScheduleAutoAdvance) {
+              const sessIdForTimer = capturedSessionId
+              setTimeout(() => {
+                if (isMountedRef.current) {
+                  // Guard: skip if the user already advanced past this step manually
+                  if (autoAdvanceStepRef.current !== capturedStepIndex) {
+                    setIsAutoPrompting(false)
+                    return
+                  }
+                  // BUG-V34-EX31: Use ref to call the LATEST handleSendSilent
+                  void handleSendSilentRef.current?.('continue', sessIdForTimer)
+                  setIsAutoPrompting(false)
+                }
+              }, 600)
+            }
+            if (nextSession.active_routine_id) {
+              const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
+              if (routRes.ok && isMountedRef.current) setCurrentRoutine(await routRes.json())
+            } else {
+              setCurrentRoutine(null)
             }
           }
         }

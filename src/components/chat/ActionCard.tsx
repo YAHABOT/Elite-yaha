@@ -8,6 +8,14 @@ import type { ActionCard as ActionCardType, UpdateDataCard } from '@/types/actio
 
 type ActionCardStatus = 'pending' | 'confirmed' | 'discarded' | 'loading'
 
+function formatDuration(seconds: number): string {
+  const total = Math.round(Math.abs(seconds))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 type Props = {
   card: ActionCardType
   messageId?: string       // DB message ID — used to persist confirmed: true on the message's JSONB
@@ -315,16 +323,23 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
               ) : (
                 <p className="text-sm font-bold text-foreground w-full leading-snug break-words whitespace-pre-wrap flex items-baseline gap-1.5 flex-wrap">
                   {value !== null && value !== undefined && value !== ''
-                    ? (
-                      <>
-                        <span>{String(value)}</span>
-                        {unit && (
-                          <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/40 select-none">
-                            {unit}
-                          </span>
-                        )}
-                      </>
-                    )
+                    ? (() => {
+                        const isDuration = card.fieldDefinitions?.[key]?.type === 'duration'
+                        const numValue = typeof value === 'number' && !isNaN(value) ? value : typeof value === 'string' ? parseFloat(value) : NaN
+                        const displayValue = isDuration && !isNaN(numValue)
+                          ? formatDuration(numValue)
+                          : String(value)
+                        return (
+                          <>
+                            <span>{displayValue}</span>
+                            {unit && !isDuration && (
+                              <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/40 select-none">
+                                {unit}
+                              </span>
+                            )}
+                          </>
+                        )
+                      })()
                     : <span className="text-muted-foreground/20">—</span>}
                 </p>
               )}
