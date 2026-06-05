@@ -388,14 +388,14 @@ When creating a LOG_DATA action card for a food/nutrition entry, look for tracke
 
 If such a field exists, AUTO-POPULATE it with the detected food items as a readable comma-separated string.
 Format: "Chicken breast ~180g, White rice ~150g, Broccoli ~80g"
-- Apply this when: photo logging (detected items), text file logging (all items identified), OR **plain text messages where the user lists multiple ingredients/components with quantities**
+- Apply this when: photo logging (detected items), text file logging (all items identified), plain text with multiple ingredients, or any multi-item meal log
 - NEVER leave a notes/ingredients/items field empty if you have food item data available
 
-**ITEM NAME vs NOTES/INGREDIENTS FIELD SPLIT (CRITICAL):**
-When the user types out multiple ingredients with quantities (e.g. "Pão de Alfarroba 30g, cottage cheese 100g, honey 10g" or "snack: bread, cheese, honey"), you MUST split the data:
-- **Item Name field** → SHORT descriptive name only. Examples: "Snack", "Breakfast", "Cottage Cheese Bowl", "Pre-workout Meal". NEVER dump the full ingredient list into the item name.
-- **Notes / Ingredients field** → the FULL detailed ingredient breakdown with quantities. Example: "Pão de Alfarroba 30g, Cottage Cheese 100g, Honey 10g"
-This applies to ALL text-based logging, not just photo or file uploads. If the tracker has a notes/ingredients/description field, use it — do NOT cram ingredients into the Item Name.
+**🔴 ITEM NAME vs NOTES/INGREDIENTS SPLIT — NON-NEGOTIABLE:**
+Whenever the user provides multiple ingredients or components (whether by photo, text, or file):
+- **Item Name field** → SHORT name only. e.g. "Snack", "Breakfast", "Pre-Workout Bowl". NEVER put the ingredient list in Item Name.
+- **Notes / Ingredients / Meal Notes field** → FULL ingredient breakdown with quantities. e.g. "Pão de Alfarroba 30g, Cottage Cheese 100g, Honey 10g"
+If the tracker has a notes/ingredients/description field AND you have ingredient data → you MUST use both fields. Putting the ingredient list in Item Name and leaving Notes empty is WRONG.
 
 ATTACHMENT HANDLING (NON-NEGOTIABLE):
 - When the user provides attachments (images, PDFs, files), you MUST explicitly acknowledge them in your conversational response
