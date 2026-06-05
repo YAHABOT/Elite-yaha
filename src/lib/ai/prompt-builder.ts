@@ -317,6 +317,22 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
       b) "Use the same as last time" when the value IS explicitly shown in HISTORICAL DATA — use the exact historical value.
 `
 
+const MEAL_NOTES_RULE = `
+## 📝 MEAL NOTES / INGREDIENTS AUTO-FILL (ALL LOGGING FLOWS — ALWAYS ACTIVE)
+
+When creating a LOG_DATA action card for a food/nutrition entry, check if the tracker has a field whose label (case-insensitive) contains any of: "notes", "ingredients", "items", "meal notes", "food items", "description".
+
+If such a field exists, AUTO-POPULATE it with the ingredient breakdown as a readable comma-separated string.
+Format: "Chicken breast ~180g, White rice ~150g, Broccoli ~80g"
+- Apply this for: photo logging, text file logging, AND plain text messages where the user lists ingredients/components with quantities
+- NEVER leave a notes/ingredients/meal notes field empty when you have ingredient data available
+
+**🔴 ITEM NAME = SHORT ONLY. NO INGREDIENT LIST IN THE NAME FIELD:**
+- WRONG: "Snack: Pão de Cereais (100g), Cottage Cheese (50g), Honey (10g)"
+- RIGHT — Item Name: "Snack" | Meal Notes: "Pão de Cereais 100g, Cottage Cheese 50g, Honey 10g"
+When a notes/ingredients field exists, ALL detail goes there. Item Name is the short label only — no colon, no ingredient list appended.
+`
+
 const VISION_CAPABILITY = `
 MULTIMODAL VISION — CRITICAL:
 You have full multimodal vision capabilities. When the user provides images, analyse them directly.
@@ -381,22 +397,6 @@ Food photos systematically make portions look larger than they are. Apply these 
 - User's message contains weights/quantities alongside the image
 - User says "just log it" or "don't ask"
 - The image is a fitness tracker screenshot, nutrition label, receipt, or non-food image — apply standard rules
-
-## 📝 MEAL NOTES / INGREDIENTS AUTO-FILL (ALL LOGGING FLOWS)
-
-When creating a LOG_DATA action card for a food/nutrition entry, look for tracker fields whose label (case-insensitive) contains any of: "notes", "ingredients", "items", "meal notes", "food items", "description".
-
-If such a field exists, AUTO-POPULATE it with the detected food items as a readable comma-separated string.
-Format: "Chicken breast ~180g, White rice ~150g, Broccoli ~80g"
-- Apply this when: photo logging (detected items), text file logging (all items identified), plain text with multiple ingredients, or any multi-item meal log
-- NEVER leave a notes/ingredients/items field empty if you have food item data available
-
-**🔴 ITEM NAME MUST BE SHORT — NO APPENDING INGREDIENTS:**
-When the tracker has a notes/ingredients/meal notes/description field:
-- **Item Name** = the short label ONLY. e.g. "Snack", "Breakfast", "Lunch". Stop there. No colon, no ingredient list after it.
-- WRONG: "Snack: Pão de Alfarroba, Cottage Cheese, Honey"
-- RIGHT Item Name: "Snack" — RIGHT Meal Notes: "Pão de Alfarroba 30g, Cottage Cheese 100g, Honey 10g"
-If you have a notes/ingredients field available, ALL ingredient detail goes there. Item Name never contains a colon-separated ingredient list.
 
 ATTACHMENT HANDLING (NON-NEGOTIABLE):
 - When the user provides attachments (images, PDFs, files), you MUST explicitly acknowledge them in your conversational response
@@ -656,6 +656,8 @@ Current time (UTC): ${new Date().toISOString().slice(11, 16)} — use this as "n
 ${neutralDateRule}
 
 ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL_TODAY}}/g, actualToday)}
+
+${MEAL_NOTES_RULE}
 
 ## CURRENT DAY ACTIVITY (${today})
 ${summary}
