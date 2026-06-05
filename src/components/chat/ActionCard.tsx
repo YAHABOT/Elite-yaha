@@ -16,6 +16,14 @@ function formatDuration(seconds: number): string {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+function parseDuration(str: string): number | null {
+  const parts = str.split(':').map(Number)
+  if (parts.some(isNaN)) return null
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60
+  return null
+}
+
 type Props = {
   card: ActionCardType
   messageId?: string       // DB message ID — used to persist confirmed: true on the message's JSONB
@@ -97,14 +105,10 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
         if (value === null || value === undefined || value === '') return [key, '']
         // Multi-select array: join as comma-separated string for editing
         if (Array.isArray(value)) return [key, value.join(', ')]
-        const unit = card.fieldUnits?.[key]
-        // Duration fields (unit = HRS): convert decimal hours to HH:MM for the input.
-        // The unit pill is outside the input so we never embed "HRS" in the value string.
-        if (unit && unit.toLowerCase() === 'hrs' && typeof value === 'number') {
-          const totalMinutes = Math.round(value * 60)
-          const h = Math.floor(totalMinutes / 60) % 24
-          const m = totalMinutes % 60
-          return [key, `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`]
+        // Duration fields: convert raw seconds → H:MM:SS for the input
+        if (card.fieldDefinitions?.[key]?.type === 'duration') {
+          const numVal = typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : NaN
+          if (!isNaN(numVal)) return [key, formatDuration(numVal)]
         }
         // All other fields: raw value only — unit pill handles the suffix display
         return [key, value]
@@ -120,9 +124,20 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
 
     console.log('[ActionCard] handleConfirm — messageId:', messageId, 'cardIndex:', cardIndex)
 
+    // Convert H:MM:SS edit strings back to seconds for duration fields
+    const fieldsToConfirm = Object.fromEntries(
+      Object.entries(editableFields).map(([key, val]) => {
+        if (card.fieldDefinitions?.[key]?.type === 'duration' && typeof val === 'string' && val.includes(':')) {
+          const secs = parseDuration(val)
+          return [key, secs ?? val]  // fallback to original string if parse fails
+        }
+        return [key, val]
+      })
+    )
+
     // Strip fields with no value — only persist what the user actually provided
     const confirmedFields = Object.fromEntries(
-      Object.entries(editableFields).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+      Object.entries(fieldsToConfirm).filter(([, v]) => v !== '' && v !== null && v !== undefined)
     )
 
     const result = await confirmLogAction({
@@ -150,9 +165,16 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
     })
 
     // Of AI-filled fields, which did the user change?
-    const aiChangedKeys = aiFilledKeys.filter(key =>
-      String(card.fields?.[key] ?? '') !== String(editableFields[key] ?? '')
-    )
+    const aiChangedKeys = aiFilledKeys.filter(key => {
+      const isDuration = card.fieldDefinitions?.[key]?.type === 'duration'
+      const original = card.fields?.[key]
+      const edited = editableFields[key]
+      if (isDuration && typeof original === 'number' && typeof edited === 'string') {
+        const editedSecs = parseDuration(edited)
+        return editedSecs !== null && editedSecs !== Math.round(original)
+      }
+      return String(original ?? '') !== String(edited ?? '')
+    })
 
     // Fields AI left blank that the user filled in (user contribution, not AI error)
     const userAddedKeys = allFieldKeys.filter(key => {
