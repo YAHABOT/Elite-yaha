@@ -3,6 +3,12 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getSafeUser } from '@/lib/supabase/auth'
 
+const ANALYTICS_EXCLUDED_EMAILS = [
+  'armaan1993@gmail.com',
+  'violetmikulchik@gmail.com',
+  '1993armaan@gmail.com',
+]
+
 export type UsageEventType =
   | 'action_card_confirmed'
   | 'action_card_dismissed'
@@ -60,7 +66,15 @@ export type UserProfile = {
   widgetTypes: { type: string; count: number }[]  // dashboard widget types and counts
 }
 
+export type FeedbackInsights = {
+  total: number
+  breakdown: { very_helpful: number; helpful_needs_work: number; not_helpful: number }
+  recentComments: Array<{ response: string; comment: string; created_at: string }>
+  responseRate: number | null  // % of active users who responded (vs total non-excluded users)
+}
+
 export type AdminInsights = {
+  feedbackInsights: FeedbackInsights
   totalSignups: number
   usersWithTrackers: number
   usersLoggedThisWeek: number
@@ -76,7 +90,7 @@ export type AdminInsights = {
   actionCardOutcomes30d: { confirmed_clean: number; confirmed_edited: number; dismissed: number }
   dailyActivity14d: { date: string; count: number }[]
   topTrackers: { tracker_name: string; count: number }[]
-  recentEvents: { id: string; user_id: string; user_email: string; event_type: string; metadata: Record<string, unknown>; created_at: string }[]
+  recentEvents: { id: string; user_id: string; user_email: string; event_type: string; metadata: Record<string, unknown>; created_at: string; excluded_from_analytics: boolean }[]
   topFields: { fieldLabel: string; trackerName: string; count: number }[]  // top logged fields (30d)
   routineHealth: {
     completions: number
@@ -112,11 +126,11 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from('trackers').select('user_id'),
     supabase.from('tracker_logs').select('user_id').gte('logged_at', ago(7)),
-    supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed').gte('created_at', ago(7)),
-    supabase.from('usage_events').select('event_type, metadata, created_at').in('event_type', ['action_card_confirmed', 'action_card_dismissed']).gte('created_at', ago(30)),
+    supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed').eq('excluded_from_analytics', false).gte('created_at', ago(7)),
+    supabase.from('usage_events').select('event_type, metadata, created_at').in('event_type', ['action_card_confirmed', 'action_card_dismissed']).eq('excluded_from_analytics', false).gte('created_at', ago(30)),
     supabase.from('usage_events').select('created_at').gte('created_at', ago(14)).order('created_at', { ascending: true }),
-    supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed'),
-    supabase.from('usage_events').select('id, user_id, event_type, metadata, created_at').order('created_at', { ascending: false }).limit(20),
+    supabase.from('usage_events').select('metadata').eq('event_type', 'action_card_confirmed').eq('excluded_from_analytics', false),
+    supabase.from('usage_events').select('id, user_id, event_type, metadata, created_at, excluded_from_analytics').order('created_at', { ascending: false }).limit(20),
     supabase.from('trackers').select('id, user_id, name, schema').order('created_at', { ascending: true }),
     supabase.from('tracker_logs').select('user_id, tracker_id, logged_at').order('logged_at', { ascending: false }).limit(50000),
     supabase.from('usage_events').select('event_type, metadata, created_at, user_id').in('event_type', ['routine_start', 'routine_completed', 'routine_step_skipped']).order('created_at', { ascending: true }),
@@ -493,5 +507,48 @@ export async function getAdminInsights(): Promise<AdminInsights> {
     chatFailures7d,
     topFields,
     userProfiles,
+    feedbackInsights: await getFeedbackInsights(),
   }
+}
+
+export async function getFeedbackInsights(): Promise<FeedbackInsights> {
+  const supabase = createServiceClient()
+
+  const [feedbackRes, authUsersRes] = await Promise.all([
+    supabase
+      .from('feedback_responses')
+      .select('response, comment, created_at, user_id')
+      .order('created_at', { ascending: false }),
+    supabase.auth.admin.listUsers({ perPage: 1000 }),
+  ])
+
+  const rows = (feedbackRes.data ?? []) as {
+    response: string
+    comment: string | null
+    created_at: string
+    user_id: string
+  }[]
+
+  const total = rows.length
+
+  const breakdown = {
+    very_helpful: rows.filter(r => r.response === 'very_helpful').length,
+    helpful_needs_work: rows.filter(r => r.response === 'helpful_needs_work').length,
+    not_helpful: rows.filter(r => r.response === 'not_helpful').length,
+  }
+
+  const recentComments = rows
+    .filter(r => r.comment && r.comment.trim().length > 0)
+    .slice(0, 10)
+    .map(r => ({ response: r.response, comment: r.comment!, created_at: r.created_at }))
+
+  // Response rate: respondents / non-excluded users
+  const authUsers = authUsersRes.data?.users ?? []
+  const eligibleUsers = authUsers.filter(u => !ANALYTICS_EXCLUDED_EMAILS.includes(u.email ?? ''))
+  const respondedUserIds = new Set(rows.map(r => r.user_id))
+  const responseRate = eligibleUsers.length > 0
+    ? Math.round((respondedUserIds.size / eligibleUsers.length) * 100)
+    : null
+
+  return { total, breakdown, recentComments, responseRate }
 }

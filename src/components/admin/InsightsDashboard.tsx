@@ -14,9 +14,10 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import { useState } from 'react'
-import { Users, BarChart2, Zap, Activity, ChevronDown, Clock, EyeOff, Eye, X as XIcon } from 'lucide-react'
+import { useState, useTransition } from 'react'
+import { Users, BarChart2, Zap, Activity, ChevronDown, Clock, EyeOff, Eye, X as XIcon, CheckCircle2, MinusCircle } from 'lucide-react'
 import type { AdminInsights, UserProfile } from '@/lib/db/analytics'
+import { toggleEventExclusion } from '@/app/actions/analytics'
 
 type Props = {
   insights: AdminInsights
@@ -151,6 +152,32 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [hiddenUserIds, setHiddenUserIds] = useState<Set<string>>(new Set())
   const [showHidden, setShowHidden] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  // Optimistic excluded set — initialised from server data
+  const [optimisticExcluded, setOptimisticExcluded] = useState<Set<string>>(
+    () => new Set(insights.recentEvents.filter(e => e.excluded_from_analytics).map(e => e.id))
+  )
+
+  function handleToggleExclusion(eventId: string) {
+    const currentlyExcluded = optimisticExcluded.has(eventId)
+    // Optimistic update
+    setOptimisticExcluded(prev => {
+      const next = new Set(prev)
+      currentlyExcluded ? next.delete(eventId) : next.add(eventId)
+      return next
+    })
+    startTransition(async () => {
+      const result = await toggleEventExclusion(eventId, currentlyExcluded)
+      if (result.error) {
+        // Revert on error
+        setOptimisticExcluded(prev => {
+          const next = new Set(prev)
+          currentlyExcluded ? next.add(eventId) : next.delete(eventId)
+          return next
+        })
+      }
+    })
+  }
 
   const {
     totalSignups,
@@ -167,6 +194,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
     chatFailures7d,
     topFields,
     userProfiles,
+    feedbackInsights,
   } = insights
 
   const visibleUsers = showHidden ? userProfiles : userProfiles.filter(u => !hiddenUserIds.has(u.id))
@@ -277,6 +305,66 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
             )}
           </div>
         </div>
+      </div>
+
+      {/* User Feedback */}
+      <div className="rounded-2xl border border-white/5 bg-surface p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-60">
+            User Feedback
+          </h2>
+          <div className="flex-1 border-t border-white/5" />
+          {feedbackInsights.responseRate !== null && (
+            <span className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-black text-textMuted">
+              {feedbackInsights.responseRate}% response rate
+            </span>
+          )}
+        </div>
+
+        {feedbackInsights.total === 0 ? (
+          <p className="text-sm text-textMuted opacity-50 py-4 text-center">No feedback yet</p>
+        ) : (
+          <div className="space-y-4">
+            {/* 3 stat cards */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-[#10b981]/30 bg-[#10b981]/5 p-3 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#10b981] opacity-70">Very Helpful</p>
+                <p className="text-2xl font-black text-[#10b981]">{feedbackInsights.breakdown.very_helpful}</p>
+              </div>
+              <div className="rounded-xl border border-[#f59e0b]/30 bg-[#f59e0b]/5 p-3 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#f59e0b] opacity-70">Needs Work</p>
+                <p className="text-2xl font-black text-[#f59e0b]">{feedbackInsights.breakdown.helpful_needs_work}</p>
+              </div>
+              <div className="rounded-xl border border-[#ef4444]/30 bg-[#ef4444]/5 p-3 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#ef4444] opacity-70">Not Helpful</p>
+                <p className="text-2xl font-black text-[#ef4444]">{feedbackInsights.breakdown.not_helpful}</p>
+              </div>
+            </div>
+
+            {/* Recent comments */}
+            {feedbackInsights.recentComments.length > 0 && (
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                {feedbackInsights.recentComments.slice(0, 8).map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
+                    <span
+                      className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
+                      style={{
+                        background: item.response === 'very_helpful' ? 'rgba(16,185,129,0.15)' : item.response === 'helpful_needs_work' ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                        color: item.response === 'very_helpful' ? '#10b981' : item.response === 'helpful_needs_work' ? '#f59e0b' : '#ef4444',
+                      }}
+                    >
+                      {item.response === 'very_helpful' ? 'great' : item.response === 'helpful_needs_work' ? 'needs work' : 'not helpful'}
+                    </span>
+                    <p className="flex-1 text-xs text-textPrimary leading-relaxed">{item.comment}</p>
+                    <span className="shrink-0 text-[10px] text-textMuted opacity-40 mt-0.5">
+                      {formatRelativeTime(item.created_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Two column row: Daily Activity + Outcomes */}
@@ -868,13 +956,14 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
         ) : (
           <>
           {/* Column headers */}
-          <div className="grid gap-4 px-4 pb-1" style={{ gridTemplateColumns: '160px 1fr 1fr 1fr 56px' }}>
-            {['Event', 'Who', 'Tracker', 'What was logged', 'When'].map(h => (
-              <span key={h} className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-30">{h}</span>
+          <div className="grid gap-4 px-4 pb-1" style={{ gridTemplateColumns: '28px 160px 1fr 1fr 1fr 56px' }}>
+            {['', 'Event', 'Who', 'Tracker', 'What was logged', 'When'].map((h, i) => (
+              <span key={i} className="text-[8px] font-black uppercase tracking-widest text-textMuted opacity-30">{h}</span>
             ))}
           </div>
           <div className="space-y-1.5">
             {recentEvents.map((event) => {
+              const isExcluded = optimisticExcluded.has(event.id)
               const badgeColor = EVENT_TYPE_COLORS[event.event_type] ?? '#6B7280'
               const trackerName = (event.metadata?.tracker_name as string | undefined) ?? null
               const routineName = (event.metadata?.routine_name as string | undefined) ?? null
@@ -895,9 +984,27 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
               return (
                 <div
                   key={event.id}
-                  className="grid gap-4 items-center rounded-xl bg-white/[0.02] border border-white/[0.03] px-4 py-2.5 transition-colors hover:bg-white/[0.04]"
-                  style={{ gridTemplateColumns: '160px 1fr 1fr 1fr 56px' }}
+                  className="grid gap-4 items-center rounded-xl border px-4 py-2.5 transition-all hover:bg-white/[0.04]"
+                  style={{
+                    gridTemplateColumns: '28px 160px 1fr 1fr 1fr 56px',
+                    backgroundColor: isExcluded ? 'rgba(239,68,68,0.04)' : 'rgba(255,255,255,0.02)',
+                    borderColor: isExcluded ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.03)',
+                    opacity: isExcluded ? 0.55 : 1,
+                  }}
                 >
+                  {/* Analytics inclusion toggle */}
+                  <button
+                    onClick={() => handleToggleExclusion(event.id)}
+                    disabled={isPending}
+                    title={isExcluded ? 'Mark as included in analytics' : 'Exclude from analytics'}
+                    className="flex items-center justify-center rounded-full transition-all hover:scale-110 disabled:opacity-50"
+                  >
+                    {isExcluded
+                      ? <MinusCircle className="h-3.5 w-3.5" style={{ color: '#ef4444', opacity: 0.7 }} />
+                      : <CheckCircle2 className="h-3.5 w-3.5" style={{ color: '#10b981', opacity: 0.6 }} />
+                    }
+                  </button>
+
                   {/* Event type badge */}
                   <span
                     className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest w-fit"

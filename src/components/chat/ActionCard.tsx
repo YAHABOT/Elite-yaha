@@ -153,6 +153,9 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
 
     setStatus('confirmed')
 
+    // Signal to FeedbackModal that a log was just confirmed — may trigger the feedback popup
+    window.dispatchEvent(new CustomEvent('yaha:log-confirmed'))
+
     // Fire analytics event (fire-and-forget, never awaited on the critical path)
     // AI accuracy: only count it as wrong when the user changes a value the AI actually filled in.
     // Filling in a field the AI left blank does NOT count against accuracy.

@@ -2,6 +2,7 @@ import { getSafeUser } from '@/lib/supabase/auth'
 import { redirect } from 'next/navigation'
 import { DesktopSidebar } from '@/components/nav/DesktopSidebar'
 import { MobileBottomNav } from '@/components/nav/MobileBottomNav'
+import { FeedbackModal } from '@/components/feedback/FeedbackModal'
 
 export default async function AppLayout({
   children,
@@ -41,6 +42,7 @@ export default async function AppLayout({
       <main className="md:pl-64 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0 h-full overflow-hidden">
         {children}
       </main>
+      <FeedbackModal />
     </div>
   )
 }
