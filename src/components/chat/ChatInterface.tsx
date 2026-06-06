@@ -1388,16 +1388,19 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  {/* Attach File — htmlFor points to the persistent #yaha-doc-input that
-                      stays in the DOM even when the menu closes. The tap is a direct user
-                      gesture on a real input so Android opens the file picker immediately
-                      without showing the system intent chooser (Camera/Voice/Files). */}
-                  <label
-                    htmlFor="yaha-doc-input"
-                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer"
-                  >
-                    <FileText className="h-4 w-4 text-workout shrink-0" />
-                    Attach File
+                  {/* Attach File — inline input IS the tap target. No onClick, no React
+                      state change on tap — zero interference before Android opens picker.
+                      Menu closes via handleFileChange once user picks a file. */}
+                  <label className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative">
+                    <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
+                    <span className="pointer-events-none">Attach File</span>
+                    <input
+                      type="file"
+                      accept={ACCEPTED_FILE_TYPES}
+                      multiple
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    />
                   </label>
                 </div>
               )}

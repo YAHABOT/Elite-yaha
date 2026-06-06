@@ -71,8 +71,16 @@
     <div class="bar-track"><div class="bar-fill"></div></div>
   </div>
   <script>
-    // Redirect to dashboard. The serverless function warms up while this animation plays.
-    setTimeout(function() { window.location.replace('/dashboard'); }, 800);
+    // Call /api/warmup to wake the serverless function, then navigate.
+    // Show the splash for at least 1.2s regardless of warmup speed.
+    var startTime = Date.now();
+    var MIN_SHOW_MS = 1200;
+    function go() {
+      var elapsed = Date.now() - startTime;
+      var wait = Math.max(0, MIN_SHOW_MS - elapsed);
+      setTimeout(function() { window.location.replace('/dashboard'); }, wait);
+    }
+    fetch('/api/warmup').then(go).catch(go);
   </script>
 </body>
 </html>
