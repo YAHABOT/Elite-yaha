@@ -715,6 +715,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   }, [input])
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsAttachMenuOpen(false) // close menu when any file is picked
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
 
@@ -1393,7 +1394,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                       without showing the system intent chooser (Camera/Voice/Files). */}
                   <label
                     htmlFor="yaha-doc-input"
-                    onClick={() => setIsAttachMenuOpen(false)}
                     className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer"
                   >
                     <FileText className="h-4 w-4 text-workout shrink-0" />
