@@ -1367,12 +1367,13 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             onChange={handleFileChange}
             className="hidden"
           />
-          {/* Document/file input — id keeps it reachable from the menu label via htmlFor */}
+          {/* Document/file input — accept="*/*" avoids Android refusing to open picker
+              for complex MIME lists. Client-side validation in handleFileChange filters types. */}
           <input
             id="yaha-doc-input"
             ref={fileDocInputRef}
             type="file"
-            accept={ACCEPTED_FILE_TYPES}
+            accept="*/*"
             multiple
             onChange={handleFileChange}
             className="hidden"
