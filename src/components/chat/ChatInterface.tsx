@@ -93,6 +93,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // BUG #4 fix: separate auto-prompt delay state from network loading state
   // allows user input during the 600ms auto-advance timeout
   const [isAutoPrompting, setIsAutoPrompting] = useState<boolean>(false)
+  // Fallback "Continue" button shown when auto-advance fires — dismissed once the
+  // silent request resolves or the user taps it manually.
+  const [showStepContinue, setShowStepContinue] = useState<boolean>(false)
 
   // B8: streaming text accumulates here until the [DONE] event arrives
   const [streamingText, setStreamingText] = useState<string>('')
@@ -114,6 +117,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // Step-index guard: prevents auto-advance timer from re-asking a step the user already passed.
   // Set to capturedStepIndex when scheduling the timer; reset to -1 when the user manually sends.
   const autoAdvanceStepRef = useRef<number>(-1)
+  // When a routine step advances AND produced action cards, we can't fire "continue"
+  // immediately — the user hasn't confirmed the card yet. Store the sessionId here
+  // and fire "continue" from onConfirmed instead.
+  const pendingRoutineAdvanceSessionRef = useRef<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const triggerSent = useRef(false)
@@ -356,13 +363,17 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   async function handleSendSilent(text: string, sessionIdOverride?: string): Promise<void> {
     if (isLoading) return
     setIsLoading(true)
+    setShowStepContinue(false)
     const sessId = sessionIdOverride ?? currentSessionId
+    // Use a dedicated AbortController so normal user interactions (which abort
+    // abortControllerRef) do not cancel the silent auto-advance request.
+    const silentController = new AbortController()
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, sessionId: sessId, agentId: activeAgentId, date: getLocalDateStr(), ...activeLibraryExtras }),
-        signal: abortControllerRef.current?.signal
+        signal: silentController.signal
       })
       if (!res.ok) return
 
@@ -411,8 +422,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           autoAdvanceStepRef.current = capturedStepIndex
           setIsLoading(false)
           setIsAutoPrompting(true)
+          setShowStepContinue(true)
           setTimeout(() => {
             if (isMountedRef.current) {
+              setShowStepContinue(false)
               if (autoAdvanceStepRef.current !== capturedStepIndex) {
                 setIsAutoPrompting(false)
                 return
@@ -483,6 +496,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     // Reset step-index guard — user manually sent, so any pending auto-advance for the
     // same step should be suppressed (it would re-ask a step they already answered).
     autoAdvanceStepRef.current = -1
+    pendingRoutineAdvanceSessionRef.current = null
+    setShowStepContinue(false)
     setIsLoading(true)
 
     // User message is optimistic
@@ -587,9 +602,21 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 // to avoid reading a stale pre-advance value from session state.
                 if (shouldAutoPromptNextStep && finalSessionId && isMountedRef.current) {
                   capturedSessionId = finalSessionId
-                  shouldScheduleAutoAdvance = true
-                  setIsLoading(false)   // unblock handleSendSilent before the timer fires
-                  setIsAutoPrompting(true)
+                  // If the response has LOG_DATA action cards the user must confirm,
+                  // don't fire the timer now — fire "continue" from onConfirmed instead.
+                  const hasLogDataCards = (event.actions ?? []).some(
+                    (a) => a && typeof a === 'object' && (a as { type?: string }).type === 'LOG_DATA'
+                  )
+                  if (hasLogDataCards) {
+                    // Store session for onConfirmed to pick up
+                    pendingRoutineAdvanceSessionRef.current = finalSessionId
+                    setIsLoading(false)
+                  } else {
+                    // No cards to confirm (skip flow) — fire timer immediately
+                    shouldScheduleAutoAdvance = true
+                    setIsLoading(false)
+                    setIsAutoPrompting(true)
+                  }
                   // DO NOT return here — let the outer for(;;) reader loop continue to natural end
                 }
               } else if (event.type === 'error') {
@@ -619,8 +646,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             // Schedule auto-advance timer now that we have the fresh step index
             if (shouldScheduleAutoAdvance) {
               const sessIdForTimer = capturedSessionId
+              setShowStepContinue(true)
               setTimeout(() => {
                 if (isMountedRef.current) {
+                  setShowStepContinue(false)
                   // Guard: skip if the user already advanced past this step manually
                   if (autoAdvanceStepRef.current !== capturedStepIndex) {
                     setIsAutoPrompting(false)
@@ -737,6 +766,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     const trimmed = input.trim()
     if (!trimmed && attachedFiles.length === 0) return
     if (isLoading) return
+    setShowStepContinue(false)
 
     // Snapshot attachments before clearing state
     const snapshotAttachments = attachedFiles.map(af => af.attachment)
@@ -1177,9 +1207,15 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                             return { ...msg, actions: updatedActions }
                           }))
                         }}
-                        // EX6/EX20 FIX: onConfirmed removed — shouldAutoPromptNextStep now sends
-                        // 'continue' automatically (600ms after AI response), so this handler
-                        // was causing duplicate Step N prompts on every confirm click.
+                        onConfirmed={() => {
+                          // If a routine step advanced with action cards, fire "continue"
+                          // now that the user has confirmed — not from a blind 600ms timer.
+                          const pendingSessId = pendingRoutineAdvanceSessionRef.current
+                          if (pendingSessId) {
+                            pendingRoutineAdvanceSessionRef.current = null
+                            void handleSendSilentRef.current?.('continue', pendingSessId)
+                          }
+                        }}
                       />
                     )
                   })}
@@ -1276,6 +1312,24 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             className="px-3 py-2 rounded-xl bg-nutrition/20 hover:bg-nutrition/30 text-nutrition text-xs font-bold uppercase transition-colors disabled:opacity-50"
           >
             Skip
+          </button>
+        </div>
+      )}
+
+      {/* Fallback "Continue" button — shown during the 600ms auto-advance window so the
+           user can manually trigger the next step if the silent request is slow/blocked. */}
+      {showStepContinue && session?.active_routine_id && !isLoading && (
+        <div className="flex justify-center px-4 pb-2 animate-in slide-in-from-bottom-2 duration-300">
+          <button
+            type="button"
+            onClick={() => {
+              setShowStepContinue(false)
+              void handleSendSilentRef.current?.('continue', currentSessionId)
+            }}
+            className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-black transition-all animate-in slide-in-from-bottom-2"
+            style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981' }}
+          >
+            Continue to next step →
           </button>
         </div>
       )}
