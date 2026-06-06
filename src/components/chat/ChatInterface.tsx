@@ -1399,14 +1399,16 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAttachMenuOpen(false); fileDocInputRef.current?.click() }}
-                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
+                  {/* htmlFor targets the persistent #yaha-doc-input outside the menu —
+                      browser activates it as a true user gesture, no programmatic .click() */}
+                  <label
+                    htmlFor="yaha-doc-input"
+                    onClick={() => setIsAttachMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer"
                   >
-                    <FileText className="h-4 w-4 text-workout shrink-0" />
-                    Attach File
-                  </button>
+                    <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
+                    <span className="pointer-events-none">Attach File</span>
+                  </label>
                 </div>
               )}
               <button
