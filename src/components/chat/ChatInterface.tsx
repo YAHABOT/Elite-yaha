@@ -1367,8 +1367,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             onChange={handleFileChange}
             className="hidden"
           />
-          {/* Document/file input — accept="*/*" avoids Android refusing to open picker
-              for complex MIME lists. Client-side validation in handleFileChange filters types. */}
+          {/* Document/file input — permissive accept avoids Android refusing complex MIME lists.
+              Client-side validation in handleFileChange filters allowed types. */}
           <input
             id="yaha-doc-input"
             ref={fileDocInputRef}
