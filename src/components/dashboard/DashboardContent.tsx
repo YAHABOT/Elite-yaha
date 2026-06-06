@@ -49,7 +49,7 @@ export async function DashboardContent({
     const rangeEnd = `${logDateStr}T23:59:59.999Z`
 
     const maxDays = widgets.reduce((max, w) => Math.max(max, w.days ?? 7), 7)
-    const fetchDays = Math.max(maxDays * 2, 30)
+    const fetchDays = Math.max(maxDays + 7, 14)
     const nDaysAgoDate = new Date()
     nDaysAgoDate.setDate(nDaysAgoDate.getDate() - fetchDays)
     const nDayStart = nDaysAgoDate.toISOString()
@@ -69,6 +69,7 @@ export async function DashboardContent({
         .eq('user_id', userId)
         .gte('logged_at', nDayStart)
         .order('logged_at', { ascending: false })
+        .limit(500)
         .then(res => res.data || []),
     ])
 

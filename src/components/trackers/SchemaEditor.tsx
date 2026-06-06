@@ -9,6 +9,21 @@ import type { SchemaField, Tracker, TrackerType } from '@/types/tracker'
 
 const MAX_SCHEMA_FIELDS = 20
 
+const COLOR_SWATCHES: string[] = [
+  '#10b981', // green
+  '#3b82f6', // blue
+  '#f97316', // orange
+  '#a855f7', // purple
+  '#06b6d4', // cyan
+  '#ef4444', // red
+  '#f59e0b', // amber
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#8b5cf6', // violet
+  '#ff4444', // bright red
+  '#6366f1', // indigo
+]
+
 const TRACKER_TYPES: { value: TrackerType; label: string; color: string }[] = [
   { value: 'nutrition', label: 'Nutrition', color: '#00ff9d' },
   { value: 'sleep',     label: 'Sleep',     color: '#a855f7' },
@@ -38,6 +53,7 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
   const router = useRouter()
   const [schema, setSchema] = useState<SchemaField[]>(tracker.schema)
   const [trackerType, setTrackerType] = useState<TrackerType>(tracker.type)
+  const [trackerColor, setTrackerColor] = useState<string>(tracker.color)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<boolean>(false)
   const [deleting, setDeleting] = useState<boolean>(false)
@@ -83,7 +99,7 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
     setSaving(true)
 
     const filteredSchema = schema.filter((f) => f.label.trim() !== '')
-    const result = await updateTrackerAction(tracker.id, { type: trackerType, schema: filteredSchema })
+    const result = await updateTrackerAction(tracker.id, { type: trackerType, color: trackerColor, schema: filteredSchema })
 
     if (result.error) {
       setError(result.error)
@@ -250,7 +266,7 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
       <div className="rounded-2xl md:rounded-[40px] border border-white/5 bg-black/40 p-4 md:p-8 backdrop-blur-xl shadow-2xl relative group/container">
         {/* Glow effect */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl md:rounded-[40px]">
-          <div className="absolute -top-24 -right-24 h-48 w-48 blur-[100px] opacity-10" style={{ backgroundColor: tracker.color }} />
+          <div className="absolute -top-24 -right-24 h-48 w-48 blur-[100px] opacity-10" style={{ backgroundColor: trackerColor }} />
         </div>
 
         <div className="relative space-y-8">
@@ -260,12 +276,12 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
               <div
                 className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-inner transition-transform group-hover/container:scale-110 active:scale-95 duration-500"
                 style={{
-                  backgroundColor: `${tracker.color}15`,
-                  border: `1px solid ${tracker.color}30`,
-                  boxShadow: `0 0 20px -5px ${tracker.color}40`
+                  backgroundColor: `${trackerColor}15`,
+                  border: `1px solid ${trackerColor}30`,
+                  boxShadow: `0 0 20px -5px ${trackerColor}40`
                 }}
               >
-                <Target className="h-7 w-7" style={{ color: tracker.color }} />
+                <Target className="h-7 w-7" style={{ color: trackerColor }} />
               </div>
               <div>
                 <h2 className="font-display-heading text-2xl text-textPrimary">{tracker.name}</h2>
@@ -311,6 +327,31 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
             </div>
           </div>
 
+          {/* Color Picker */}
+          <div className="space-y-3">
+            <h3 className="px-2 text-[10px] font-black uppercase tracking-[0.4em] text-textMuted opacity-30">
+              Tracker Color
+            </h3>
+            <div className="flex flex-wrap gap-2.5 px-1">
+              {COLOR_SWATCHES.map((swatch) => {
+                const isSelected = trackerColor === swatch
+                return (
+                  <button
+                    key={swatch}
+                    type="button"
+                    onClick={() => setTrackerColor(swatch)}
+                    className="h-7 w-7 rounded-full transition-all duration-200 active:scale-90 hover:scale-110"
+                    style={{
+                      backgroundColor: swatch,
+                      boxShadow: isSelected ? `0 0 0 2px #050505, 0 0 0 4px ${swatch}` : `0 0 8px -2px ${swatch}60`,
+                    }}
+                    aria-label={`Select color ${swatch}`}
+                  />
+                )
+              })}
+            </div>
+          </div>
+
           {/* Fields List */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
@@ -350,8 +391,8 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
                 disabled={saving}
                 className="flex items-center gap-2 rounded-[20px] px-8 py-3.5 text-xs font-black uppercase tracking-widest text-background transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl disabled:opacity-50"
                 style={{
-                  backgroundColor: tracker.color,
-                  boxShadow: `0 8px 32px -8px ${tracker.color}60`,
+                  backgroundColor: trackerColor,
+                  boxShadow: `0 8px 32px -8px ${trackerColor}60`,
                 }}
               >
                 {saving ? 'Syncing...' : (

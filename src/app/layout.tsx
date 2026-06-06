@@ -41,6 +41,9 @@ export const metadata: Metadata = {
   title: 'YAHA — Health Tracker',
   description: 'AI-powered health data tracking',
   manifest: '/manifest.json',
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

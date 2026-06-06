@@ -714,17 +714,12 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px'
   }, [input])
 
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setIsAttachMenuOpen(false) // close menu when any file is picked
-    const files = Array.from(e.target.files ?? [])
+  const processFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return
 
     const disallowed = files.find((f) => !isAllowedMimeType(f.type))
     if (disallowed) {
       setError(`File type not supported: ${disallowed.type}`)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      if (fileDocInputRef.current) fileDocInputRef.current.value = ''
-      if (fileCameraInputRef.current) fileCameraInputRef.current.value = ''
       return
     }
 
@@ -757,10 +752,52 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     )
 
     setAttachedFiles((prev) => [...prev, ...converted])
+  }, [])
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsAttachMenuOpen(false)
+    const files = Array.from(e.target.files ?? [])
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (fileDocInputRef.current) fileDocInputRef.current.value = ''
     if (fileCameraInputRef.current) fileCameraInputRef.current.value = ''
-  }, [])
+    await processFiles(files)
+  }, [processFiles])
+
+  // Uses File System Access API when available — bypasses Android intent chooser entirely.
+  // Falls back to a hidden <input> click on unsupported browsers.
+  const handleDocPicker = useCallback(async () => {
+    setIsAttachMenuOpen(false)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fsa = (window as any).showOpenFilePicker
+    if (typeof fsa === 'function') {
+      try {
+        const handles: FileSystemFileHandle[] = await fsa({
+          multiple: true,
+          types: [{
+            description: 'Documents & Files',
+            accept: {
+              'application/pdf': ['.pdf'],
+              'text/plain': ['.txt'],
+              'text/csv': ['.csv'],
+              'text/markdown': ['.md'],
+              'application/msword': ['.doc'],
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+              'application/vnd.ms-excel': ['.xls'],
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            },
+          }],
+        })
+        const files = await Promise.all(handles.map((h: FileSystemFileHandle) => h.getFile()))
+        await processFiles(files)
+        return
+      } catch {
+        // User cancelled (AbortError) or permission denied — do nothing
+        return
+      }
+    }
+    // Fallback for browsers without File System Access API
+    fileDocInputRef.current?.click()
+  }, [processFiles])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -1102,9 +1139,18 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           <div
             key={message.id}
             className={`flex w-full animate-in fade-in slide-in-from-bottom-3 duration-500 ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
+              message.role === 'user' ? 'justify-end' : 'justify-start items-end gap-2'
             }`}
           >
+            {message.role !== 'user' && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/cat-logo.jpg"
+                alt="YAHA"
+                className="w-7 h-7 rounded-full object-cover flex-shrink-0 mb-1 border border-[rgba(0,212,255,0.25)] shadow-[0_0_12px_rgba(0,212,255,0.15)]"
+                style={{ objectPosition: 'center 8%' }}
+              />
+            )}
             <div data-testid={message.role === 'user' ? 'message-user' : 'message-model'} className={`flex max-w-[78%] flex-col gap-3 lg:max-w-[65%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div
                 className={`px-4 py-3 text-sm leading-relaxed ${
@@ -1388,20 +1434,14 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  {/* Attach File — inline input IS the tap target. No onClick, no React
-                      state change on tap — zero interference before Android opens picker.
-                      Menu closes via handleFileChange once user picks a file. */}
-                  <label className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative">
-                    <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
-                    <span className="pointer-events-none">Attach File</span>
-                    <input
-                      type="file"
-                      accept={ACCEPTED_FILE_TYPES}
-                      multiple
-                      onChange={handleFileChange}
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                    />
-                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void handleDocPicker()}
+                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
+                  >
+                    <FileText className="h-4 w-4 text-workout shrink-0" />
+                    Attach File
+                  </button>
                 </div>
               )}
               <button

@@ -421,16 +421,13 @@ export function computeWidgetValueOptimized(
       const correlation = correlations.find(c => c.id === widget.correlation_id)
       if (!correlation) return { value: null, label: widget.label }
 
-      // Use filterByPeriod so this_week / last_week / today / N-day all work correctly
-      const correlatorLogs = filterByPeriod(nDayLogs, widget)
-
-      const fieldMap = buildFieldValueMap(correlatorLogs)
-      const result = evaluateFormula(correlation.formula, fieldMap)
-
-      // Compute sparkline: per-day evaluations, period-aware number of bars
+      // Always compute sparkline per-day so bars exactly reflect daily formula results
       const sparkDays = getSparklineDays(widget)
       const sparkStart = getSparklineStartDate(widget)
       const correlatorTrend: number[] = []
+      let cumulativeValue = 0
+      let hasDayValue = false
+
       for (let i = 0; i < sparkDays; i++) {
         const d = new Date(sparkStart)
         d.setDate(sparkStart.getDate() + i)
@@ -438,14 +435,32 @@ export function computeWidgetValueOptimized(
         const dayLogs = nDayLogs.filter(l => l.logged_at.startsWith(dayStr))
         const dayFieldMap = buildFieldValueMap(dayLogs)
         const dayResult = evaluateFormula(correlation.formula, dayFieldMap)
-        correlatorTrend.push(dayResult !== null && Number.isFinite(dayResult) ? dayResult : 0)
+        const isValid = dayResult !== null && Number.isFinite(dayResult)
+        if (isValid) {
+          cumulativeValue += dayResult as number
+          hasDayValue = true
+        }
+        correlatorTrend.push(isValid ? (dayResult as number) : 0)
+      }
+
+      // For period-based widgets (this_week / last_week): VALUE = sum of per-day bars.
+      // This keeps VALUE consistent with sparkline and avoids inflated sums when
+      // one formula operand is missing for part of the period (e.g. no burn log yet today).
+      // For N-day widgets: fall back to full-period field map (preserves existing behaviour).
+      let result: number | null
+      if (widget.period === 'this_week' || widget.period === 'last_week') {
+        result = hasDayValue ? cumulativeValue : null
+      } else {
+        const correlatorLogs = filterByPeriod(nDayLogs, widget)
+        const fieldMap = buildFieldValueMap(correlatorLogs)
+        result = evaluateFormula(correlation.formula, fieldMap)
       }
 
       return {
         value: result !== null ? Math.round(result * 10) / 10 : null,
         unit: correlation.unit,
         label: widget.label,
-        trend: correlatorTrend.some(v => v > 0) ? correlatorTrend : undefined,
+        trend: correlatorTrend.some(v => v !== 0) ? correlatorTrend : undefined,
       }
     }
 
