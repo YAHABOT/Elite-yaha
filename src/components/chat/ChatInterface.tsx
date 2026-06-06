@@ -102,6 +102,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
   const [isHydrated, setIsHydrated] = useState<boolean>(false)
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
+  const [attachMenuKey, setAttachMenuKey] = useState<number>(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -757,6 +758,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsAttachMenuOpen(false)
     const files = Array.from(e.target.files ?? [])
+    // Reset all inputs so re-selecting the same file triggers onChange next time
+    e.target.value = ''
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (fileDocInputRef.current) fileDocInputRef.current.value = ''
     if (fileCameraInputRef.current) fileCameraInputRef.current.value = ''
@@ -1398,7 +1401,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  <label className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative">
+                  <label key={attachMenuKey} className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative">
                     <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
                     <span className="pointer-events-none">Attach File</span>
                     <input
@@ -1413,7 +1416,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               )}
               <button
                 type="button"
-                onClick={() => setIsAttachMenuOpen(v => !v)}
+                onClick={() => setIsAttachMenuOpen(v => { if (!v) setAttachMenuKey(k => k + 1); return !v; })}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-muted-foreground"
                 aria-label="Attach file or image"
               >
