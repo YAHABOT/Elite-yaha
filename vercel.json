@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/warmup",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/summaries/generate?type=weekly",
       "schedule": "0 7 * * 1"
     },
