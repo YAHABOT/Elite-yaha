@@ -763,43 +763,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     await processFiles(files)
   }, [processFiles])
 
-  // Uses File System Access API when available — Chrome handles the picker natively
-  // without going through Android intent system. Falls back to a temporary <input>
-  // with permissive accept="*/*" (specific MIME lists trigger Samsung's category picker).
-  const handleDocPicker = useCallback(async () => {
-    setIsAttachMenuOpen(false)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fsa = (window as any).showOpenFilePicker
-    if (typeof fsa === 'function') {
-      try {
-        // No `types` restriction — avoids throws on older Android Chrome builds.
-        // Client-side MIME filtering is done inside processFiles() anyway.
-        const handles: FileSystemFileHandle[] = await fsa({ multiple: true })
-        const files = await Promise.all(handles.map((h: FileSystemFileHandle) => h.getFile()))
-        await processFiles(files)
-        return
-      } catch (err) {
-        // AbortError = user cancelled → do nothing
-        if (err instanceof Error && err.name === 'AbortError') return
-        // Any other error (API not fully supported) → fall through to input fallback
-      }
-    }
-    // Fallback: temporary input with accept="*/*" — most permissive, avoids
-    // Samsung My Files showing a MIME-type category picker before the file list.
-    const tmp = document.createElement('input')
-    tmp.type = 'file'
-    tmp.multiple = true
-    tmp.accept = '*/*'
-    tmp.style.cssText = 'position:fixed;top:-100px;left:-100px;opacity:0'
-    const cleanup = async () => {
-      const files = Array.from(tmp.files ?? [])
-      tmp.remove()
-      await processFiles(files)
-    }
-    tmp.addEventListener('change', () => void cleanup(), { once: true })
-    document.body.appendChild(tmp)
-    tmp.click()
-  }, [processFiles])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -1436,14 +1399,17 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDocPicker()}
-                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
-                  >
-                    <FileText className="h-4 w-4 text-workout shrink-0" />
-                    Attach File
-                  </button>
+                  <label className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative">
+                    <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
+                    <span className="pointer-events-none">Attach File</span>
+                    <input
+                      type="file"
+                      accept={ACCEPTED_FILE_TYPES}
+                      multiple
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    />
+                  </label>
                 </div>
               )}
               <button
