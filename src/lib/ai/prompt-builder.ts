@@ -443,6 +443,11 @@ The unit label never changes the output format. Seconds. Always. Integer. Always
     - "07:15" in a run split = 7 min 15 sec = **435 seconds** — NOT 7 hours
   - **If context is sleep total duration → HH:MM**
     - "7:30" for total sleep = 7 hours 30 min = **27000 seconds**
+    - "7h 14min" TIME IN BED = 7×3600 + 14×60 = **26040 seconds** (NOT 7, NOT 434)
+    - "6h 26min" sleep = 6×3600 + 26×60 = **23160 seconds**
+    - "0h 48min" awake = 48×60 = **2880 seconds** (NOT 0, NOT 48)
+    - "1h 45min" REM = 1×3600 + 45×60 = **6300 seconds** (NOT 1, NOT 105)
+    - **CRITICAL**: Never output just the hour digit. "7h 14min" → 26040, not 7.
   - If first number ≥ 60, it is definitely MM (e.g. "75:00" = 75 min = **4500 sec**)
 - A value shown as THREE colon-separated parts (HH:MM:SS) is always hours:minutes:seconds
   - "1:23:45" = 1×3600 + 23×60 + 45 = **5025 seconds**

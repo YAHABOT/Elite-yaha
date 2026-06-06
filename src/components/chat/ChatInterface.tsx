@@ -29,7 +29,7 @@ const ROUTINE_TRIGGER_TTL_MS = 30 * 60 * 1000
 const ACCEPTED_IMAGE_TYPES = 'image/*'
 // Gemini inlineData supports images, audio, text, and PDF — Office formats excluded
 // Updated to match backend ALLOWED_MIME_TYPES (src/lib/ai/gemini.ts)
-const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv,application/pdf,text/plain,text/csv,image/jpeg,image/png,image/webp,image/gif'
+const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv,application/pdf,text/plain,text/csv'
 const ALLOWED_MIME_PREFIXES = ['image/', 'audio/']
 const ALLOWED_MIME_EXACT = new Set([
   'application/pdf',
