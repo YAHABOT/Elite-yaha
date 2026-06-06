@@ -1355,8 +1355,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
             onChange={handleFileChange}
             className="hidden"
           />
-          {/* Document/file input */}
+          {/* Document/file input — id keeps it reachable from the menu label via htmlFor */}
           <input
+            id="yaha-doc-input"
             ref={fileDocInputRef}
             type="file"
             accept={ACCEPTED_FILE_TYPES}
@@ -1386,24 +1387,17 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  {/* Attach File — label wraps an inline input so the tap IS the file picker
-                      activation (user-initiated gesture). Programmatic .click() via setTimeout
-                      triggers Samsung Galaxy's intent chooser (Camera/Voice/Files); a label
-                      tap goes straight to the document picker. */}
+                  {/* Attach File — htmlFor points to the persistent #yaha-doc-input that
+                      stays in the DOM even when the menu closes. The tap is a direct user
+                      gesture on a real input so Android opens the file picker immediately
+                      without showing the system intent chooser (Camera/Voice/Files). */}
                   <label
-                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative"
+                    htmlFor="yaha-doc-input"
                     onClick={() => setIsAttachMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer"
                   >
                     <FileText className="h-4 w-4 text-workout shrink-0" />
                     Attach File
-                    <input
-                      type="file"
-                      accept={ACCEPTED_FILE_TYPES}
-                      multiple
-                      onChange={handleFileChange}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      style={{ fontSize: 0 }}
-                    />
                   </label>
                 </div>
               )}

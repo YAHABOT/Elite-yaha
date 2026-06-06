@@ -2,7 +2,7 @@
   "name": "YAHA Health Tracker",
   "short_name": "YAHA",
   "description": "AI-powered health data tracking",
-  "start_url": "/dashboard",
+  "start_url": "/splash.html",
   "display": "standalone",
   "background_color": "#050505",
   "theme_color": "#050505",
