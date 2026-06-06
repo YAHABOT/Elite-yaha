@@ -763,40 +763,42 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     await processFiles(files)
   }, [processFiles])
 
-  // Uses File System Access API when available — bypasses Android intent chooser entirely.
-  // Falls back to a hidden <input> click on unsupported browsers.
+  // Uses File System Access API when available — Chrome handles the picker natively
+  // without going through Android intent system. Falls back to a temporary <input>
+  // with permissive accept="*/*" (specific MIME lists trigger Samsung's category picker).
   const handleDocPicker = useCallback(async () => {
     setIsAttachMenuOpen(false)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fsa = (window as any).showOpenFilePicker
     if (typeof fsa === 'function') {
       try {
-        const handles: FileSystemFileHandle[] = await fsa({
-          multiple: true,
-          types: [{
-            description: 'Documents & Files',
-            accept: {
-              'application/pdf': ['.pdf'],
-              'text/plain': ['.txt'],
-              'text/csv': ['.csv'],
-              'text/markdown': ['.md'],
-              'application/msword': ['.doc'],
-              'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-              'application/vnd.ms-excel': ['.xls'],
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-            },
-          }],
-        })
+        // No `types` restriction — avoids throws on older Android Chrome builds.
+        // Client-side MIME filtering is done inside processFiles() anyway.
+        const handles: FileSystemFileHandle[] = await fsa({ multiple: true })
         const files = await Promise.all(handles.map((h: FileSystemFileHandle) => h.getFile()))
         await processFiles(files)
         return
-      } catch {
-        // User cancelled (AbortError) or permission denied — do nothing
-        return
+      } catch (err) {
+        // AbortError = user cancelled → do nothing
+        if (err instanceof Error && err.name === 'AbortError') return
+        // Any other error (API not fully supported) → fall through to input fallback
       }
     }
-    // Fallback for browsers without File System Access API
-    fileDocInputRef.current?.click()
+    // Fallback: temporary input with accept="*/*" — most permissive, avoids
+    // Samsung My Files showing a MIME-type category picker before the file list.
+    const tmp = document.createElement('input')
+    tmp.type = 'file'
+    tmp.multiple = true
+    tmp.accept = '*/*'
+    tmp.style.cssText = 'position:fixed;top:-100px;left:-100px;opacity:0'
+    const cleanup = async () => {
+      const files = Array.from(tmp.files ?? [])
+      tmp.remove()
+      await processFiles(files)
+    }
+    tmp.addEventListener('change', () => void cleanup(), { once: true })
+    document.body.appendChild(tmp)
+    tmp.click()
   }, [processFiles])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
