@@ -1386,19 +1386,25 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAttachMenuOpen(false)
-                      // Delay click by one tick — closing the menu triggers a re-render that
-                      // can swallow the click event on mobile before the input fires.
-                      setTimeout(() => fileDocInputRef.current?.click(), 0)
-                    }}
-                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
+                  {/* Attach File — label wraps an inline input so the tap IS the file picker
+                      activation (user-initiated gesture). Programmatic .click() via setTimeout
+                      triggers Samsung Galaxy's intent chooser (Camera/Voice/Files); a label
+                      tap goes straight to the document picker. */}
+                  <label
+                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative"
+                    onClick={() => setIsAttachMenuOpen(false)}
                   >
                     <FileText className="h-4 w-4 text-workout shrink-0" />
                     Attach File
-                  </button>
+                    <input
+                      type="file"
+                      accept={ACCEPTED_FILE_TYPES}
+                      multiple
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      style={{ fontSize: 0 }}
+                    />
+                  </label>
                 </div>
               )}
               <button
