@@ -86,6 +86,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
   const [attachedFiles, setAttachedFiles] = useState<ChatAttachment[]>([])
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
+  const [attachMenuKey, setAttachMenuKey] = useState<number>(0)
   // Hydration guard: formatRelativeTime uses new Date() which differs between SSR and client
   const [mounted, setMounted] = useState<boolean>(false)
 
@@ -199,6 +200,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const files = Array.from(e.target.files ?? [])
+    e.target.value = '' // reset so same file can be re-selected next time
     if (files.length === 0) return
     const converted = await Promise.all(
       files.map(async (file): Promise<ChatAttachment> => {
@@ -508,6 +510,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
           className="hidden"
         />
         <input
+          id="yaha-mobile-doc-input"
           ref={fileDocInputRef}
           type="file"
           accept={ACCEPTED_FILE_TYPES}
@@ -556,24 +559,22 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
                   <Image className="h-4 w-4 text-sleep shrink-0" aria-label="Photo library icon" />
                   Photo Library
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAttachMenuOpen(false)
-                    // Delay click by one tick — closing the menu triggers a re-render that
-                    // can swallow the click event on mobile before the input fires.
-                    setTimeout(() => fileDocInputRef.current?.click(), 0)
-                  }}
-                  className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
+                {/* label htmlFor targets persistent #yaha-mobile-doc-input outside the menu —
+                    browser activates it as a true user gesture, no setTimeout needed */}
+                <label
+                  key={attachMenuKey}
+                  htmlFor="yaha-mobile-doc-input"
+                  onClick={() => setIsAttachMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer"
                 >
-                  <FileText className="h-4 w-4 text-workout shrink-0" />
-                  Attach File
-                </button>
+                  <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
+                  <span className="pointer-events-none">Attach File</span>
+                </label>
               </div>
             )}
             <button
               type="button"
-              onClick={() => setIsAttachMenuOpen(v => !v)}
+              onClick={() => setIsAttachMenuOpen(v => { if (!v) setAttachMenuKey(k => k + 1); return !v; })}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#00d4ff]/70 transition-all duration-200 hover:bg-[rgba(0,212,255,0.08)] hover:text-[#00d4ff]"
               aria-label="Attach file or image"
             >
