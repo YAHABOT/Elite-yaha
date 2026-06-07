@@ -1433,17 +1433,14 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <ImageIcon className="h-4 w-4 text-sleep shrink-0" />
                     Photo Library
                   </button>
-                  <label key={attachMenuKey} className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer relative">
-                    <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
-                    <span className="pointer-events-none">Attach File</span>
-                    <input
-                      type="file"
-                      accept={ACCEPTED_FILE_TYPES}
-                      multiple
-                      onChange={handleFileChange}
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                    />
-                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAttachMenuOpen(false); fileDocInputRef.current?.click() }}
+                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
+                  >
+                    <FileText className="h-4 w-4 text-workout shrink-0" />
+                    Attach File
+                  </button>
                 </div>
               )}
               <button
