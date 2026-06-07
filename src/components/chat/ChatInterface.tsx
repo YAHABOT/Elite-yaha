@@ -70,9 +70,12 @@ type Props = {
   session: ChatSession | null
   initialRoutine?: Routine | null
   sessions?: ChatSession[]
+  /** Agent ID passed via URL when navigating from home — needed because
+   *  active_agent_id may not be in DB yet (race) and library agents are never stored. */
+  initialAgentId?: string | null
 }
 
-export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, sessions = [] }: Props): React.ReactElement {
+export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, sessions = [], initialAgentId }: Props): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [input, setInput] = useState<string>('')
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -80,7 +83,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   const [error, setError] = useState<string | null>(null)
   const [session, setSession] = useState<ChatSession | null>(initialSession)
   const [agents, setAgents] = useState<Agent[]>([])
-  const [activeAgentId, setActiveAgentId] = useState<string | null>(initialSession?.active_agent_id ?? null)
+  const [activeAgentId, setActiveAgentId] = useState<string | null>(
+    initialSession?.active_agent_id ?? initialAgentId ?? null
+  )
   const [currentRoutine, setCurrentRoutine] = useState<Routine | null>(initialRoutine ?? null)
   // BUG 6 fix: internal session ID state so URL updates don't remount the component
   const [currentSessionId, setCurrentSessionId] = useState<string>(sessionId)
@@ -102,7 +107,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
   const [isHydrated, setIsHydrated] = useState<boolean>(false)
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
-  const [attachMenuKey, setAttachMenuKey] = useState<number>(0)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1445,7 +1450,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               )}
               <button
                 type="button"
-                onClick={() => setIsAttachMenuOpen(v => { if (!v) setAttachMenuKey(k => k + 1); return !v; })}
+                onClick={() => setIsAttachMenuOpen(v => !v)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-muted-foreground"
                 aria-label="Attach file or image"
               >

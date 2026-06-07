@@ -86,7 +86,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
   const [attachedFiles, setAttachedFiles] = useState<ChatAttachment[]>([])
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
-  const [attachMenuKey, setAttachMenuKey] = useState<number>(0)
+
   // Hydration guard: formatRelativeTime uses new Date() which differs between SSR and client
   const [mounted, setMounted] = useState<boolean>(false)
 
@@ -273,8 +273,11 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
             try {
               const event = JSON.parse(line.slice(6)) as { type: string; sessionId?: string }
               if (event.sessionId) {
-                // Navigate as soon as we have the session ID (session or done event)
-                router.push(`/chat/${event.sessionId}`)
+                // Navigate as soon as we have the session ID (session or done event).
+                // Pass active agent via URL so ChatInterface initialises correctly
+                // (active_agent_id may not be in DB yet, and library agents are never stored).
+                const agentParam = activeAgentId ? `?agent=${encodeURIComponent(activeAgentId)}` : ''
+                router.push(`/chat/${event.sessionId}${agentParam}`)
                 break outer
               }
             } catch { /* ignore malformed lines */ }
@@ -282,7 +285,10 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
         }
       } else {
         const data = (await res.json()) as { sessionId: string }
-        if (data.sessionId) router.push(`/chat/${data.sessionId}`)
+        if (data.sessionId) {
+          const agentParam = activeAgentId ? `?agent=${encodeURIComponent(activeAgentId)}` : ''
+          router.push(`/chat/${data.sessionId}${agentParam}`)
+        }
       }
     } catch {
       // Network error or non-ok response
@@ -559,22 +565,19 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
                   <Image className="h-4 w-4 text-sleep shrink-0" aria-label="Photo library icon" />
                   Photo Library
                 </button>
-                {/* label htmlFor targets persistent #yaha-mobile-doc-input outside the menu —
-                    browser activates it as a true user gesture, no setTimeout needed */}
-                <label
-                  key={attachMenuKey}
-                  htmlFor="yaha-mobile-doc-input"
-                  onClick={() => setIsAttachMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap cursor-pointer"
+                <button
+                  type="button"
+                  onClick={() => { setIsAttachMenuOpen(false); fileDocInputRef.current?.click() }}
+                  className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
                 >
-                  <FileText className="h-4 w-4 text-workout shrink-0 pointer-events-none" />
-                  <span className="pointer-events-none">Attach File</span>
-                </label>
+                  <FileText className="h-4 w-4 text-workout shrink-0" />
+                  Attach File
+                </button>
               </div>
             )}
             <button
               type="button"
-              onClick={() => setIsAttachMenuOpen(v => { if (!v) setAttachMenuKey(k => k + 1); return !v; })}
+              onClick={() => setIsAttachMenuOpen(v => !v)}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#00d4ff]/70 transition-all duration-200 hover:bg-[rgba(0,212,255,0.08)] hover:text-[#00d4ff]"
               aria-label="Attach file or image"
             >
