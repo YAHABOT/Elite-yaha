@@ -835,6 +835,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        let attachShouldScheduleAutoAdvance = false
+        let attachCapturedSessionId = currentSessionId
         for (;;) {
           const { done, value } = await reader.read()
           if (done) break
@@ -844,15 +846,45 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue
             try {
-              const event = JSON.parse(line.slice(6)) as { type: string; messageId?: string; sessionId?: string; content?: string; actions?: unknown[] }
-              if (event.type === 'done' && event.messageId) {
+              const event = JSON.parse(line.slice(6)) as { type: string; text?: string; messageId?: string; sessionId?: string; content?: string; actions?: unknown[]; shouldAutoPromptNextStep?: boolean }
+              if (event.type === 'chunk' && event.text) {
+                setStreamingText(prev => prev + event.text)
+              } else if (event.type === 'done' && event.messageId) {
                 attachMessageId = event.messageId
                 attachSessionId = event.sessionId ?? currentSessionId
                 attachContent = event.content ?? ''
                 attachActions = event.actions ?? []
+                const shouldAutoPromptNextStep = event.shouldAutoPromptNextStep ?? false
+                setStreamingText('')
+                if (shouldAutoPromptNextStep && attachSessionId && isMountedRef.current) {
+                  attachCapturedSessionId = attachSessionId
+                  const hasLogDataCards = (event.actions ?? []).some(
+                    (a) => a && typeof a === 'object' && (a as { type?: string }).type === 'LOG_DATA'
+                  )
+                  if (hasLogDataCards) {
+                    // Wait for user to confirm the action card, then fire 'continue'
+                    pendingRoutineAdvanceSessionRef.current = attachSessionId
+                  } else {
+                    // No card to confirm — fire timer immediately (skip flow)
+                    attachShouldScheduleAutoAdvance = true
+                    setIsAutoPrompting(true)
+                  }
+                }
               }
             } catch { /* ignore parse errors */ }
           }
+        }
+        // Schedule auto-advance timer for skip-flow (no action card to confirm)
+        if (attachShouldScheduleAutoAdvance && isMountedRef.current) {
+          const sessIdForTimer = attachCapturedSessionId
+          setShowStepContinue(true)
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              setShowStepContinue(false)
+              setIsAutoPrompting(false)
+              void handleSendSilentRef.current?.('continue', sessIdForTimer)
+            }
+          }, 600)
         }
       } else {
         const data = await res.json()

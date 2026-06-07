@@ -350,9 +350,16 @@ export function ActionCard({ card, messageId, cardIndex, onConfirm, onDiscard, o
                   {value !== null && value !== undefined && value !== ''
                     ? (() => {
                         const isDuration = card.fieldDefinitions?.[key]?.type === 'duration'
-                        const numValue = typeof value === 'number' && !isNaN(value) ? value : typeof value === 'string' ? parseFloat(value) : NaN
-                        const displayValue = isDuration && !isNaN(numValue)
-                          ? formatDuration(numValue)
+                        // editableFields converts duration raw-seconds → "H:MM:SS" string on init.
+                        // parseFloat("9:59:00") = 9 (only leading digit) → formatDuration(9) = "0:00:09" ❌
+                        // Fix: if it's already a H:MM:SS string, display it directly.
+                        const displayValue = isDuration
+                          ? (typeof value === 'string' && /^\d+:\d{2}/.test(value)
+                              ? value
+                              : (() => {
+                                  const n = typeof value === 'number' ? value : parseFloat(String(value))
+                                  return isNaN(n) ? String(value) : formatDuration(n)
+                                })())
                           : String(value)
                         return (
                           <>
