@@ -44,6 +44,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
+      // Guarantee a users row exists — new sign-ups have none until this point.
+      // ignoreDuplicates: true makes this a no-op for returning users.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase
+          .from('users')
+          .upsert({ id: user.id }, { onConflict: 'id', ignoreDuplicates: true })
+      }
+
       const response = NextResponse.redirect(`${origin}${next}`)
       // Attach session cookies to the redirect response so the browser stores them
       pendingCookies.forEach(({ name, value, options }) => {
