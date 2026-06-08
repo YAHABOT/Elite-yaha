@@ -1279,19 +1279,23 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
         {isLoading && (
           <div className="flex justify-start animate-in fade-in duration-300">
-            {streamingText ? (
-              // B8: render partial streaming text as it arrives
-              <div className="max-w-[78%] rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-textPrimary/90" style={{ background: '#0e243a', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <p className="whitespace-pre-wrap">{streamingText}</p>
-                <span className="inline-block h-3 w-0.5 animate-pulse ml-0.5 align-bottom" style={{ background: 'rgba(0,212,255,0.60)' }} />
-              </div>
-            ) : (
+            {(() => {
+              // Strip JSON action array from streaming display — it starts with [ followed by {
+              const visibleText = streamingText.replace(/\n?\[[\s\n]*\{[\s\S]*/g, '').trimEnd()
+              return visibleText ? (
+                // B8: render partial streaming text as it arrives
+                <div className="max-w-[78%] rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-textPrimary/90" style={{ background: '#0e243a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="whitespace-pre-wrap">{visibleText}</p>
+                  <span className="inline-block h-3 w-0.5 animate-pulse ml-0.5 align-bottom" style={{ background: 'rgba(0,212,255,0.60)' }} />
+                </div>
+              ) : (
               <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm px-4 py-3" style={{ background: '#0e243a', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
                 <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
                 <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
               </div>
-            )}
+            )
+          })()}
           </div>
         )}
 
