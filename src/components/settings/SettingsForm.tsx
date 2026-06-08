@@ -14,6 +14,7 @@ import {
   Footprints,
   LogOut,
   ChevronRight,
+  Utensils,
 } from 'lucide-react'
 
 type Props = {
@@ -110,6 +111,25 @@ export function SettingsForm({ initialValues }: Props): React.ReactElement {
             </div>
           </div>
         </div>
+      </Section>
+
+      {/* Food Bank */}
+      <Section title="Food Bank" description="Save dishes and pantry staples for instant AI logging.">
+        <Link
+          href="/settings/food-bank"
+          className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-all duration-200 hover:border-[rgba(16,185,129,0.25)] hover:bg-white/[0.04] group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
+              <Utensils className="h-4 w-4" style={{ color: '#10b981' }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-textPrimary">Manage Food Bank</p>
+              <p className="text-xs text-textMuted opacity-60 mt-0.5">Dishes, pantry staples, and shortcuts</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-textMuted/40 group-hover:text-textMuted transition-colors" />
+        </Link>
       </Section>
 
       {/* Daily Targets */}

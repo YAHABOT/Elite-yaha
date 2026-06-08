@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(cp .claude/sessions/2026-04-29/SESSION_LOG.md ../../../.claude/sessions/2026-04-29/SESSION_LOG.md)",
-      "Bash(cp .claude/sessions/2026-04-29/MEMORY.md ../../../.claude/sessions/2026-04-29/MEMORY.md)"
+      "Bash(cp .claude/sessions/2026-04-29/MEMORY.md ../../../.claude/sessions/2026-04-29/MEMORY.md)",
+      "Bash(mkdir -p /c/Users/the--/Documents/Projects/yaha/.claude/worktrees/agent-abc354d24f4e3e5d8/src/app/\\\\\\(app\\\\\\)/\\\\\\(content\\\\\\)/settings/food-bank/new && mkdir -p /c/Users/the--/Documents/Projects/yaha/.claude/worktrees/agent-abc354d24f4e3e5d8/src/app/\\\\\\(app\\\\\\)/\\\\\\(content\\\\\\)/settings/food-bank/\\\\[id\\\\]/edit && mkdir -p /c/Users/the--/Documents/Projects/yaha/.claude/worktrees/agent-abc354d24f4e3e5d8/src/components/settings/food-bank)"
     ]
   }
 }

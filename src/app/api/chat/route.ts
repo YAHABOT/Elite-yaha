@@ -12,10 +12,11 @@ import { buildHealthSystemPrompt, buildRoutineSystemPrompt } from '@/lib/ai/prom
 import { detectRoutineTrigger } from '@/lib/routines/detector'
 import { markDayStarted, markDayEnded, getActiveDayState, persistRoutineState, clearRoutineState } from '@/lib/db/day-state'
 import { getMasterBrainContext } from '@/lib/ai/master-brain'
-import type { ChatAttachment, ChatInput, AnyActionCard } from '@/types/action-card'
+import type { ChatAttachment, ChatInput, AnyActionCard, SaveToFoodBankCard } from '@/types/action-card'
 import type { ChatSession } from '@/types/chat'
 import type { Routine } from '@/types/routine'
 import type { Agent } from '@/types/agent'
+import type { FoodBankEntry } from '@/types/food-bank'
 
 const MAX_MESSAGE_LENGTH = 4000
 
@@ -41,6 +42,21 @@ function extractSearchKeyword(message: string): string | null {
   return text.length >= 2 ? text : null
 }
 
+const FOOD_BANK_ADJUST_KEYWORDS = ['adjust', 'change', 'make the', 'instead', 'show', 'ingredients', 'breakdown', "what's in", 'spell out', 'modify', 'list', 'whats in']
+
+function getFoodBankReferencedNames(entries: FoodBankEntry[], message: string): string[] {
+  const msg = message.toLowerCase()
+  const hasAdjustKeyword = FOOD_BANK_ADJUST_KEYWORDS.some(k => msg.includes(k))
+  if (!hasAdjustKeyword) return []
+  return entries
+    .filter(e => {
+      const nameMatch = msg.includes(e.name.toLowerCase())
+      const shortcutMatch = e.shortcut ? msg.includes(e.shortcut.toLowerCase()) : false
+      return (nameMatch || shortcutMatch) && e.ingredients && e.ingredients.length > 0
+    })
+    .map(e => e.name)
+}
+
 // Must stay in sync with ALLOWED_MIME_TYPES in src/lib/ai/gemini.ts — only accept types Gemini can process.
 // Office formats (docx/xlsx/xls) are removed because Gemini's inlineData API does not support them.
 const ALLOWED_MIME_TYPES = new Set([
@@ -58,6 +74,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/json',
   'text/plain',
   'text/csv',
+  'application/x-food-bank-context', // sentinel: food bank mode activated via attachment button
 ])
 
 type ChatRequestBody = {
@@ -239,6 +256,9 @@ export async function POST(req: Request): Promise<Response> {
             ? date
             : new Date().toISOString().split('T')[0]
 
+          // Food bank mode: only active when user pressed the Food Bank attachment button
+          const isFoodBankMode = (attachments ?? []).some(a => a.mimeType === 'application/x-food-bank-context')
+
           const activeDayStatePromise = getActiveDayState(supabase)
           const [
             trackers,
@@ -249,6 +269,7 @@ export async function POST(req: Request): Promise<Response> {
             activeRoutineRaw,
             routineMatchResult,
             activeDayState,
+            foodBankEntries,
           ] = await Promise.all([
             getTrackersBasic(supabase),
             import('@/lib/db/agents').then(m => m.getAgents()),
@@ -263,6 +284,10 @@ export async function POST(req: Request): Promise<Response> {
               : Promise.resolve(null),
             // Fetch the open day session (started but not ended) — determines default logging date
             activeDayStatePromise,
+            // Food bank entries — only fetched when user activated food bank mode
+            isFoodBankMode
+              ? import('@/lib/db/food-bank').then(m => m.getFoodBankEntries())
+              : Promise.resolve([]),
           ])
 
           // Sessions stay ACTIVE until the user explicitly ends or skips — NEVER auto-close based on clock.
@@ -434,6 +459,8 @@ export async function POST(req: Request): Promise<Response> {
             if (msg.attachments && recentWithImages.has(msg.id)) {
               const attachArr = msg.attachments as Array<{ mimeType: string; base64: string }>
               for (const att of attachArr) {
+                // Skip food bank context sentinel — not a real Gemini inlineData attachment
+                if (att.mimeType === 'application/x-food-bank-context') continue
                 parts.push({ inlineData: { mimeType: att.mimeType, data: att.base64 } })
               }
             }
@@ -700,7 +727,8 @@ export async function POST(req: Request): Promise<Response> {
                   type: att.type
                 }))
               : undefined
-            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.type.startsWith('image/')) ?? false })
+            const referencedFoodBankNamesAgent = isFoodBankMode ? getFoodBankReferencedNames(foodBankEntries, message ?? '') : []
+            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.mimeType.startsWith('image/')) ?? false, foodBankEntries: isFoodBankMode ? foodBankEntries : undefined, referencedFoodBankNames: referencedFoodBankNamesAgent })
             systemPrompt = `${activeAgent.system_prompt}\n\n---\n## YAHA HEALTH LOGGING CAPABILITIES\n${yahaSection}`
           } else {
             console.log(`[ChatRoute] Using standard health prompt. daySession=${daySessionActive ? loggingDate : 'neutral'}`)
@@ -714,7 +742,8 @@ export async function POST(req: Request): Promise<Response> {
                   type: att.type
                 }))
               : undefined
-            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.type.startsWith('image/')) ?? false })
+            const referencedFoodBankNames = isFoodBankMode ? getFoodBankReferencedNames(foodBankEntries, message ?? '') : []
+            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.mimeType.startsWith('image/')) ?? false, foodBankEntries: isFoodBankMode ? foodBankEntries : undefined, referencedFoodBankNames })
           }
 
           // BUG-V32-8 FIX: Append native macro totaling for nutrition tracker (prevents LLM arithmetic errors)
@@ -753,10 +782,11 @@ export async function POST(req: Request): Promise<Response> {
             }
           }
 
-          // Build ChatInput
+          // Build ChatInput — filter out food_bank_context sentinel (not sent to Gemini)
+          const geminiAttachments = attachments?.filter(a => a.mimeType !== 'application/x-food-bank-context')
           const chatInput: ChatInput = {
             text: message || '',
-            attachments,
+            attachments: geminiAttachments,
             sessionId: session.id,
             date,
           }
@@ -786,6 +816,21 @@ export async function POST(req: Request): Promise<Response> {
             const recentActionHashes = new Set<string>()
 
             return rawActions.map(action => {
+              // SAVE_TO_FOOD_BANK: validate required fields and pass through
+              if (action.type === 'SAVE_TO_FOOD_BANK') {
+                const a = action as SaveToFoodBankCard
+                if (!a.name || typeof a.kcal !== 'number') return null
+                return {
+                  ...a,
+                  name: String(a.name).trim(),
+                  entry_type: a.entry_type === 'pantry_item' ? 'pantry_item' : 'dish',
+                  kcal: Number(a.kcal),
+                  protein_g: Number(a.protein_g ?? 0),
+                  carbs_g: Number(a.carbs_g ?? 0),
+                  fat_g: Number(a.fat_g ?? 0),
+                } as SaveToFoodBankCard
+              }
+
               if (action.type !== 'LOG_DATA' && action.type !== 'UPDATE_DATA') return action
 
               // EX4: Generate idempotency hash for action card

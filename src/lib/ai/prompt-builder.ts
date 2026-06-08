@@ -1,6 +1,7 @@
 import type { Tracker } from '@/types/tracker'
 import type { Routine, RoutineStep } from '@/types/routine'
 import type { UserTarget } from '@/lib/db/users'
+import type { FoodBankEntry } from '@/types/food-bank'
 
 type DayLog = {
   id: string
@@ -40,6 +41,10 @@ type BuildHealthSystemPromptParams = {
   currentMessage?: string
   /** True when the current message has at least one image attachment — gates full vision prompt */
   hasImageAttachment?: boolean
+  /** Food bank entries — only injected when user has activated food bank mode via the attachment button */
+  foodBankEntries?: FoodBankEntry[]
+  /** Food bank entry names whose full ingredient detail should be injected (user is adjusting/viewing them) */
+  referencedFoodBankNames?: string[]
 }
 
 function formatTrackerSchema(tracker: Tracker): string {
@@ -486,6 +491,72 @@ FOOD NUTRITIONAL DATA:
 - NEVER refuse to provide a nutritional estimate. Always give your best approximation.
 `
 
+const RECIPE_FILE_RULE = `
+RECIPE FILE RULE: When an attached file or document contains ingredient data (a recipe with individual ingredients and their macros), you MUST preserve ALL ingredient details. When the user asks to "show", "spell out", "list", or asks about ingredients, report every single ingredient with its quantity and individual macros — never summarise or say only totals are available.
+`
+
+const FOOD_BANK_RULE = `
+FOOD BANK: The user has activated food bank mode. Use stored macros exactly for matched items. For pantry items with a different quantity than the stored serving, scale proportionally (e.g. stored 100g, user says 32g → multiply macros by 0.32). If no food bank item matches a mentioned food, estimate normally — never say you checked the food bank.
+`
+
+const FOOD_BANK_ADJUST_RULE = `
+FOOD BANK ADJUSTMENT: When the user changes one ingredient quantity (e.g. "make the casein 90g instead of 60g"), recalculate only that ingredient proportionally, update the batch total, then recalculate per-serving macros. Show brief working (e.g. "Casein: was 60g (221kcal), now 90g → 332kcal. New total: 1954kcal..."), then produce the LOG_DATA action card with the adjusted per-serving values.
+`
+
+const FOOD_BANK_SAVE_RULE = `
+FOOD BANK SAVE: When the user says "add to food bank", "save to food bank", or "save this dish" after building or discussing a meal in conversation, produce a SAVE_TO_FOOD_BANK action card with all collected ingredient and macro data. Include full ingredients array if they were discussed.
+Format: [{"type":"SAVE_TO_FOOD_BANK","name":"Dish Name","entry_type":"dish","shortcut":null,"serving_label":"1 portion","serving_size_g":null,"kcal":988,"protein_g":90.1,"carbs_g":83.4,"fat_g":30.0,"fibre_g":null,"ingredients":[{"name":"Chicken","qty_label":"200g","kcal":220,"protein_g":45,"carbs_g":0,"fat_g":4}],"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
+`
+
+export function buildFoodBankSection(entries: FoodBankEntry[], referencedNames: string[]): string {
+  if (entries.length === 0) return ''
+
+  const pantry = entries.filter(e => e.entry_type === 'pantry_item')
+  const dishes = entries.filter(e => e.entry_type === 'dish')
+
+  const macroLine = (e: FoodBankEntry) =>
+    `${e.kcal}kcal P:${e.protein_g}g C:${e.carbs_g}g F:${e.fat_g}g${e.fibre_g != null ? ` Fibre:${e.fibre_g}g` : ''}`
+
+  const shortcutStr = (e: FoodBankEntry) => e.shortcut ? ` [${e.shortcut}]` : ''
+  const servingStr = (e: FoodBankEntry) => e.serving_label ? ` | ${e.serving_label}` : ''
+
+  let out = `## FOOD BANK (Your Saved Items)\nThe user has activated food bank mode. Match items by name or shortcut (case-insensitive).\nIf no food bank item matches, estimate normally — never mention the food bank lookup.\n`
+
+  if (pantry.length > 0) {
+    out += `\n### PANTRY ITEMS (scale proportionally if qty differs from stored serving)\n`
+    out += pantry.map(e => `- ${e.name}${shortcutStr(e)}${servingStr(e)}: ${macroLine(e)}`).join('\n')
+  }
+
+  if (dishes.length > 0) {
+    out += `\n\n### DISHES\n`
+    out += dishes.map(e =>
+      `- ${e.name}${shortcutStr(e)}${servingStr(e)}: ${macroLine(e)}${e.ingredients?.length ? ' [HAS FULL INGREDIENTS]' : ''}`
+    ).join('\n')
+  }
+
+  // Inject full ingredient detail for referenced items
+  const referenced = entries.filter(e =>
+    referencedNames.some(n => n.toLowerCase() === e.name.toLowerCase()) &&
+    e.ingredients && e.ingredients.length > 0
+  )
+
+  if (referenced.length > 0) {
+    out += `\n\n### FULL INGREDIENT DETAILS\n`
+    for (const e of referenced) {
+      const batchLine = e.batch_yield_g && e.batch_kcal
+        ? `full batch ${e.batch_yield_g}g → ${e.batch_kcal}kcal P:${e.batch_protein_g}g C:${e.batch_carbs_g}g F:${e.batch_fat_g}g`
+        : ''
+      out += `\n${e.name}${batchLine ? ` (${batchLine})` : ''}:\n`
+      out += e.ingredients!.map(i =>
+        `  ${i.qty_label} ${i.name}: ${i.kcal}kcal P:${i.protein_g}g C:${i.carbs_g}g F:${i.fat_g}g`
+      ).join('\n')
+      out += `\n  Per serving${e.serving_label ? ` (${e.serving_label})` : ''}: ${macroLine(e)}`
+    }
+  }
+
+  return out
+}
+
 const CREATE_TRACKER_RULES = `
 ## 🟢 TRACKER CREATION FLOW
 When the user wants to create a new tracker (e.g. "create a tracker for my mood", "I need a new workout tracker"):
@@ -631,6 +702,14 @@ export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): 
   const durationBlock = hasDurationFields(params.trackers) ? DURATION_FORMAT_RULE : ''
 
   const targetsSection = buildTargetsSection(params.userTargets)
+
+  // Food bank — only injected when user activated food bank mode (attachment button)
+  const foodBankSection = params.foodBankEntries?.length
+    ? buildFoodBankSection(params.foodBankEntries, params.referencedFoodBankNames ?? [])
+    : ''
+  const hasFoodBankIngredients = (params.referencedFoodBankNames?.length ?? 0) > 0 &&
+    params.foodBankEntries?.some(e => params.referencedFoodBankNames?.includes(e.name) && e.ingredients?.length)
+
   const historicalSection = params.historicalContext !== undefined
     ? buildHistoricalSection(params.historicalContext, params.trackers)
     : ''
@@ -658,6 +737,12 @@ If the user HAS explicitly named a date (e.g. "log this for yesterday", "log for
 ${visionBlock}
 
 ${FOOD_LOOKUP_RULE}
+
+${RECIPE_FILE_RULE}
+
+${FOOD_BANK_SAVE_RULE}
+
+${foodBankSection ? foodBankSection + '\n\n' + FOOD_BANK_RULE + (hasFoodBankIngredients ? '\n\n' + FOOD_BANK_ADJUST_RULE : '') : ''}
 
 ${durationBlock}
 

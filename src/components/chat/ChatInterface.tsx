@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Paperclip, Send, X, Bot, Zap, CheckCircle2, Menu, Image as ImageIcon, FileText, Camera } from 'lucide-react'
+import { Paperclip, Send, X, Bot, Zap, CheckCircle2, Menu, Image as ImageIcon, FileText, Camera, Utensils } from 'lucide-react'
 import { ActionCard, UpdateDataCardComponent } from '@/components/chat/ActionCard'
 import { CreateTrackerCard } from '@/components/chat/CreateTrackerCard'
+import { SaveToFoodBankCard } from '@/components/chat/SaveToFoodBankCard'
 import { AgentSelector } from '@/components/chat/AgentSelector'
 import { ChatSidebar } from '@/components/chat/ChatSidebar'
 import type { ChatMessage, ChatSession } from '@/types/chat'
@@ -14,6 +15,9 @@ import type { Routine } from '@/types/routine'
 import { getAgentsAction } from '@/app/actions/agents'
 import { LIBRARY_AGENTS, LIBRARY_ENABLED_KEY } from '@/components/agents/AgentForgeList'
 import { renameSessionAction } from '@/app/actions/chat'
+import { getFoodBankEntriesAction } from '@/app/actions/food-bank'
+import { FoodBankPicker } from '@/components/chat/FoodBankPicker'
+import type { FoodBankEntry } from '@/types/food-bank'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone — avoids UTC midnight boundary issues
 // where UTC+7 users in the early morning would get yesterday's UTC date as "today".
@@ -107,6 +111,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
   const [isHydrated, setIsHydrated] = useState<boolean>(false)
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
+  const [showFoodBankPicker, setShowFoodBankPicker] = useState<boolean>(false)
+  const [foodBankEntries, setFoodBankEntries] = useState<FoodBankEntry[]>([])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -1204,6 +1210,9 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               {message.actions && message.actions.length > 0 && (
                 <div className="mt-1 w-full space-y-3">
                   {message.actions.map((card, idx) => {
+                    if (card.type === 'SAVE_TO_FOOD_BANK') {
+                      return <SaveToFoodBankCard key={idx} card={card} />
+                    }
                     if (card.type === 'CREATE_TRACKER') {
                       return (
                         <CreateTrackerCard
@@ -1450,6 +1459,30 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     <FileText className="h-4 w-4 text-workout shrink-0" />
                     Attach File
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAttachMenuOpen(false)
+                      // Lazy-load food bank entries on first open
+                      if (foodBankEntries.length === 0) {
+                        void getFoodBankEntriesAction().then(r => { if (r.entries) setFoodBankEntries(r.entries) })
+                      }
+                      // Add food_bank_context sentinel to attachedFiles
+                      setAttachedFiles(prev =>
+                        prev.some(f => f.attachment.mimeType === 'application/x-food-bank-context')
+                          ? prev
+                          : [...prev, {
+                              file: new File([], 'food-bank'),
+                              attachment: { type: 'file' as const, base64: '', mimeType: 'application/x-food-bank-context', filename: 'food-bank-context' },
+                            }]
+                      )
+                      setShowFoodBankPicker(true)
+                    }}
+                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
+                  >
+                    <Utensils className="h-4 w-4 text-nutrition shrink-0" />
+                    Food Bank
+                  </button>
                 </div>
               )}
               <button
@@ -1497,23 +1530,38 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
           {attachedFiles.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
-              {attachedFiles.map((af, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-full border border-nutrition/20 bg-nutrition/[0.06] py-1.5 pl-3 pr-2 text-[11px] font-bold text-nutrition/80 transition-all duration-200">
-                  <Paperclip className="h-3 w-3 shrink-0" />
-                  <span className="max-w-[150px] truncate">{af.file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setAttachedFiles(f => f.filter((_, idx) => idx !== i))}
-                    className="ml-0.5 rounded-full p-0.5 hover:bg-nutrition/20 hover:text-nutrition transition-colors"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+              {attachedFiles.map((af, i) => {
+                const isFoodBank = af.attachment.mimeType === 'application/x-food-bank-context'
+                return (
+                  <div key={i} className={`flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-2 text-[11px] font-bold transition-all duration-200 ${isFoodBank ? 'border-nutrition/30 bg-nutrition/[0.08] text-nutrition' : 'border-nutrition/20 bg-nutrition/[0.06] text-nutrition/80'}`}>
+                    {isFoodBank ? <Utensils className="h-3 w-3 shrink-0" /> : <Paperclip className="h-3 w-3 shrink-0" />}
+                    <span className="max-w-[150px] truncate">{isFoodBank ? 'Food Bank Active' : af.file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFiles(f => f.filter((_, idx) => idx !== i))}
+                      className="ml-0.5 rounded-full p-0.5 hover:bg-nutrition/20 hover:text-nutrition transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </form>
       </div>
+
+      {/* Food Bank Picker modal */}
+      {showFoodBankPicker && (
+        <FoodBankPicker
+          entries={foodBankEntries}
+          onSelect={(name) => {
+            setInput(prev => prev ? `${prev} ${name}` : name)
+            setShowFoodBankPicker(false)
+          }}
+          onClose={() => setShowFoodBankPicker(false)}
+        />
+      )}
     </div>
   )
 }

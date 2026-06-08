@@ -1,4 +1,6 @@
-export type ActionCardType = 'LOG_DATA' | 'UPDATE_DATA' | 'CREATE_TRACKER'
+import type { FoodBankIngredient } from '@/types/food-bank'
+
+export type ActionCardType = 'LOG_DATA' | 'UPDATE_DATA' | 'CREATE_TRACKER' | 'SAVE_TO_FOOD_BANK'
 
 export type SchemaFieldDef = {
   fieldId: string
@@ -44,7 +46,29 @@ export type CreateTrackerCard = {
   confirmed?: boolean
 }
 
-export type AnyActionCard = ActionCard | UpdateDataCard | CreateTrackerCard
+export type SaveToFoodBankCard = {
+  type: 'SAVE_TO_FOOD_BANK'
+  name: string
+  entry_type: 'dish' | 'pantry_item'
+  shortcut?: string | null
+  emoji?: string | null
+  serving_label?: string | null
+  serving_size_g?: number | null
+  kcal: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  fibre_g?: number | null
+  ingredients?: FoodBankIngredient[] | null
+  batch_yield_g?: number | null
+  batch_kcal?: number | null
+  batch_protein_g?: number | null
+  batch_carbs_g?: number | null
+  batch_fat_g?: number | null
+  notes?: string | null
+}
+
+export type AnyActionCard = ActionCard | UpdateDataCard | CreateTrackerCard | SaveToFoodBankCard
 
 export type ChatAttachment = {
   type: 'image' | 'audio' | 'file'
