@@ -141,10 +141,12 @@ export async function upsertUserProfile(input: UpsertUserInput): Promise<User> {
 
 /** Add one target to the user's targets array */
 export async function addUserTarget(target: UserTarget): Promise<UserTargets> {
-  const user = await getUser()
-  if (!user) throw new Error('Unauthorized')
+  const authUser = await getSafeUser()
+  if (!authUser) throw new Error('Unauthorized')
 
-  const updated = [...user.targets, target]
+  // getUser() returns null when the users row doesn't exist yet — fall back to empty targets
+  const user = await getUser()
+  const updated = [...(user?.targets ?? []), target]
   await upsertUserProfile({ targets: updated })
   return updated
 }

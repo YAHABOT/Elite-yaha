@@ -191,7 +191,7 @@ export function RoutineForm({ trackers, initialValues }: Props) {
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-2 rounded-xl border border-nutrition/30 bg-nutrition/[0.06] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-nutrition/80 transition-all hover:bg-nutrition/20 hover:text-nutrition active:scale-95 disabled:opacity-30"
+            className="flex items-center gap-2 rounded-xl border border-nutrition/30 bg-nutrition/[0.06] px-3 py-2 text-[10px] font-black uppercase tracking-wide text-nutrition/80 transition-all hover:bg-nutrition/20 hover:text-nutrition active:scale-95 disabled:opacity-30"
           >
             <Save className="h-3.5 w-3.5 stroke-[3px]" />
             {submitting ? 'Syncing...' : isEdit ? 'Update Protocol' : 'Deploy Protocol'}
@@ -303,7 +303,7 @@ export function RoutineForm({ trackers, initialValues }: Props) {
           type="button"
           onClick={() => setShowTrackerPicker((v) => !v)}
           disabled={trackers.length === 0}
-          className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-nutrition px-12 py-4 text-sm font-black uppercase tracking-widest text-[#050505] transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl shadow-nutrition/30 disabled:opacity-50 transition-all"
+          className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-nutrition px-6 py-4 text-sm font-black uppercase tracking-wide text-[#050505] transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl shadow-nutrition/30 disabled:opacity-50"
         >
           <Plus className="h-5 w-5 stroke-[3px]" />
           Add Tracker

@@ -48,8 +48,8 @@ function DeveloperButton({
       href={href}
       className={`flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-4 py-3.5 transition-all hover:scale-[1.02] active:scale-98 shadow-lg group ${colorClass}`}
     >
-      <Icon className="h-4 w-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-      <span className="text-[11px] font-black uppercase tracking-widest">{label}</span>
+      <Icon className="h-4 w-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+      <span className="text-[10px] font-black uppercase tracking-wide leading-tight text-center">{label}</span>
     </Link>
   )
 }
