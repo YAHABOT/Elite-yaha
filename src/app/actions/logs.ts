@@ -55,11 +55,10 @@ export async function updateLogAction(
 ): Promise<{ error?: string }> {
   try {
     if (!logId) return { error: 'Log ID is required' }
-    if (!fields || Object.keys(fields).length === 0) {
-      return { error: 'At least one field is required' }
-    }
+    const hasFieldChanges = fields && Object.keys(fields).length > 0
+    if (!hasFieldChanges && !loggedAt) return { error: 'Nothing to update' }
 
-    await updateLog(logId, { fields, logged_at: loggedAt })
+    await updateLog(logId, { fields: hasFieldChanges ? fields : undefined, logged_at: loggedAt })
     revalidatePath(`/trackers/${trackerId}/log`)
     return {}
   } catch (e) {
