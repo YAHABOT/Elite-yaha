@@ -117,16 +117,30 @@ function SortableWidgetItem({ id, widget, value, editMode, target, targetDirecti
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.45 : 1, zIndex: isDragging ? 50 : undefined }}
     >
-      <WidgetCard
-        widget={widget}
-        value={value}
-        editMode={editMode}
-        onDelete={onDelete}
-        onEdit={onEdit}
-        target={target}
-        targetDirection={targetDirection}
-        dragHandleProps={editMode ? { ...attributes, ...listeners } : undefined}
-      />
+      {editMode ? (
+        <WidgetCard
+          widget={widget}
+          value={value}
+          editMode={editMode}
+          onDelete={onDelete}
+          onEdit={onEdit}
+          target={target}
+          targetDirection={targetDirection}
+          dragHandleProps={{ ...attributes, ...listeners }}
+        />
+      ) : (
+        <Link href={`/dashboard/widget/${widget.id}`} className="block">
+          <WidgetCard
+            widget={widget}
+            value={value}
+            editMode={editMode}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            target={target}
+            targetDirection={targetDirection}
+          />
+        </Link>
+      )}
     </div>
   )
 }
