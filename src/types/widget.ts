@@ -40,6 +40,7 @@ export type Widget = {
   extra_fields?: ExtraField[]
   target_display?: TargetDisplay
   period?: WidgetPeriod
+  pb_direction?: 'above' | 'below'
 }
 
 export type WidgetValue = {

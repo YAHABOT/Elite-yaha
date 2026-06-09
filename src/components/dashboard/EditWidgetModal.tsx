@@ -42,6 +42,7 @@ export function EditWidgetModal({ widget, trackers, targets = [], correlations =
   const width = 'full' as const
   const [extraFields, setExtraFields] = useState<ExtraField[]>(widget.extra_fields ?? [])
   const [targetDisplay, setTargetDisplay] = useState<TargetDisplay>(widget.target_display ?? 'bar')
+  const [pbLower, setPbLower] = useState(widget.pb_direction === 'below')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -76,6 +77,7 @@ export function EditWidgetModal({ widget, trackers, targets = [], correlations =
         extra_fields: extraFields.filter(ef => ef.field_id !== ''),
         target_display: matchingTarget ? targetDisplay : undefined,
         period: selectedPeriod || undefined,
+        pb_direction: pbLower ? 'below' : 'above',
       })
 
       if (result.error) {
@@ -353,6 +355,22 @@ export function EditWidgetModal({ widget, trackers, targets = [], correlations =
                 />
               )}
             </div>
+          )}
+
+          {/* PB direction */}
+          {selectedType !== 'tracker_latest' && (
+            <label className="flex items-center gap-3 cursor-pointer select-none rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition-all hover:border-white/10">
+              <input
+                type="checkbox"
+                checked={pbLower}
+                onChange={e => setPbLower(e.target.checked)}
+                className="h-4 w-4 rounded border-white/20 bg-white/5 accent-[#00d4ff]"
+              />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-textPrimary">Personal Best is lower</p>
+                <p className="text-[9px] text-textMuted/50 normal-case tracking-normal font-normal mt-0.5">e.g. resting HR, body weight</p>
+              </div>
+            </label>
           )}
 
           {/* Label */}
