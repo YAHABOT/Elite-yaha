@@ -93,7 +93,7 @@ export function FoodBankList({ initialEntries }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Header row */}
+      {/* Header row — tabs + add button only */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex gap-1.5">
           {tabs.map(t => (
@@ -110,57 +110,14 @@ export function FoodBankList({ initialEntries }: Props) {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          {selectMode ? (
-            <button
-              onClick={exitSelectMode}
-              className="px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/5 text-textMuted text-[11px] font-black uppercase tracking-widest hover:text-textPrimary transition-all duration-200"
-            >
-              Cancel
-            </button>
-          ) : (
-            <button
-              onClick={() => setSelectMode(true)}
-              className="px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/5 text-textMuted text-[11px] font-black uppercase tracking-widest hover:text-textPrimary transition-all duration-200"
-            >
-              Select
-            </button>
-          )}
-          <Link
-            href="/settings/food-bank/new"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-nutrition/15 border border-nutrition/30 text-nutrition text-[11px] font-black uppercase tracking-widest hover:bg-nutrition/20 transition-all duration-200"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add
-          </Link>
-        </div>
+        <Link
+          href="/settings/food-bank/new"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-nutrition/15 border border-nutrition/30 text-nutrition text-[11px] font-black uppercase tracking-widest hover:bg-nutrition/20 transition-all duration-200"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add
+        </Link>
       </div>
-
-      {/* Bulk action bar */}
-      {selectMode && filtered.length > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5">
-          <button
-            onClick={toggleSelectAll}
-            className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-textMuted hover:text-textPrimary transition-colors"
-          >
-            {selected.size === filtered.length
-              ? <CheckSquare className="h-4 w-4 text-nutrition" />
-              : <Square className="h-4 w-4" />}
-            {selected.size === filtered.length ? 'Deselect All' : 'Select All'}
-          </button>
-          {selected.size > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              disabled={isBulkDeleting}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all duration-200 disabled:opacity-50"
-              style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444' }}
-            >
-              {isBulkDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-              Delete {selected.size}
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Search */}
       <input
@@ -170,6 +127,49 @@ export function FoodBankList({ initialEntries }: Props) {
         placeholder="Search by name or shortcut…"
         className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-textPrimary placeholder:text-textMuted/30 focus:border-white/20 focus:outline-none transition-all duration-200"
       />
+
+      {/* Select / bulk action bar — below search, across all tabs */}
+      {selectMode ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-2.5">
+          <button
+            onClick={toggleSelectAll}
+            className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-textMuted hover:text-textPrimary transition-colors"
+          >
+            {selected.size === filtered.length
+              ? <CheckSquare className="h-4 w-4 text-nutrition" />
+              : <Square className="h-4 w-4" />}
+            {selected.size === filtered.length ? 'Deselect All' : 'Select All'}
+          </button>
+          <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all duration-200 disabled:opacity-50"
+                style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444' }}
+              >
+                {isBulkDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                Delete {selected.size}
+              </button>
+            )}
+            <button
+              onClick={exitSelectMode}
+              className="px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/5 text-textMuted text-[11px] font-black uppercase tracking-widest hover:text-textPrimary transition-all duration-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-end">
+          <button
+            onClick={() => setSelectMode(true)}
+            className="px-3 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-textMuted text-[10px] font-black uppercase tracking-widest hover:text-textPrimary hover:bg-white/[0.05] transition-all duration-200"
+          >
+            Select
+          </button>
+        </div>
+      )}
 
       {/* Entry list */}
       {filtered.length === 0 ? (
