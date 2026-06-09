@@ -104,6 +104,9 @@ function validateAttachments(
       throw new Error(`Disallowed attachment MIME type: ${attachment.mimeType}`)
     }
 
+    // Sentinels carry no file data — skip all binary validation
+    if (attachment.mimeType === 'application/x-food-bank-context') continue
+
     // BUG-V32-EX3: Validate base64 encoding before processing
     if (!attachment.base64 || typeof attachment.base64 !== 'string') {
       throw new Error('Attachment base64 data is missing or invalid')
