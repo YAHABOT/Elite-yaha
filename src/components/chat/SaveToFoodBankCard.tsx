@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Bookmark, Check, ChevronDown, ChevronUp, Loader2, Pencil } from 'lucide-react'
+import { Bookmark, Check, ChevronDown, ChevronUp, Loader2, Pencil, X } from 'lucide-react'
 import { createFoodBankEntryAction } from '@/app/actions/food-bank'
 import type { SaveToFoodBankCard as SaveToFoodBankCardType } from '@/types/action-card'
 import type { CreateFoodBankInput } from '@/types/food-bank'
@@ -262,7 +262,7 @@ export function SaveToFoodBankCard({ card }: Props): React.ReactElement {
       {errorMsg && (
         <p className="px-4 pb-2 text-xs text-red-400">{errorMsg}</p>
       )}
-      <div className="flex gap-2.5 px-4 pb-4">
+      <div className="flex items-center gap-2.5 px-4 pb-4">
         <button
           type="button"
           onClick={handleSave}
@@ -277,9 +277,10 @@ export function SaveToFoodBankCard({ card }: Props): React.ReactElement {
           type="button"
           onClick={handleDiscard}
           disabled={isPending || status === 'saving'}
-          className="flex-1 rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3 text-sm font-bold text-muted-foreground/60 transition-all duration-200 hover:bg-white/[0.07] hover:text-muted-foreground active:scale-[0.98] disabled:opacity-30"
+          aria-label="Discard"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] border border-white/[0.06] text-muted-foreground/50 transition-all duration-200 hover:bg-white/[0.08] hover:text-muted-foreground active:scale-[0.95] disabled:opacity-30"
         >
-          Discard
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>
