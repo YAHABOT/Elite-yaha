@@ -248,9 +248,12 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
     return reversed
   }, [filteredPoints, widget.type])
 
-  // ── Chart domain ───────────────────────────────────────────────────────────
+  // ── Chart domain — handle negative values (e.g. calorie deficit) ──────────
   const chartValues = chartData.map(d => d.value).filter((v): v is number => v != null)
   const chartMax = chartValues.length > 0 ? Math.max(...chartValues) : 1
+  const chartMin = chartValues.length > 0 ? Math.min(...chartValues) : 0
+  const domainMin = chartMin < 0 ? chartMin * 1.15 : 0
+  const domainMax = chartMax > 0 ? chartMax * 1.15 : 1
 
   const cardGradient = `linear-gradient(135deg, ${trackerColor}0D 0%, #0A0A0A 65%)`
   const cardBorder = `${trackerColor}22`
@@ -442,7 +445,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
           <ResponsiveContainer width="100%" height={160}>
             <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <XAxis dataKey="date" hide />
-              <YAxis hide domain={[0, chartMax * 1.1 || 1]} />
+              <YAxis hide domain={[domainMin, domainMax]} />
               <Tooltip
                 content={<CustomTooltip fieldType={fieldType} unit={unit} color={trackerColor} />}
                 cursor={{ fill: 'rgba(255,255,255,0.04)' }}

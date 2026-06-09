@@ -101,7 +101,7 @@ export default async function WidgetDetailPage({ params }: Props) {
   const fieldType = fieldDef?.type ?? 'number'
 
   const trackerName = tracker?.name ?? widget.label
-  const trackerColor = widget.color ?? tracker?.color ?? '#6B7280'
+  const trackerColor = widget.color ?? tracker?.color ?? '#00d4ff'
 
   const { start, end } = buildDateRange(365)
   const allDates = buildDateList(start, end)
