@@ -94,13 +94,13 @@ export function FoodBankList({ initialEntries }: Props) {
   return (
     <div className="space-y-4">
       {/* Header row — tabs + add button only */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex gap-1.5">
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1.5 flex-1 min-w-0">
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all duration-200 ${
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all duration-200 whitespace-nowrap ${
                 activeTab === t.key
                   ? 'bg-nutrition/15 text-nutrition border border-nutrition/30'
                   : 'bg-white/[0.03] text-textMuted border border-white/5 hover:text-textPrimary'
@@ -112,10 +112,10 @@ export function FoodBankList({ initialEntries }: Props) {
         </div>
         <Link
           href="/settings/food-bank/new"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-nutrition/15 border border-nutrition/30 text-nutrition text-[11px] font-black uppercase tracking-widest hover:bg-nutrition/20 transition-all duration-200"
+          aria-label="Add new entry"
+          className="shrink-0 flex h-8 w-8 items-center justify-center rounded-xl bg-nutrition/15 border border-nutrition/30 text-nutrition hover:bg-nutrition/20 transition-all duration-200"
         >
-          <Plus className="h-3.5 w-3.5" />
-          Add
+          <Plus className="h-4 w-4" />
         </Link>
       </div>
 
