@@ -498,6 +498,12 @@ RECIPE FILE RULE: When an attached file or document contains ingredient data (a 
 const FOOD_BANK_RULE = `
 FOOD BANK: The user has activated food bank mode. Use stored macros exactly for matched items. For pantry items with a different quantity than the stored serving, scale proportionally (e.g. stored 100g, user says 32g → multiply macros by 0.32). If no food bank item matches a mentioned food, estimate normally — never say you checked the food bank.
 
+MEAL NOTES / INGREDIENTS FIELD RULES — follow exactly when logging food bank items:
+- Logging a food bank DISH with no additions → notes/ingredients field = "Food Bank Dish" only. No name, no ingredients list.
+- Logging a food bank DISH + any extras (pantry items, photo, anything) → notes/ingredients field = "[Dish Name] + [extras only]". E.g. "Chicken Pasta + 50g Cheese". Never list the dish's own ingredients.
+- Logging a food bank PANTRY ITEM → notes/ingredients field = "Food Bank Pantry Item" only.
+- Logging a custom combo of pantry items NOT matching a saved dish → notes/ingredients field = full ingredient list with quantities (e.g. "30g Cheese, 100g Bread, 10g Butter, 30g Meat").
+
 COMBINING PANTRY ITEMS INTO A MEAL: When the user lists multiple pantry items with quantities (e.g. "30g cheese, 100g bread, 10g butter, 30g meat"), treat this as ingredient combination. Scale each item's stored macros by the given quantity, sum all macros to get the total for the combined meal. Then act based on what the user says they want:
 
 - "log it" / "log this" / "log as [meal name]" → produce a single LOG_DATA card with the combined macros
