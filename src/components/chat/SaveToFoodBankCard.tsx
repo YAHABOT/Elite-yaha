@@ -262,22 +262,22 @@ export function SaveToFoodBankCard({ card }: Props): React.ReactElement {
       {errorMsg && (
         <p className="px-4 pb-2 text-xs text-red-400">{errorMsg}</p>
       )}
-      <div className="flex gap-2 px-4 pb-4">
+      <div className="flex gap-2.5 px-4 pb-4">
         <button
           type="button"
           onClick={handleSave}
           disabled={isPending || status === 'saving'}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-[11px] font-black uppercase tracking-widest transition-all duration-200 disabled:opacity-40"
-          style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', color: '#10b981' }}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-black transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:scale-100"
+          style={{ background: 'rgba(16,185,129,0.90)', color: '#000' }}
         >
           {status === 'saving' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bookmark className="h-3.5 w-3.5" />}
-          {status === 'saving' ? 'Saving…' : 'Add to Food Bank'}
+          {status === 'saving' ? 'Saving…' : 'Save'}
         </button>
         <button
           type="button"
           onClick={handleDiscard}
           disabled={isPending || status === 'saving'}
-          className="rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3 text-sm font-bold text-muted-foreground/60 transition-all duration-200 hover:bg-white/[0.07] hover:text-muted-foreground active:scale-[0.98] disabled:opacity-30"
+          className="flex-1 rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3 text-sm font-bold text-muted-foreground/60 transition-all duration-200 hover:bg-white/[0.07] hover:text-muted-foreground active:scale-[0.98] disabled:opacity-30"
         >
           Discard
         </button>
