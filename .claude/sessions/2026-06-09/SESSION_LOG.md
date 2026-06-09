@@ -1,6 +1,6 @@
 # Session 2026-06-09
 
-**Status:** CLOSED ✓
+**Status:** IN PROGRESS (context 2 active)
 **Branch:** feat/mvp-build
 **Previous:** 2026-06-08 CLOSED ✓
 
@@ -55,10 +55,61 @@
 
 ---
 
+---
+
+## Context 2 Tasks (continuation)
+
+### [T75] Food Bank UI polish ✓ COMPLETE
+- `SaveToFoodBankCard` — edit mode (pencil toggle) + discard (X button)
+- `FoodBankList` — SELECT moved below search bar, shows across all tabs
+- `FoodBankList` — + Add button changed to icon-only circle (header row fits on mobile)
+- `SaveToFoodBankCard` — discard changed to X icon circle; Save button gets full width
+- **Critical bug fixed:** `validateAttachments` in `chat/route.ts` rejected the food bank sentinel (`base64: ''`) — `!attachment.base64` was `true` for empty string → 400 → spinner reset. Fixed: `continue` early for `application/x-food-bank-context` before base64 checks.
+
+### [T76] Widget Drill-Down Detail Page — ⏳ PLANNED, NOT YET STARTED
+Plan saved: `C:\Users\the--\.claude\plans\streamed-sleeping-puppy.md`
+
+**What:** Tap any widget card → full-page `/dashboard/widget/[widgetId]` with:
+- Historical bar chart (Recharts ComposedChart)
+- Date filter pills: 7D / 30D / 90D / ALL / Custom
+- Summary stats strip: MIN · AVG · MAX · PB
+- Streak counter (🔥 N-day streak)
+- 7-day moving average overlay (toggleable)
+- Target reference line (ReferenceLine)
+- Daily/Weekly toggle (auto-weekly for 90D+)
+- Day-by-day list with entry counts
+- `+ Log` shortcut button in header
+
+**Files to create/modify:**
+- CREATE: `src/app/(app)/(content)/dashboard/widget/[widgetId]/page.tsx`
+- CREATE: `src/components/dashboard/WidgetDetailClient.tsx`
+- MODIFY: `src/components/dashboard/DashboardClient.tsx` — wrap WidgetCard in Link when not editMode
+
+**Data sources:**
+- Aggregate widgets (field_average/total/combined/correlator): `getDateRangeStats(365d)` → `daily_stats` table
+- Latest widgets (field_latest/tracker_latest): `getLogs(trackerId, { limit: 500 })`
+- Target: from `users.targets` JSONB (matched by trackerId + fieldId)
+
+---
+
+## Additional Commits (Context 2)
+
+| SHA | Message |
+|-----|---------|
+| `0723366` | feat(food-bank): add edit mode and discard to SaveToFoodBankCard |
+| `0983dd5` | fix(food-bank): move Select button below search bar, out of filter tabs row |
+| `800ebeb` | fix(food-bank): icon-only Add button so header row fits on mobile |
+| `f805aec` | fix(food-bank): sentinel base64 validation was rejecting food bank context |
+| `eddded2` | fix(food-bank): balanced Save/Discard buttons — equal width, shorter label |
+| `48de8ed` | fix(food-bank): discard is now a small X icon circle, Save gets full width |
+
+---
+
 ## ⚠️ CARRY-OVER FOR NEXT SESSION
 
 | Task | Status | Notes |
 |------|--------|-------|
+| **T76** | ⏳ START FIRST | Widget drill-down — plan at `.claude/plans/streamed-sleeping-puppy.md` |
 | T57-cron | ⚠️ Verify | Confirm cron-job.org is hitting `/api/warmup` every 5 min and showing 200s |
 | CT-2.1 | ⏳ | Code review findings from v32 (non-blocking) |
 | CT-3 | ⏳ | 67 QA test cases pending |
