@@ -18,13 +18,17 @@ import {
   Image,
   FileText,
   Camera,
+  Utensils,
 } from 'lucide-react'
 import type { ChatSession } from '@/types/chat'
 import type { Agent } from '@/types/agent'
 import type { ChatAttachment } from '@/types/action-card'
+import type { FoodBankEntry } from '@/types/food-bank'
 import { AgentSelector } from '@/components/chat/AgentSelector'
+import { FoodBankPicker } from '@/components/chat/FoodBankPicker'
 import { deleteSessionAction, deleteSessionsAction, renameSessionAction } from '@/app/actions/chat'
 import { getAgentsAction } from '@/app/actions/agents'
+import { getFoodBankEntriesAction } from '@/app/actions/food-bank'
 import { LIBRARY_AGENTS, LIBRARY_ENABLED_KEY } from '@/components/agents/AgentForgeList'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone — avoids UTC midnight boundary issues
@@ -86,6 +90,8 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
   const [attachedFiles, setAttachedFiles] = useState<ChatAttachment[]>([])
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
+  const [showFoodBankPicker, setShowFoodBankPicker] = useState<boolean>(false)
+  const [foodBankEntries, setFoodBankEntries] = useState<FoodBankEntry[]>([])
 
   // Hydration guard: formatRelativeTime uses new Date() which differs between SSR and client
   const [mounted, setMounted] = useState<boolean>(false)
@@ -528,9 +534,12 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
         {/* Attached file chips */}
         {attachedFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
-            {attachedFiles.map((att, i) => (
-              <div key={i} className="flex items-center gap-1.5 rounded-full border border-nutrition/20 bg-nutrition/[0.06] py-1 pl-2.5 pr-1.5 text-[10px] font-bold text-nutrition/80">
-                <span className="max-w-[100px] truncate">{att.filename ?? (att.type === 'image' ? 'Image' : 'File')}</span>
+            {attachedFiles.map((att, i) => {
+              const isFoodBank = att.mimeType === 'application/x-food-bank-context'
+              return (
+              <div key={i} className={`flex items-center gap-1.5 rounded-full border py-1 pl-2.5 pr-1.5 text-[10px] font-bold ${isFoodBank ? 'border-nutrition/30 bg-nutrition/[0.08] text-nutrition' : 'border-nutrition/20 bg-nutrition/[0.06] text-nutrition/80'}`}>
+                {isFoodBank && <Utensils className="h-2.5 w-2.5 shrink-0" />}
+                <span className="max-w-[100px] truncate">{isFoodBank ? 'Food Bank Active' : (att.filename ?? (att.type === 'image' ? 'Image' : 'File'))}</span>
                 <button
                   type="button"
                   onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
@@ -539,7 +548,8 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
                   <X className="h-2.5 w-2.5" />
                 </button>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -572,6 +582,25 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
                 >
                   <FileText className="h-4 w-4 text-workout shrink-0" />
                   Attach File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAttachMenuOpen(false)
+                    if (foodBankEntries.length === 0) {
+                      void getFoodBankEntriesAction().then(r => { if (r.entries) setFoodBankEntries(r.entries) })
+                    }
+                    setAttachedFiles(prev =>
+                      prev.some(f => f.mimeType === 'application/x-food-bank-context')
+                        ? prev
+                        : [...prev, { type: 'file' as const, base64: '', mimeType: 'application/x-food-bank-context', filename: 'food-bank-context' }]
+                    )
+                    setShowFoodBankPicker(true)
+                  }}
+                  className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
+                >
+                  <Utensils className="h-4 w-4 text-nutrition shrink-0" />
+                  Food Bank
                 </button>
               </div>
             )}
@@ -616,6 +645,20 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
           </button>
         </div>
       </div>
+
+      {showFoodBankPicker && (
+        <FoodBankPicker
+          entries={foodBankEntries}
+          onSelect={(name) => {
+            setInput(prev => prev ? `${prev} ${name}` : name)
+            setShowFoodBankPicker(false)
+          }}
+          onClose={() => {
+            setShowFoodBankPicker(false)
+            setAttachedFiles(prev => prev.filter(f => f.mimeType !== 'application/x-food-bank-context'))
+          }}
+        />
+      )}
     </div>
   )
 }
