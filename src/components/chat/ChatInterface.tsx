@@ -15,9 +15,6 @@ import type { Routine } from '@/types/routine'
 import { getAgentsAction } from '@/app/actions/agents'
 import { LIBRARY_AGENTS, LIBRARY_ENABLED_KEY } from '@/components/agents/AgentForgeList'
 import { renameSessionAction } from '@/app/actions/chat'
-import { getFoodBankEntriesAction } from '@/app/actions/food-bank'
-import { FoodBankPicker } from '@/components/chat/FoodBankPicker'
-import type { FoodBankEntry } from '@/types/food-bank'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone — avoids UTC midnight boundary issues
 // where UTC+7 users in the early morning would get yesterday's UTC date as "today".
@@ -111,8 +108,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
   const [isHydrated, setIsHydrated] = useState<boolean>(false)
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
-  const [showFoodBankPicker, setShowFoodBankPicker] = useState<boolean>(false)
-  const [foodBankEntries, setFoodBankEntries] = useState<FoodBankEntry[]>([])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -1466,11 +1461,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                     type="button"
                     onClick={() => {
                       setIsAttachMenuOpen(false)
-                      // Lazy-load food bank entries on first open
-                      if (foodBankEntries.length === 0) {
-                        void getFoodBankEntriesAction().then(r => { if (r.entries) setFoodBankEntries(r.entries) })
-                      }
-                      // Add food_bank_context sentinel to attachedFiles
                       setAttachedFiles(prev =>
                         prev.some(f => f.attachment.mimeType === 'application/x-food-bank-context')
                           ? prev
@@ -1479,7 +1469,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                               attachment: { type: 'file' as const, base64: '', mimeType: 'application/x-food-bank-context', filename: 'food-bank-context' },
                             }]
                       )
-                      setShowFoodBankPicker(true)
                     }}
                     className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
                   >
@@ -1554,17 +1543,6 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         </form>
       </div>
 
-      {/* Food Bank Picker modal */}
-      {showFoodBankPicker && (
-        <FoodBankPicker
-          entries={foodBankEntries}
-          onSelect={(name) => {
-            setInput(prev => prev ? `${prev} ${name}` : name)
-            setShowFoodBankPicker(false)
-          }}
-          onClose={() => setShowFoodBankPicker(false)}
-        />
-      )}
     </div>
   )
 }

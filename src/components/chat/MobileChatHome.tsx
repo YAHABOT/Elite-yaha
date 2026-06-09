@@ -23,12 +23,9 @@ import {
 import type { ChatSession } from '@/types/chat'
 import type { Agent } from '@/types/agent'
 import type { ChatAttachment } from '@/types/action-card'
-import type { FoodBankEntry } from '@/types/food-bank'
 import { AgentSelector } from '@/components/chat/AgentSelector'
-import { FoodBankPicker } from '@/components/chat/FoodBankPicker'
 import { deleteSessionAction, deleteSessionsAction, renameSessionAction } from '@/app/actions/chat'
 import { getAgentsAction } from '@/app/actions/agents'
-import { getFoodBankEntriesAction } from '@/app/actions/food-bank'
 import { LIBRARY_AGENTS, LIBRARY_ENABLED_KEY } from '@/components/agents/AgentForgeList'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone — avoids UTC midnight boundary issues
@@ -90,8 +87,6 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
   const [attachedFiles, setAttachedFiles] = useState<ChatAttachment[]>([])
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState<boolean>(false)
-  const [showFoodBankPicker, setShowFoodBankPicker] = useState<boolean>(false)
-  const [foodBankEntries, setFoodBankEntries] = useState<FoodBankEntry[]>([])
 
   // Hydration guard: formatRelativeTime uses new Date() which differs between SSR and client
   const [mounted, setMounted] = useState<boolean>(false)
@@ -587,15 +582,11 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
                   type="button"
                   onClick={() => {
                     setIsAttachMenuOpen(false)
-                    if (foodBankEntries.length === 0) {
-                      void getFoodBankEntriesAction().then(r => { if (r.entries) setFoodBankEntries(r.entries) })
-                    }
                     setAttachedFiles(prev =>
                       prev.some(f => f.mimeType === 'application/x-food-bank-context')
                         ? prev
                         : [...prev, { type: 'file' as const, base64: '', mimeType: 'application/x-food-bank-context', filename: 'food-bank-context' }]
                     )
-                    setShowFoodBankPicker(true)
                   }}
                   className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-textPrimary/80 transition-all hover:bg-white/[0.06] hover:text-textPrimary whitespace-nowrap"
                 >
@@ -646,19 +637,6 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
         </div>
       </div>
 
-      {showFoodBankPicker && (
-        <FoodBankPicker
-          entries={foodBankEntries}
-          onSelect={(name) => {
-            setInput(prev => prev ? `${prev} ${name}` : name)
-            setShowFoodBankPicker(false)
-          }}
-          onClose={() => {
-            setShowFoodBankPicker(false)
-            setAttachedFiles(prev => prev.filter(f => f.mimeType !== 'application/x-food-bank-context'))
-          }}
-        />
-      )}
     </div>
   )
 }
