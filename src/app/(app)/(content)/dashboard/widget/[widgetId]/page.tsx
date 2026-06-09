@@ -7,7 +7,6 @@ import { getLogs } from '@/lib/db/logs'
 import { getUser } from '@/lib/db/users'
 import { WidgetDetailClient } from '@/components/dashboard/WidgetDetailClient'
 import type { Widget } from '@/types/widget'
-import type { DailyStats } from '@/lib/db/daily-stats'
 import type { TrackerLog } from '@/types/log'
 
 export type DailyPoint = {
@@ -90,88 +89,101 @@ export default async function WidgetDetailPage({ params }: Props) {
   // Branch on widget type to build DailyPoint[]
   let dailyPoints: DailyPoint[] = []
 
-  const isAggregate = ['field_average', 'field_total', 'correlator', 'combined_field'].includes(widget.type)
-  const isLatest = ['field_latest', 'tracker_latest'].includes(widget.type)
+  // Helper: group a raw log array by calendar date (YYYY-MM-DD from logged_at)
+  function groupByDate(logs: TrackerLog[]): Map<string, TrackerLog[]> {
+    const map = new Map<string, TrackerLog[]>()
+    for (const log of logs) {
+      const date = log.logged_at.split('T')[0]
+      if (!map.has(date)) map.set(date, [])
+      map.get(date)!.push(log)
+    }
+    return map
+  }
 
-  if (isAggregate) {
-    const stats: DailyStats[] = await getDateRangeStats(start, end)
-    const statsMap = new Map<string, DailyStats>(stats.map(s => [s.date, s]))
-
+  if (widget.type === 'correlator' && widget.correlation_id) {
+    // Correlator — still uses daily_stats (formula evaluation lives there)
+    const stats = await getDateRangeStats(start, end)
+    const statsMap = new Map(stats.map(s => [s.date, s]))
     dailyPoints = allDates.map(date => {
       const stat = statsMap.get(date)
-      if (!stat) return { date, value: null }
-
-      if (widget.type === 'field_average' && widget.tracker_id && widget.field_id) {
-        const fieldStat = stat.results.trackers[widget.tracker_id]?.[widget.field_id]
-        return {
-          date,
-          value: fieldStat ? fieldStat.avg : null,
-          count: fieldStat?.count ?? 0,
-        }
-      }
-
-      if (widget.type === 'field_total' && widget.tracker_id && widget.field_id) {
-        const fieldStat = stat.results.trackers[widget.tracker_id]?.[widget.field_id]
-        return {
-          date,
-          value: fieldStat ? fieldStat.sum : null,
-          count: fieldStat?.count ?? 0,
-        }
-      }
-
-      if (widget.type === 'correlator' && widget.correlation_id) {
-        const corrVal = stat.results.correlations[widget.correlation_id]
-        return {
-          date,
-          value: corrVal ?? null,
-        }
-      }
-
-      if (widget.type === 'combined_field') {
-        // Sum across all tracker_ids × field_id combinations stored in extra_fields
-        // extra_fields contains {field_id, label} entries — each paired with the widget's tracker_id
-        // For combined_field, accumulate sum across all tracker fields present in results
-        let total: number | null = null
-        if (widget.tracker_id && widget.field_id) {
-          const fieldStat = stat.results.trackers[widget.tracker_id]?.[widget.field_id]
-          if (fieldStat) {
-            total = (total ?? 0) + fieldStat.sum
-          }
-        }
-        for (const ef of widget.extra_fields ?? []) {
-          const fieldStat = stat.results.trackers[widget.tracker_id ?? '']?.[ef.field_id]
-          if (fieldStat) {
-            total = (total ?? 0) + fieldStat.sum
-          }
-        }
-        return { date, value: total }
-      }
-
-      return { date, value: null }
+      const corrVal = stat?.results.correlations[widget.correlation_id!]
+      return { date, value: corrVal ?? null }
     })
-  } else if (isLatest && widget.tracker_id) {
-    // Fetch up to 500 logs for this tracker
+
+  } else if (
+    (widget.type === 'field_total' || widget.type === 'field_average') &&
+    widget.tracker_id && widget.field_id
+  ) {
+    // Aggregate from raw logs — reliable regardless of daily_stats backfill status
     const logs: TrackerLog[] = await getLogs(widget.tracker_id, {
-      limit: 500,
+      limit: 2000,
       startDate: start + 'T00:00:00.000Z',
       endDate: end + 'T23:59:59.999Z',
     })
+    const byDate = groupByDate(logs)
 
-    // Group logs by calendar date (use logged_at date)
-    const logsByDate = new Map<string, TrackerLog[]>()
-    for (const log of logs) {
-      const date = log.logged_at.split('T')[0]
-      if (!logsByDate.has(date)) logsByDate.set(date, [])
-      logsByDate.get(date)!.push(log)
-    }
+    dailyPoints = allDates.map(date => {
+      const dayLogs = byDate.get(date)
+      if (!dayLogs || dayLogs.length === 0) return { date, value: null }
+
+      const nums = dayLogs
+        .map(l => l.fields[widget.field_id!])
+        .filter((v): v is number => typeof v === 'number' && !isNaN(v))
+
+      if (nums.length === 0) return { date, value: null }
+
+      const sum = nums.reduce((a, b) => a + b, 0)
+      const value = widget.type === 'field_average'
+        ? Math.round((sum / nums.length) * 10) / 10
+        : Math.round(sum * 10) / 10
+
+      return { date, value, count: dayLogs.length }
+    })
+
+  } else if (widget.type === 'combined_field' && widget.tracker_id) {
+    // Combined — sum across primary field + extra_fields for the same tracker
+    const logs: TrackerLog[] = await getLogs(widget.tracker_id, {
+      limit: 2000,
+      startDate: start + 'T00:00:00.000Z',
+      endDate: end + 'T23:59:59.999Z',
+    })
+    const byDate = groupByDate(logs)
+
+    const fieldIds = [
+      widget.field_id,
+      ...(widget.extra_fields ?? []).map((ef: { field_id: string }) => ef.field_id),
+    ].filter(Boolean) as string[]
+
+    dailyPoints = allDates.map(date => {
+      const dayLogs = byDate.get(date)
+      if (!dayLogs || dayLogs.length === 0) return { date, value: null }
+
+      let total: number | null = null
+      for (const log of dayLogs) {
+        for (const fid of fieldIds) {
+          const v = log.fields[fid]
+          if (typeof v === 'number' && !isNaN(v)) {
+            total = (total ?? 0) + v
+          }
+        }
+      }
+      return { date, value: total !== null ? Math.round(total * 10) / 10 : null, count: dayLogs.length }
+    })
+
+  } else if (widget.tracker_id) {
+    // field_latest / tracker_latest
+    const logs: TrackerLog[] = await getLogs(widget.tracker_id, {
+      limit: 2000,
+      startDate: start + 'T00:00:00.000Z',
+      endDate: end + 'T23:59:59.999Z',
+    })
+    const byDate = groupByDate(logs)
 
     if (widget.type === 'field_latest') {
       dailyPoints = allDates.map(date => {
-        const dayLogs = logsByDate.get(date)
-        if (!dayLogs || dayLogs.length === 0) {
-          return { date, value: null }
-        }
-        // Most recent log first (getLogs orders desc by logged_at)
+        const dayLogs = byDate.get(date)
+        if (!dayLogs || dayLogs.length === 0) return { date, value: null }
+        // getLogs orders desc by logged_at — first entry is latest
         const latestLog = dayLogs[0]
         const rawVal = widget.field_id ? latestLog.fields[widget.field_id] : null
         const value = typeof rawVal === 'number' ? rawVal : null
@@ -187,12 +199,10 @@ export default async function WidgetDetailPage({ params }: Props) {
         }
       })
     } else {
-      // tracker_latest — all logs per day
+      // tracker_latest
       dailyPoints = allDates.map(date => {
-        const dayLogs = logsByDate.get(date)
-        if (!dayLogs || dayLogs.length === 0) {
-          return { date, value: null }
-        }
+        const dayLogs = byDate.get(date)
+        if (!dayLogs || dayLogs.length === 0) return { date, value: null }
         return {
           date,
           value: dayLogs.length,
@@ -206,7 +216,6 @@ export default async function WidgetDetailPage({ params }: Props) {
       })
     }
   } else {
-    // Fallback — all null points
     dailyPoints = allDates.map(date => ({ date, value: null }))
   }
 
