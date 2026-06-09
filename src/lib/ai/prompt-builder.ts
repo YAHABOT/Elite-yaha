@@ -497,6 +497,15 @@ RECIPE FILE RULE: When an attached file or document contains ingredient data (a 
 
 const FOOD_BANK_RULE = `
 FOOD BANK: The user has activated food bank mode. Use stored macros exactly for matched items. For pantry items with a different quantity than the stored serving, scale proportionally (e.g. stored 100g, user says 32g → multiply macros by 0.32). If no food bank item matches a mentioned food, estimate normally — never say you checked the food bank.
+
+COMBINING PANTRY ITEMS INTO A MEAL: When the user lists multiple pantry items with quantities (e.g. "30g cheese, 100g bread, 10g butter, 30g meat"), treat this as ingredient combination. Scale each item's stored macros by the given quantity, sum all macros to get the total for the combined meal. Then act based on what the user says they want:
+
+- "log it" / "log this" / "log as [meal name]" → produce a single LOG_DATA card with the combined macros
+- "save it to food bank" / "save as [meal name]" → produce a SAVE_TO_FOOD_BANK card (entry_type "dish") with the combined macros and full ingredients array
+- "log it and save it" / "log and save" → produce BOTH a LOG_DATA card AND a SAVE_TO_FOOD_BANK card in the same response
+- "log each item separately" → produce one LOG_DATA card per item
+
+If the user lists ingredients without stating intent, ask ONE short question: "Got it — do you want to log this as a meal, save it to your food bank, or both?"
 `
 
 const FOOD_BANK_ADJUST_RULE = `
@@ -505,15 +514,17 @@ FOOD BANK ADJUSTMENT: When the user changes one ingredient quantity (e.g. "make 
 
 const FOOD_BANK_SAVE_RULE = `
 FOOD BANK SAVE: The Food Bank stores two types of entries — use the correct entry_type:
-- entry_type "dish": prepared meals, recipes, cooked foods (e.g. "chicken stir fry", "protein shake")
+- entry_type "dish": prepared meals, recipes, cooked foods, or a combination of pantry ingredients assembled into a meal
 - entry_type "pantry_item": raw ingredients, packaged products, groceries, supplements (e.g. "oats", "whey protein", "olive oil")
 
-When the user says "add to food bank", "save to food bank", "save to pantry", "add to pantry", or "save this [item/dish/recipe]", produce one SAVE_TO_FOOD_BANK action card per item. For a list of multiple items, output one card per item as separate array elements.
-NEVER create a tracker or log LOG_DATA for food bank save requests — always use SAVE_TO_FOOD_BANK.
+When the user says "add to food bank", "save to food bank", "save to pantry", "add to pantry", or "save this [item/dish/recipe]", produce one SAVE_TO_FOOD_BANK action card per item. For a list of multiple items being saved individually, output one card per item.
+You can return SAVE_TO_FOOD_BANK and LOG_DATA in the same response array when the user wants both.
+NEVER create a tracker or use LOG_DATA for food bank save-only requests.
 NEVER ask for confirmation before generating the card — just produce it.
 
-Dish example: [{"type":"SAVE_TO_FOOD_BANK","name":"Chicken Stir Fry","entry_type":"dish","shortcut":null,"serving_label":"1 portion","serving_size_g":null,"kcal":450,"protein_g":40,"carbs_g":35,"fat_g":12,"fibre_g":null,"ingredients":[{"name":"Chicken","qty_label":"200g","kcal":220,"protein_g":45,"carbs_g":0,"fat_g":4}],"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
+Dish example: [{"type":"SAVE_TO_FOOD_BANK","name":"Meat & Cheese Sandwich","entry_type":"dish","shortcut":null,"serving_label":"1 sandwich","serving_size_g":270,"kcal":520,"protein_g":32,"carbs_g":48,"fat_g":22,"fibre_g":3,"ingredients":[{"name":"Bread","qty_label":"100g","kcal":265,"protein_g":9,"carbs_g":49,"fat_g":3},{"name":"Cheese","qty_label":"30g","kcal":114,"protein_g":7,"carbs_g":0,"fat_g":9}],"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
 Pantry example: [{"type":"SAVE_TO_FOOD_BANK","name":"Rolled Oats","entry_type":"pantry_item","shortcut":"oats","serving_label":"100g","serving_size_g":100,"kcal":389,"protein_g":17,"carbs_g":66,"fat_g":7,"fibre_g":10,"ingredients":null,"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
+Log + save example: [{"type":"LOG_DATA","trackerId":"...","trackerName":"Food","fields":{...},"date":"2026-06-09","source":"chat"},{"type":"SAVE_TO_FOOD_BANK","name":"Meat & Cheese Sandwich","entry_type":"dish",...}]
 `
 
 export function buildFoodBankSection(entries: FoodBankEntry[], referencedNames: string[]): string {
