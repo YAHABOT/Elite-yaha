@@ -1,4 +1,4 @@
-import type { ActionCard, CreateTrackerCard, UpdateDataCard, AnyActionCard, SchemaFieldDef } from '@/types/action-card'
+import type { ActionCard, CreateTrackerCard, UpdateDataCard, SaveToFoodBankCard, AnyActionCard, SchemaFieldDef } from '@/types/action-card'
 
 const VALID_SOURCES = new Set(['chat', 'telegram', 'manual'])
 const VALID_TRACKER_TYPES = new Set(['nutrition', 'sleep', 'workout', 'mood', 'water', 'custom'])
@@ -84,9 +84,40 @@ export function validateUpdateDataCard(c: Record<string, unknown>): UpdateDataCa
   }
 }
 
+function validateSaveToFoodBankCard(c: Record<string, unknown>): SaveToFoodBankCard | null {
+  if (typeof c.name !== 'string' || c.name.trim().length === 0) return null
+  if (typeof c.kcal !== 'number' || isNaN(c.kcal)) return null
+  if (typeof c.protein_g !== 'number' || isNaN(c.protein_g)) return null
+  if (typeof c.carbs_g !== 'number' || isNaN(c.carbs_g)) return null
+  if (typeof c.fat_g !== 'number' || isNaN(c.fat_g)) return null
+
+  return {
+    type: 'SAVE_TO_FOOD_BANK',
+    name: String(c.name).trim(),
+    entry_type: c.entry_type === 'pantry_item' ? 'pantry_item' : 'dish',
+    shortcut: typeof c.shortcut === 'string' ? c.shortcut : null,
+    emoji: typeof c.emoji === 'string' ? c.emoji : null,
+    serving_label: typeof c.serving_label === 'string' ? c.serving_label : null,
+    serving_size_g: typeof c.serving_size_g === 'number' ? c.serving_size_g : null,
+    kcal: Number(c.kcal),
+    protein_g: Number(c.protein_g),
+    carbs_g: Number(c.carbs_g),
+    fat_g: Number(c.fat_g),
+    fibre_g: typeof c.fibre_g === 'number' ? c.fibre_g : null,
+    ingredients: Array.isArray(c.ingredients) ? c.ingredients as SaveToFoodBankCard['ingredients'] : null,
+    batch_yield_g: typeof c.batch_yield_g === 'number' ? c.batch_yield_g : null,
+    batch_kcal: typeof c.batch_kcal === 'number' ? c.batch_kcal : null,
+    batch_protein_g: typeof c.batch_protein_g === 'number' ? c.batch_protein_g : null,
+    batch_carbs_g: typeof c.batch_carbs_g === 'number' ? c.batch_carbs_g : null,
+    batch_fat_g: typeof c.batch_fat_g === 'number' ? c.batch_fat_g : null,
+    notes: typeof c.notes === 'string' ? c.notes : null,
+  }
+}
+
 function validateAnyCard(card: unknown): AnyActionCard | null {
   if (!card || typeof card !== 'object') return null
   const c = card as Record<string, unknown>
+  if (c.type === 'SAVE_TO_FOOD_BANK') return validateSaveToFoodBankCard(c)
   if (c.type === 'CREATE_TRACKER') return validateCreateTrackerCard(c)
   if (c.type === 'UPDATE_DATA') return validateUpdateDataCard(c)
   return validateActionCard(card)
