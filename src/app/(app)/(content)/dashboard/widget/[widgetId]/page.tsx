@@ -264,6 +264,7 @@ export default async function WidgetDetailPage({ params }: Props) {
       unit={unit}
       fieldType={fieldType}
       target={targetValue}
+      targetDirection={matchingTarget?.direction ?? 'above'}
     />
   )
 }

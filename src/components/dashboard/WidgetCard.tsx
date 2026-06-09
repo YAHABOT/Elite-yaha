@@ -73,7 +73,7 @@ function Sparkline({ trend, color }: { trend: number[]; color: string }): React.
               dataKey="day"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 7, fill: 'rgba(148,163,184,0.4)', letterSpacing: '0.05em' }}
+              tick={{ fontSize: 7, fill: 'rgba(0,212,255,0.5)', letterSpacing: '0.05em' }}
               interval={0}
             />
             <Line

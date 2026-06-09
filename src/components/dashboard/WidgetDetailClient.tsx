@@ -88,6 +88,7 @@ type Props = {
   unit: string
   fieldType: string
   target: number | null
+  targetDirection: 'above' | 'below'
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ function CustomTooltip({ active, payload, label, fieldType, unit, color }: Custo
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerColor, unit, fieldType, target }: Props): React.ReactElement {
+export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerColor, unit, fieldType, target, targetDirection }: Props): React.ReactElement {
   const [preset, setPreset] = useState<Preset>('30D')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -180,10 +181,11 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
     const max = Math.max(...values)
     const avg = values.reduce((a, b) => a + b, 0) / values.length
 
-    // PB = max (with date)
+    // PB = best value: lowest for 'below' targets (e.g. resting HR), highest for 'above'
+    const pb = targetDirection === 'below' ? min : max
     let pbDate: string | null = null
     for (const p of filteredPoints) {
-      if (p.value === max) { pbDate = p.date; break }
+      if (p.value === pb) { pbDate = p.date; break }
     }
 
     // Streak = consecutive non-null from newest (reverse order)
@@ -198,7 +200,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
       min,
       avg: Math.round(avg * 10) / 10,
       max,
-      pb: max,
+      pb,
       pbDate,
       streak,
       trackedCount: values.length,
@@ -250,8 +252,11 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
   const chartValues = chartData.map(d => d.value).filter((v): v is number => v != null)
   const chartMax = chartValues.length > 0 ? Math.max(...chartValues) : 1
 
+  const cardGradient = `linear-gradient(135deg, ${trackerColor}0D 0%, #0A0A0A 65%)`
+  const cardBorder = `${trackerColor}22`
+
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-surface">
 
       {/* Header */}
       <div className="px-4 pt-4 pb-2">
@@ -349,7 +354,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
         )}
 
         {/* Stats strip */}
-        <div className="rounded-2xl border border-white/[0.06] bg-surface overflow-hidden">
+        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${cardBorder}`, background: cardGradient }}>
           <div className="grid grid-cols-4 divide-x divide-white/[0.06]">
             {[
               { label: 'MIN', value: stats.min },
@@ -392,7 +397,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
         </div>
 
         {/* Chart */}
-        <div className="rounded-2xl border border-white/[0.06] bg-surface p-3">
+        <div className="rounded-2xl p-3" style={{ border: `1px solid ${cardBorder}`, background: cardGradient }}>
           {/* Chart toggle pills */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
@@ -480,7 +485,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
           </span>
 
           {listItems.length === 0 && (
-            <div className="rounded-2xl border border-white/5 bg-surface py-10 text-center">
+            <div className="rounded-2xl py-10 text-center" style={{ border: `1px solid ${cardBorder}`, background: cardGradient }}>
               <p className="font-ui text-textMuted" style={{ fontSize: '11px', letterSpacing: '0.08em' }}>No data in this period</p>
             </div>
           )}
@@ -491,7 +496,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
 
             if (widget.type === 'tracker_latest') {
               return (
-                <div key={point.date} className="rounded-2xl border border-white/[0.06] bg-surface px-4 py-3">
+                <div key={point.date} className="rounded-2xl px-4 py-3" style={{ border: `1px solid ${cardBorder}`, background: cardGradient }}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.5)' }}>
                       {formattedDate}
@@ -523,7 +528,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
 
             if (widget.type === 'field_latest') {
               return (
-                <div key={point.date} className="rounded-2xl border border-white/[0.06] bg-surface px-4 py-3">
+                <div key={point.date} className="rounded-2xl px-4 py-3" style={{ border: `1px solid ${cardBorder}`, background: cardGradient }}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.5)' }}>
                       {formattedDate}
@@ -559,7 +564,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
 
             // Aggregate types
             return (
-              <div key={point.date} className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-surface px-4 py-3">
+              <div key={point.date} className="flex items-center justify-between rounded-2xl px-4 py-3" style={{ border: `1px solid ${cardBorder}`, background: cardGradient }}>
                 <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.5)' }}>
                   {formattedDate}
                 </span>
