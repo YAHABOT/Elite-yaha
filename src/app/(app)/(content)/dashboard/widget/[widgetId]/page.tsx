@@ -2,12 +2,14 @@ import { notFound, redirect } from 'next/navigation'
 import { getSafeUser } from '@/lib/supabase/auth'
 import { getWidgets } from '@/lib/db/dashboard'
 import { getTrackersBasic } from '@/lib/db/trackers'
-import { getDateRangeStats } from '@/lib/db/daily-stats'
 import { getLogs } from '@/lib/db/logs'
 import { getUser } from '@/lib/db/users'
+import { getCorrelation } from '@/lib/db/correlations'
+import { evaluateFormula, buildFieldValueMap } from '@/lib/correlator/formula-engine'
 import { WidgetDetailClient } from '@/components/dashboard/WidgetDetailClient'
 import type { Widget } from '@/types/widget'
 import type { TrackerLog } from '@/types/log'
+import type { FormulaNode } from '@/types/correlator'
 
 export type DailyPoint = {
   date: string              // 'YYYY-MM-DD'
@@ -34,7 +36,6 @@ function buildDateRange(days: number): { start: string; end: string } {
   }
 }
 
-/** Build an array of consecutive date strings from start to end (inclusive). */
 function buildDateList(start: string, end: string): string[] {
   const dates: string[] = []
   const cur = new Date(start + 'T12:00:00Z')
@@ -46,13 +47,36 @@ function buildDateList(start: string, end: string): string[] {
   return dates
 }
 
+/** Extract every unique trackerId referenced in a formula tree. */
+function extractTrackerIds(node: FormulaNode): string[] {
+  if (node.type === 'field') return node.trackerId ? [node.trackerId] : []
+  if (node.type === 'constant') return []
+  if (node.type === 'op') return [
+    ...extractTrackerIds(node.left),
+    ...extractTrackerIds(node.right),
+  ]
+  return []
+}
+
+/** Group logs by their calendar date (YYYY-MM-DD from UTC logged_at). */
+function groupByDate(logs: TrackerLog[]): Map<string, TrackerLog[]> {
+  const map = new Map<string, TrackerLog[]>()
+  for (const log of logs) {
+    const date = log.logged_at.split('T')[0]
+    if (!map.has(date)) map.set(date, [])
+    map.get(date)!.push(log)
+  }
+  return map
+}
+
+const LOG_LIMIT = 2000
+
 export default async function WidgetDetailPage({ params }: Props) {
   const { widgetId } = await params
 
   const user = await getSafeUser()
   if (!user) redirect('/login')
 
-  // Parallel fetch — widgets, trackers, user targets
   const [widgets, trackers, userData] = await Promise.all([
     getWidgets(),
     getTrackersBasic(),
@@ -62,19 +86,16 @@ export default async function WidgetDetailPage({ params }: Props) {
   const widget: Widget | undefined = widgets.find(w => w.id === widgetId)
   if (!widget) notFound()
 
-  // Find tracker for this widget
   const tracker = widget.tracker_id
     ? trackers.find(t => t.id === widget.tracker_id)
     : undefined
 
-  // Find target matching this widget's field
   const userTargets = userData?.targets ?? []
   const matchingTarget = userTargets.find(t =>
     t.trackerId === widget.tracker_id && t.fieldId === widget.field_id
   )
   const targetValue = matchingTarget ? matchingTarget.value : null
 
-  // Derive display metadata from tracker schema
   const fieldDef = tracker?.schema?.find(f => f.fieldId === widget.field_id)
   const unit = fieldDef?.unit ?? ''
   const fieldType = fieldDef?.type ?? 'number'
@@ -82,43 +103,54 @@ export default async function WidgetDetailPage({ params }: Props) {
   const trackerName = tracker?.name ?? widget.label
   const trackerColor = widget.color ?? tracker?.color ?? '#6B7280'
 
-  // Build 365-day date range
   const { start, end } = buildDateRange(365)
   const allDates = buildDateList(start, end)
+  const startISO = start + 'T00:00:00.000Z'
+  const endISO = end + 'T23:59:59.999Z'
 
-  // Branch on widget type to build DailyPoint[]
   let dailyPoints: DailyPoint[] = []
 
-  // Helper: group a raw log array by calendar date (YYYY-MM-DD from logged_at)
-  function groupByDate(logs: TrackerLog[]): Map<string, TrackerLog[]> {
-    const map = new Map<string, TrackerLog[]>()
-    for (const log of logs) {
-      const date = log.logged_at.split('T')[0]
-      if (!map.has(date)) map.set(date, [])
-      map.get(date)!.push(log)
-    }
-    return map
-  }
-
+  // ── Correlator — evaluate formula from raw logs per day ──────────────────────
   if (widget.type === 'correlator' && widget.correlation_id) {
-    // Correlator — still uses daily_stats (formula evaluation lives there)
-    const stats = await getDateRangeStats(start, end)
-    const statsMap = new Map(stats.map(s => [s.date, s]))
+    const correlation = await getCorrelation(widget.correlation_id)
+    const formula = correlation.formula as FormulaNode
+
+    // Find every tracker the formula needs
+    const trackerIds = [...new Set(extractTrackerIds(formula))]
+
+    // Fetch logs for all involved trackers in parallel
+    const allLogs: TrackerLog[] = (
+      await Promise.all(
+        trackerIds.map(tid =>
+          getLogs(tid, { limit: LOG_LIMIT, startDate: startISO, endDate: endISO })
+        )
+      )
+    ).flat()
+
+    // Group combined logs by date
+    const byDate = groupByDate(allLogs)
+
     dailyPoints = allDates.map(date => {
-      const stat = statsMap.get(date)
-      const corrVal = stat?.results.correlations[widget.correlation_id!]
-      return { date, value: corrVal ?? null }
+      const dayLogs = byDate.get(date)
+      if (!dayLogs || dayLogs.length === 0) return { date, value: null }
+
+      const fieldValueMap = buildFieldValueMap(dayLogs)
+      const result = evaluateFormula(formula, fieldValueMap)
+      return {
+        date,
+        value: result !== null ? Math.round(result * 10) / 10 : null,
+      }
     })
 
+  // ── field_total / field_average ───────────────────────────────────────────────
   } else if (
     (widget.type === 'field_total' || widget.type === 'field_average') &&
     widget.tracker_id && widget.field_id
   ) {
-    // Aggregate from raw logs — reliable regardless of daily_stats backfill status
-    const logs: TrackerLog[] = await getLogs(widget.tracker_id, {
-      limit: 2000,
-      startDate: start + 'T00:00:00.000Z',
-      endDate: end + 'T23:59:59.999Z',
+    const logs = await getLogs(widget.tracker_id, {
+      limit: LOG_LIMIT,
+      startDate: startISO,
+      endDate: endISO,
     })
     const byDate = groupByDate(logs)
 
@@ -140,12 +172,12 @@ export default async function WidgetDetailPage({ params }: Props) {
       return { date, value, count: dayLogs.length }
     })
 
+  // ── combined_field ────────────────────────────────────────────────────────────
   } else if (widget.type === 'combined_field' && widget.tracker_id) {
-    // Combined — sum across primary field + extra_fields for the same tracker
-    const logs: TrackerLog[] = await getLogs(widget.tracker_id, {
-      limit: 2000,
-      startDate: start + 'T00:00:00.000Z',
-      endDate: end + 'T23:59:59.999Z',
+    const logs = await getLogs(widget.tracker_id, {
+      limit: LOG_LIMIT,
+      startDate: startISO,
+      endDate: endISO,
     })
     const byDate = groupByDate(logs)
 
@@ -167,15 +199,19 @@ export default async function WidgetDetailPage({ params }: Props) {
           }
         }
       }
-      return { date, value: total !== null ? Math.round(total * 10) / 10 : null, count: dayLogs.length }
+      return {
+        date,
+        value: total !== null ? Math.round(total * 10) / 10 : null,
+        count: dayLogs.length,
+      }
     })
 
+  // ── field_latest / tracker_latest ─────────────────────────────────────────────
   } else if (widget.tracker_id) {
-    // field_latest / tracker_latest
-    const logs: TrackerLog[] = await getLogs(widget.tracker_id, {
-      limit: 2000,
-      startDate: start + 'T00:00:00.000Z',
-      endDate: end + 'T23:59:59.999Z',
+    const logs = await getLogs(widget.tracker_id, {
+      limit: LOG_LIMIT,
+      startDate: startISO,
+      endDate: endISO,
     })
     const byDate = groupByDate(logs)
 
@@ -183,8 +219,7 @@ export default async function WidgetDetailPage({ params }: Props) {
       dailyPoints = allDates.map(date => {
         const dayLogs = byDate.get(date)
         if (!dayLogs || dayLogs.length === 0) return { date, value: null }
-        // getLogs orders desc by logged_at — first entry is latest
-        const latestLog = dayLogs[0]
+        const latestLog = dayLogs[0] // getLogs orders desc by logged_at
         const rawVal = widget.field_id ? latestLog.fields[widget.field_id] : null
         const value = typeof rawVal === 'number' ? rawVal : null
         return {
@@ -215,6 +250,7 @@ export default async function WidgetDetailPage({ params }: Props) {
         }
       })
     }
+
   } else {
     dailyPoints = allDates.map(date => ({ date, value: null }))
   }
