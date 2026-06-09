@@ -109,7 +109,7 @@ function CustomTooltip({ active, payload, label, fieldType, unit, color }: Custo
   return (
     <div className="rounded-xl border border-white/10 bg-surface px-3 py-2 shadow-xl" style={{ minWidth: 100 }}>
       {label && (
-        <p className="font-ui mb-1" style={{ fontSize: '9px', letterSpacing: '0.12em', color: 'rgba(148,163,184,0.5)' }}>
+        <p className="font-ui mb-1" style={{ fontSize: '9px', letterSpacing: '0.12em', color: 'rgba(0,212,255,0.5)' }}>
           {formatDate(label)}
         </p>
       )}
@@ -254,42 +254,51 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
     <div className="flex flex-col min-h-screen bg-background">
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-        <Link
-          href="/dashboard"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-textMuted transition-all hover:border-white/20 hover:text-textPrimary"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="font-ui uppercase truncate" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'rgba(148,163,184,0.4)' }}>
-            {trackerName}
-          </p>
-          <h1 className="font-display-heading text-base text-textPrimary leading-tight truncate">
-            {widget.label}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <div
-            className="rounded-full px-2 py-0.5 font-ui uppercase"
-            style={{
-              fontSize: '8px',
-              letterSpacing: '0.14em',
-              background: `${trackerColor}22`,
-              border: `1px solid ${trackerColor}44`,
-              color: trackerColor,
-            }}
-          >
-            {getTypeBadgeLabel(widget.type)}
-          </div>
+      <div className="px-4 pt-4 pb-2">
+        {/* Row 1: back + badge + log */}
+        <div className="flex items-center justify-between mb-2">
           <Link
-            href={`/chat/new?preset=${encodeURIComponent(trackerName)}`}
-            className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 font-ui text-textMuted transition-all hover:border-white/20 hover:text-textPrimary"
-            style={{ fontSize: '9px', letterSpacing: '0.12em' }}
+            href="/dashboard"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] transition-all hover:border-white/20"
+            style={{ color: '#00d4ff' }}
           >
-            + Log
+            <ChevronLeft className="h-4 w-4" />
           </Link>
+          <div className="flex items-center gap-2">
+            <div
+              className="rounded-full px-2.5 py-0.5 font-ui uppercase"
+              style={{
+                fontSize: '8px',
+                letterSpacing: '0.14em',
+                background: `${trackerColor}22`,
+                border: `1px solid ${trackerColor}55`,
+                color: trackerColor,
+              }}
+            >
+              {getTypeBadgeLabel(widget.type)}
+            </div>
+            <Link
+              href={`/chat/new?preset=${encodeURIComponent(trackerName)}`}
+              className="flex items-center gap-1 rounded-xl px-3 py-1.5 font-ui transition-all"
+              style={{
+                fontSize: '9px',
+                letterSpacing: '0.12em',
+                background: 'rgba(0,212,255,0.08)',
+                border: '1px solid rgba(0,212,255,0.25)',
+                color: '#00d4ff',
+              }}
+            >
+              + Log
+            </Link>
+          </div>
         </div>
+        {/* Row 2: tracker name + widget title (full width, no truncate) */}
+        <p className="font-ui uppercase" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'rgba(0,212,255,0.5)' }}>
+          {trackerName}
+        </p>
+        <h1 className="font-display-heading text-lg text-textPrimary leading-tight mt-0.5">
+          {widget.label}
+        </h1>
       </div>
 
       <div className="flex flex-col gap-4 px-4 pb-6">
@@ -308,9 +317,9 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
               style={{
                 fontSize: '9px',
                 letterSpacing: '0.14em',
-                background: preset === p ? `${trackerColor}22` : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${preset === p ? trackerColor + '55' : 'rgba(255,255,255,0.08)'}`,
-                color: preset === p ? trackerColor : 'rgba(148,163,184,0.5)',
+                background: preset === p ? `${trackerColor}22` : 'rgba(0,212,255,0.04)',
+                border: `1px solid ${preset === p ? trackerColor + '55' : 'rgba(0,212,255,0.12)'}`,
+                color: preset === p ? trackerColor : 'rgba(0,212,255,0.45)',
               }}
             >
               {p}
@@ -349,7 +358,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
               { label: 'PB', value: stats.pb },
             ].map(({ label, value }) => (
               <div key={label} className="flex flex-col items-center gap-1 py-3 px-2">
-                <span className="font-ui uppercase" style={{ fontSize: '8px', letterSpacing: '0.14em', color: 'rgba(148,163,184,0.4)' }}>
+                <span className="font-ui uppercase" style={{ fontSize: '8px', letterSpacing: '0.14em', color: 'rgba(0,212,255,0.5)' }}>
                   {label}
                 </span>
                 <span
@@ -362,7 +371,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
             ))}
           </div>
           <div className="border-t border-white/[0.05] px-4 py-2 text-center">
-            <span className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'rgba(148,163,184,0.35)' }}>
+            <span className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'rgba(168,85,247,0.6)' }}>
               {stats.trackedCount} of {stats.totalCount} days tracked
             </span>
           </div>
@@ -378,7 +387,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
               </span>
             </>
           ) : (
-            <span className="font-ui text-textMuted" style={{ fontSize: '12px' }}>— no streak</span>
+            <span className="font-ui" style={{ fontSize: '12px', color: 'rgba(168,85,247,0.5)' }}>— no streak</span>
           )}
         </div>
 
@@ -394,9 +403,9 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
                 style={{
                   fontSize: '8px',
                   letterSpacing: '0.12em',
-                  background: showMA ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${showMA ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`,
-                  color: showMA ? 'rgba(255,255,255,0.7)' : 'rgba(148,163,184,0.4)',
+                  background: showMA ? 'rgba(168,85,247,0.15)' : 'rgba(168,85,247,0.05)',
+                  border: `1px solid ${showMA ? 'rgba(168,85,247,0.4)' : 'rgba(168,85,247,0.12)'}`,
+                  color: showMA ? '#a855f7' : 'rgba(168,85,247,0.45)',
                 }}
               >
                 MA
@@ -409,9 +418,9 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
                   style={{
                     fontSize: '8px',
                     letterSpacing: '0.12em',
-                    background: viewMode === 'weekly' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${viewMode === 'weekly' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`,
-                    color: viewMode === 'weekly' ? 'rgba(255,255,255,0.7)' : 'rgba(148,163,184,0.4)',
+                    background: viewMode === 'weekly' ? 'rgba(0,212,255,0.12)' : 'rgba(0,212,255,0.04)',
+                    border: `1px solid ${viewMode === 'weekly' ? 'rgba(0,212,255,0.35)' : 'rgba(0,212,255,0.1)'}`,
+                    color: viewMode === 'weekly' ? '#00d4ff' : 'rgba(0,212,255,0.4)',
                   }}
                 >
                   {viewMode === 'weekly' ? 'W' : 'D'}/W
@@ -419,7 +428,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
               )}
             </div>
             {(preset === '90D' || preset === 'ALL') && (
-              <span className="font-ui" style={{ fontSize: '8px', letterSpacing: '0.08em', color: 'rgba(148,163,184,0.35)' }}>
+              <span className="font-ui" style={{ fontSize: '8px', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.4)' }}>
                 Weekly view (90D+)
               </span>
             )}
@@ -466,7 +475,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
 
         {/* Day-by-day list */}
         <div className="flex flex-col gap-2 pb-24">
-          <span className="font-ui uppercase px-1" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'rgba(148,163,184,0.35)' }}>
+          <span className="font-ui uppercase px-1" style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'rgba(0,212,255,0.5)' }}>
             History
           </span>
 
@@ -484,7 +493,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
               return (
                 <div key={point.date} className="rounded-2xl border border-white/[0.06] bg-surface px-4 py-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(148,163,184,0.5)' }}>
+                    <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.5)' }}>
                       {formattedDate}
                     </span>
                     <span className="font-mono font-semibold" style={{ fontSize: '13px', color: trackerColor }}>
@@ -495,7 +504,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
                     <div className="flex flex-col gap-1 border-t border-white/[0.04] pt-2">
                       {point.logs.map(log => (
                         <div key={log.id} className="flex items-start gap-2">
-                          <span className="font-ui shrink-0" style={{ fontSize: '9px', color: 'rgba(148,163,184,0.35)', minWidth: 56 }}>
+                          <span className="font-ui shrink-0" style={{ fontSize: '9px', color: 'rgba(168,85,247,0.5)', minWidth: 56 }}>
                             {formatTime(log.logged_at)}
                           </span>
                           <span className="font-ui text-textMuted truncate" style={{ fontSize: '9px' }}>
@@ -516,7 +525,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
               return (
                 <div key={point.date} className="rounded-2xl border border-white/[0.06] bg-surface px-4 py-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(148,163,184,0.5)' }}>
+                    <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.5)' }}>
                       {formattedDate}
                     </span>
                     <span
@@ -533,7 +542,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
                         const val = typeof rawVal === 'number' ? rawVal : null
                         return (
                           <div key={log.id} className="flex items-center justify-between">
-                            <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(148,163,184,0.35)' }}>
+                            <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(168,85,247,0.5)' }}>
                               {formatTime(log.logged_at)}
                             </span>
                             <span className="font-mono" style={{ fontSize: '11px', color: val != null ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)' }}>
@@ -551,12 +560,12 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
             // Aggregate types
             return (
               <div key={point.date} className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-surface px-4 py-3">
-                <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(148,163,184,0.5)' }}>
+                <span className="font-ui" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.5)' }}>
                   {formattedDate}
                 </span>
                 <div className="flex items-center gap-2">
                   {point.count != null && point.count > 0 && (
-                    <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(148,163,184,0.3)' }}>
+                    <span className="font-ui" style={{ fontSize: '9px', color: 'rgba(168,85,247,0.5)' }}>
                       {point.count} entries
                     </span>
                   )}
