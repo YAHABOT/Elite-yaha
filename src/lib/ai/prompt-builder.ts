@@ -504,8 +504,16 @@ FOOD BANK ADJUSTMENT: When the user changes one ingredient quantity (e.g. "make 
 `
 
 const FOOD_BANK_SAVE_RULE = `
-FOOD BANK SAVE: When the user says "add to food bank", "save to food bank", or "save this dish" after building or discussing a meal in conversation, produce a SAVE_TO_FOOD_BANK action card with all collected ingredient and macro data. Include full ingredients array if they were discussed.
-Format: [{"type":"SAVE_TO_FOOD_BANK","name":"Dish Name","entry_type":"dish","shortcut":null,"serving_label":"1 portion","serving_size_g":null,"kcal":988,"protein_g":90.1,"carbs_g":83.4,"fat_g":30.0,"fibre_g":null,"ingredients":[{"name":"Chicken","qty_label":"200g","kcal":220,"protein_g":45,"carbs_g":0,"fat_g":4}],"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
+FOOD BANK SAVE: The Food Bank stores two types of entries — use the correct entry_type:
+- entry_type "dish": prepared meals, recipes, cooked foods (e.g. "chicken stir fry", "protein shake")
+- entry_type "pantry_item": raw ingredients, packaged products, groceries, supplements (e.g. "oats", "whey protein", "olive oil")
+
+When the user says "add to food bank", "save to food bank", "save to pantry", "add to pantry", or "save this [item/dish/recipe]", produce one SAVE_TO_FOOD_BANK action card per item. For a list of multiple items, output one card per item as separate array elements.
+NEVER create a tracker or log LOG_DATA for food bank save requests — always use SAVE_TO_FOOD_BANK.
+NEVER ask for confirmation before generating the card — just produce it.
+
+Dish example: [{"type":"SAVE_TO_FOOD_BANK","name":"Chicken Stir Fry","entry_type":"dish","shortcut":null,"serving_label":"1 portion","serving_size_g":null,"kcal":450,"protein_g":40,"carbs_g":35,"fat_g":12,"fibre_g":null,"ingredients":[{"name":"Chicken","qty_label":"200g","kcal":220,"protein_g":45,"carbs_g":0,"fat_g":4}],"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
+Pantry example: [{"type":"SAVE_TO_FOOD_BANK","name":"Rolled Oats","entry_type":"pantry_item","shortcut":"oats","serving_label":"100g","serving_size_g":100,"kcal":389,"protein_g":17,"carbs_g":66,"fat_g":7,"fibre_g":10,"ingredients":null,"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
 `
 
 export function buildFoodBankSection(entries: FoodBankEntry[], referencedNames: string[]): string {

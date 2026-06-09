@@ -1290,7 +1290,10 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           <div className="flex justify-start animate-in fade-in duration-300">
             {(() => {
               // Strip JSON action array from streaming display — it starts with [ followed by {
-              const visibleText = streamingText.replace(/\n?\[[\s\n]*\{[\s\S]*/g, '').trimEnd()
+              const visibleText = streamingText
+                .replace(/\n?```json[\s\S]*/g, '')
+                .replace(/\n?\[[\s\n]*\{[\s\S]*/g, '')
+                .trimEnd()
               return visibleText ? (
                 // B8: render partial streaming text as it arrives
                 <div className="max-w-[78%] rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-textPrimary/90" style={{ background: '#0e243a', border: '1px solid rgba(255,255,255,0.06)' }}>
