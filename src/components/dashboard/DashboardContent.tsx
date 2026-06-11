@@ -90,14 +90,43 @@ export async function DashboardContent({
           const sparkDays = getSparklineDays(w)
           const sparkStart = getSparklineStartDate(w)
           const agg = w.type === 'field_average' ? 'average' : 'total'
+          const isExcludable = w.period !== 'last_week' && !(w.days === 1 && !w.period)
+          const todayStr = new Date().toISOString().split('T')[0]
+
+          // Check if today has any data for this specific field
+          const hasTodayFieldData = !isExcludable || (nDayLogs as TrackerLog[]).some(l =>
+            l.tracker_id === w.tracker_id &&
+            l.logged_at.startsWith(todayStr) &&
+            typeof (l.fields as Record<string, unknown>)?.[w.field_id!] === 'number' &&
+            Number.isFinite((l.fields as Record<string, unknown>)?.[w.field_id!] as number)
+          )
+          const todayIsEmpty = isExcludable && !hasTodayFieldData
+
+          // When today has no data:
+          //   N-day  → shift sparkline window 1 day back (yesterday-(N-1) → yesterday), set offset=1
+          //   this_week → drop today from sparkline (sparkDays - 1), no label offset needed
+          let adjSparkDays = sparkDays
+          let adjSparkStart = sparkStart
+          let trendDayOffset = 0
+          if (todayIsEmpty) {
+            if (w.period === 'this_week') {
+              adjSparkDays = Math.max(sparkDays - 1, 1)
+            } else if (!w.period) {
+              adjSparkStart = new Date(sparkStart)
+              adjSparkStart.setDate(sparkStart.getDate() - 1)
+              trendDayOffset = 1
+            }
+          }
+
           val.trend = computeDailyPointsFromLogs(
             nDayLogs as TrackerLog[],
             w.tracker_id,
             w.field_id,
             agg,
-            sparkDays,
-            sparkStart
+            adjSparkDays,
+            adjSparkStart
           )
+          if (trendDayOffset) val.trendDayOffset = trendDayOffset
           const delta = computeDeltaPct(
             nDayLogs as TrackerLog[],
             w.tracker_id,

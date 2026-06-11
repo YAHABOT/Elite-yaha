@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft } from 'lucide-react'
+import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Tracker } from '@/types/tracker'
 import type { Correlation, FormulaNode } from '@/types/correlator'
@@ -17,11 +17,16 @@ type Props = {
   onClose: () => void
 }
 
+type RowType = 'field' | 'constant' | 'correlator'
+
 type VariableRow = {
   id: string
   operator: '+' | '-' | '*' | '/'
+  rowType: RowType
   trackerId: string
   fieldId: string
+  constantValue: string
+  correlatorId: string
 }
 
 const OPERATORS: Array<{ value: '+' | '-' | '*' | '/'; label: string }> = [
@@ -32,24 +37,36 @@ const OPERATORS: Array<{ value: '+' | '-' | '*' | '/'; label: string }> = [
 ]
 
 const DEFAULT_ROWS: VariableRow[] = [
-  { id: '1', operator: '+', trackerId: '', fieldId: '' },
-  { id: '2', operator: '+', trackerId: '', fieldId: '' },
+  { id: '1', operator: '+', rowType: 'field', trackerId: '', fieldId: '', constantValue: '', correlatorId: '' },
+  { id: '2', operator: '+', rowType: 'field', trackerId: '', fieldId: '', constantValue: '', correlatorId: '' },
 ]
 
 function buildFormula(rows: VariableRow[]): FormulaNode | null {
   if (rows.length === 0) return null
 
-  const valid = rows.filter(r => r.trackerId && r.fieldId)
+  const valid = rows.filter(r => {
+    if (r.rowType === 'field') return r.trackerId !== '' && r.fieldId !== ''
+    if (r.rowType === 'constant') return r.constantValue.trim() !== '' && !isNaN(parseFloat(r.constantValue))
+    if (r.rowType === 'correlator') return r.correlatorId !== ''
+    return false
+  })
+
   if (valid.length === 0) return null
 
-  let tree: FormulaNode = { type: 'field', trackerId: valid[0].trackerId, fieldId: valid[0].fieldId }
+  function rowToNode(r: VariableRow): FormulaNode {
+    if (r.rowType === 'constant') return { type: 'constant', value: parseFloat(r.constantValue) }
+    if (r.rowType === 'correlator') return { type: 'correlator', correlatorId: r.correlatorId }
+    return { type: 'field', trackerId: r.trackerId, fieldId: r.fieldId }
+  }
+
+  let tree: FormulaNode = rowToNode(valid[0])
 
   for (let i = 1; i < valid.length; i++) {
     tree = {
       type: 'op',
       operator: valid[i].operator,
       left: tree,
-      right: { type: 'field', trackerId: valid[i].trackerId, fieldId: valid[i].fieldId },
+      right: rowToNode(valid[i]),
     }
   }
 
@@ -61,7 +78,35 @@ function formulaToRows(formula: FormulaNode): VariableRow[] {
 
   function traverse(node: FormulaNode, operator: VariableRow['operator'] = '+'): void {
     if (node.type === 'field') {
-      rows.push({ id: String(Date.now() + rows.length), operator, trackerId: node.trackerId, fieldId: node.fieldId })
+      rows.push({
+        id: String(Date.now() + rows.length),
+        operator,
+        rowType: 'field',
+        trackerId: node.trackerId,
+        fieldId: node.fieldId,
+        constantValue: '',
+        correlatorId: '',
+      })
+    } else if (node.type === 'constant') {
+      rows.push({
+        id: String(Date.now() + rows.length),
+        operator,
+        rowType: 'constant',
+        trackerId: '',
+        fieldId: '',
+        constantValue: String(node.value),
+        correlatorId: '',
+      })
+    } else if (node.type === 'correlator') {
+      rows.push({
+        id: String(Date.now() + rows.length),
+        operator,
+        rowType: 'correlator',
+        trackerId: '',
+        fieldId: '',
+        constantValue: '',
+        correlatorId: node.correlatorId,
+      })
     } else if (node.type === 'op') {
       traverse(node.left, '+')
       traverse(node.right, node.operator)
@@ -69,17 +114,14 @@ function formulaToRows(formula: FormulaNode): VariableRow[] {
   }
 
   traverse(formula)
-  return rows.length > 0 ? rows : [
-    { id: '1', operator: '+', trackerId: '', fieldId: '' },
-    { id: '2', operator: '+', trackerId: '', fieldId: '' },
-  ]
+  return rows.length > 0 ? rows : DEFAULT_ROWS
 }
 
 function getFieldOptions(trackers: Tracker[]): Array<{ label: string; trackerId: string; fieldId: string }> {
   const opts: Array<{ label: string; trackerId: string; fieldId: string }> = []
   for (const t of trackers) {
     for (const f of t.schema) {
-      if (f.type === 'number' || f.type === 'rating' || f.type === 'duration') {
+      if (f.type === 'number' || f.type === 'rating' || f.type === 'duration' || f.type === 'time') {
         opts.push({ label: `${t.name}: ${f.label}`, trackerId: t.id, fieldId: f.fieldId })
       }
     }
@@ -100,7 +142,10 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
   const fieldOptions = getFieldOptions(trackers)
 
   function addRow(): void {
-    setRows(prev => [...prev, { id: String(Date.now()), operator: '+', trackerId: '', fieldId: '' }])
+    setRows(prev => [
+      ...prev,
+      { id: String(Date.now()), operator: '+', rowType: 'field', trackerId: '', fieldId: '', constantValue: '', correlatorId: '' },
+    ])
   }
 
   function removeRow(id: string): void {
@@ -109,6 +154,14 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
 
   function updateRow(id: string, patch: Partial<VariableRow>): void {
     setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
+  }
+
+  function toggleRowType(id: string, newType: RowType): void {
+    setRows(prev => prev.map(r =>
+      r.id === id
+        ? { ...r, rowType: newType, trackerId: '', fieldId: '', constantValue: '', correlatorId: '' }
+        : r
+    ))
   }
 
   function handleEdit(correlation: Correlation): void {
@@ -129,10 +182,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
   function resetForm(): void {
     setName('')
     setUnit('')
-    setRows([
-      { id: '1', operator: '+', trackerId: '', fieldId: '' },
-      { id: '2', operator: '+', trackerId: '', fieldId: '' },
-    ])
+    setRows(DEFAULT_ROWS)
     setError(null)
   }
 
@@ -173,6 +223,9 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
   }
 
   const isFormView = view === 'new' || view === 'edit'
+
+  // Correlations available as inputs (exclude the one being edited to prevent self-reference)
+  const availableCorrelations = correlations.filter(c => c.id !== editingId)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -300,21 +353,86 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                       )}
                       {idx === 0 && <div className="w-[88px] flex-shrink-0" />}
 
-                      <select
-                        value={`${row.trackerId}::${row.fieldId}`}
-                        onChange={e => {
-                          const [tid, fid] = e.target.value.split('::')
-                          updateRow(row.id, { trackerId: tid, fieldId: fid })
-                        }}
-                        className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
-                      >
-                        <option value="::">Select field...</option>
-                        {fieldOptions.map(opt => (
-                          <option key={`${opt.trackerId}::${opt.fieldId}`} value={`${opt.trackerId}::${opt.fieldId}`}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                      {/* Row type toggle: [Field] [Corr] [#] */}
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        <button
+                          onClick={() => toggleRowType(row.id, 'field')}
+                          className={`rounded-l-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                            row.rowType === 'field'
+                              ? 'bg-primary text-white'
+                              : 'bg-surfaceHighlight text-textMuted hover:bg-primary/20 hover:text-primary'
+                          }`}
+                          title="Field value"
+                        >
+                          Field
+                        </button>
+                        <button
+                          onClick={() => toggleRowType(row.id, 'correlator')}
+                          className={`px-2 py-1.5 text-xs font-semibold transition-colors ${
+                            row.rowType === 'correlator'
+                              ? 'bg-primary text-white'
+                              : 'bg-surfaceHighlight text-textMuted hover:bg-primary/20 hover:text-primary'
+                          }`}
+                          title="Another metric"
+                        >
+                          <GitBranch className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => toggleRowType(row.id, 'constant')}
+                          className={`rounded-r-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                            row.rowType === 'constant'
+                              ? 'bg-primary text-white'
+                              : 'bg-surfaceHighlight text-textMuted hover:bg-primary/20 hover:text-primary'
+                          }`}
+                          title="Constant number"
+                        >
+                          <Hash className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      {/* Input area based on row type */}
+                      {row.rowType === 'field' && (
+                        <select
+                          value={`${row.trackerId}::${row.fieldId}`}
+                          onChange={e => {
+                            const [tid, fid] = e.target.value.split('::')
+                            updateRow(row.id, { trackerId: tid, fieldId: fid })
+                          }}
+                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        >
+                          <option value="::">Select field...</option>
+                          {fieldOptions.map(opt => (
+                            <option key={`${opt.trackerId}::${opt.fieldId}`} value={`${opt.trackerId}::${opt.fieldId}`}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {row.rowType === 'correlator' && (
+                        <select
+                          value={row.correlatorId}
+                          onChange={e => updateRow(row.id, { correlatorId: e.target.value })}
+                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        >
+                          <option value="">Select metric...</option>
+                          {availableCorrelations.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {row.rowType === 'constant' && (
+                        <input
+                          type="number"
+                          value={row.constantValue}
+                          onChange={e => updateRow(row.id, { constantValue: e.target.value })}
+                          placeholder="0"
+                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-textPrimary placeholder:text-textMuted/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        />
+                      )}
 
                       {rows.length > 1 && (
                         <button onClick={() => removeRow(row.id)} className="p-1.5 text-textMuted hover:text-red-400">

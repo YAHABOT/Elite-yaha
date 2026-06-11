@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   evaluateFormula,
   buildFieldValueMap,
+  buildFieldValueMapWithCorrelators,
   formatResult,
 } from '@/lib/correlator/formula-engine'
-import type { FormulaNode, FieldValueMap } from '@/types/correlator'
+import type { FormulaNode, FieldValueMap, Correlation } from '@/types/correlator'
 import type { TrackerLog } from '@/types/log'
 
 // --- evaluateFormula -----------------------------------------------------------
@@ -286,5 +287,147 @@ describe('formatResult', () => {
 
   it('preserves one decimal for values like 1850.5', () => {
     expect(formatResult(1850.5, 'kcal')).toBe('1850.5 kcal')
+  })
+})
+
+// --- correlator node type -----------------------------------------------------
+
+describe('evaluateFormula — correlator node', () => {
+  it('resolves a correlator node from the values map', () => {
+    const values: FieldValueMap = new Map([['corr:corr-1', 500]])
+    const node: FormulaNode = { type: 'correlator', correlatorId: 'corr-1' }
+    expect(evaluateFormula(node, values)).toBe(500)
+  })
+
+  it('returns null when correlator key is not in the map', () => {
+    const node: FormulaNode = { type: 'correlator', correlatorId: 'missing-corr' }
+    expect(evaluateFormula(node, new Map())).toBeNull()
+  })
+
+  it('returns null when correlator value in map is null', () => {
+    const values: FieldValueMap = new Map([['corr:corr-1', null]])
+    const node: FormulaNode = { type: 'correlator', correlatorId: 'corr-1' }
+    expect(evaluateFormula(node, values)).toBeNull()
+  })
+
+  it('uses a correlator result in a larger formula', () => {
+    // Caloric Balance = Calories - Thermic Effect (corr)
+    const values: FieldValueMap = new Map([
+      ['tracker-1:fld_calories', 2000],
+      ['corr:corr-tef', 200],
+    ])
+    const node: FormulaNode = {
+      type: 'op',
+      operator: '-',
+      left: { type: 'field', trackerId: 'tracker-1', fieldId: 'fld_calories' },
+      right: { type: 'correlator', correlatorId: 'corr-tef' },
+    }
+    expect(evaluateFormula(node, values)).toBe(1800)
+  })
+})
+
+// --- buildFieldValueMapWithCorrelators ----------------------------------------
+
+describe('buildFieldValueMapWithCorrelators', () => {
+  const makeLog = (
+    trackerId: string,
+    fields: Record<string, number | string | null>
+  ): TrackerLog => ({
+    id: `log-${Math.random()}`,
+    tracker_id: trackerId,
+    user_id: 'user-1',
+    fields,
+    logged_at: new Date().toISOString(),
+    source: 'manual',
+    created_at: new Date().toISOString(),
+  })
+
+  const makeCorrelation = (id: string, formula: FormulaNode, name = id): Correlation => ({
+    id,
+    user_id: 'user-1',
+    name,
+    formula,
+    unit: 'kcal',
+    created_at: new Date().toISOString(),
+  })
+
+  it('returns the base field map when no correlations are provided', () => {
+    const log = makeLog('tracker-1', { fld_001: 350 })
+    const map = buildFieldValueMapWithCorrelators([log], [])
+    expect(map.get('tracker-1:fld_001')).toBe(350)
+    expect(map.size).toBe(1)
+  })
+
+  it('evaluates a simple correlator and injects corr: key', () => {
+    const log = makeLog('tracker-1', { fld_calories: 2000 })
+    const tef = makeCorrelation('corr-tef', {
+      type: 'op',
+      operator: '*',
+      left: { type: 'field', trackerId: 'tracker-1', fieldId: 'fld_calories' },
+      right: { type: 'constant', value: 0.1 },
+    })
+
+    const map = buildFieldValueMapWithCorrelators([log], [tef])
+    expect(map.get('tracker-1:fld_calories')).toBe(2000)
+    expect(map.get('corr:corr-tef')).toBe(200)
+  })
+
+  it('chains correlators: TEF → Caloric Balance', () => {
+    // TEF = Calories * 0.1
+    // CaloricBalance = Calories - TEF
+    const log = makeLog('tracker-1', { fld_calories: 2000 })
+
+    const tef = makeCorrelation('corr-tef', {
+      type: 'op',
+      operator: '*',
+      left: { type: 'field', trackerId: 'tracker-1', fieldId: 'fld_calories' },
+      right: { type: 'constant', value: 0.1 },
+    }, 'Thermic Effect')
+
+    const caloricBalance = makeCorrelation('corr-balance', {
+      type: 'op',
+      operator: '-',
+      left: { type: 'field', trackerId: 'tracker-1', fieldId: 'fld_calories' },
+      right: { type: 'correlator', correlatorId: 'corr-tef' },
+    }, 'Caloric Balance')
+
+    // Pass in reverse order to verify topo sort handles dependency ordering
+    const map = buildFieldValueMapWithCorrelators([log], [caloricBalance, tef])
+
+    expect(map.get('corr:corr-tef')).toBe(200)
+    expect(map.get('corr:corr-balance')).toBe(1800)
+  })
+
+  it('skips cyclic correlators without crashing', () => {
+    // A depends on B, B depends on A → cycle
+    const corrA = makeCorrelation('corr-a', {
+      type: 'op',
+      operator: '+',
+      left: { type: 'constant', value: 1 },
+      right: { type: 'correlator', correlatorId: 'corr-b' },
+    }, 'Corr A')
+
+    const corrB = makeCorrelation('corr-b', {
+      type: 'op',
+      operator: '+',
+      left: { type: 'constant', value: 2 },
+      right: { type: 'correlator', correlatorId: 'corr-a' },
+    }, 'Corr B')
+
+    // Should not throw, and cyclic correlators should not be in the map
+    const map = buildFieldValueMapWithCorrelators([], [corrA, corrB])
+    expect(map.has('corr:corr-a')).toBe(false)
+    expect(map.has('corr:corr-b')).toBe(false)
+  })
+
+  it('a correlator that depends on a missing field returns null (not injected)', () => {
+    const corr = makeCorrelation('corr-missing', {
+      type: 'field',
+      trackerId: 'tracker-nonexistent',
+      fieldId: 'fld_001',
+    })
+
+    const map = buildFieldValueMapWithCorrelators([], [corr])
+    expect(map.has('corr:corr-missing')).toBe(false)
   })
 })

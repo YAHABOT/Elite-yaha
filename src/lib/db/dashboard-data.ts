@@ -1,4 +1,4 @@
-import { evaluateFormula, buildFieldValueMap } from '@/lib/correlator/formula-engine'
+import { evaluateFormula, buildFieldValueMap, buildFieldValueMapWithCorrelators } from '@/lib/correlator/formula-engine'
 import type { Widget, WidgetValue, ExtraFieldValue } from '@/types/widget'
 import type { TrackerLog } from '@/types/log'
 import type { FormulaNode } from '@/types/correlator'
@@ -433,7 +433,7 @@ export function computeWidgetValueOptimized(
         d.setDate(sparkStart.getDate() + i)
         const dayStr = d.toISOString().split('T')[0]
         const dayLogs = nDayLogs.filter(l => l.logged_at.startsWith(dayStr))
-        const dayFieldMap = buildFieldValueMap(dayLogs)
+        const dayFieldMap = buildFieldValueMapWithCorrelators(dayLogs, correlations)
         const dayResult = evaluateFormula(correlation.formula, dayFieldMap)
         const isValid = dayResult !== null && Number.isFinite(dayResult)
         if (isValid) {
@@ -452,7 +452,7 @@ export function computeWidgetValueOptimized(
         result = hasDayValue ? cumulativeValue : null
       } else {
         const correlatorLogs = filterByPeriod(nDayLogs, widget)
-        const fieldMap = buildFieldValueMap(correlatorLogs)
+        const fieldMap = buildFieldValueMapWithCorrelators(correlatorLogs, correlations)
         result = evaluateFormula(correlation.formula, fieldMap)
       }
 
@@ -651,7 +651,7 @@ function computeTargetActual(
   if (target.trackerId === '__correlations__') {
     const corr = correlations.find(c => c.id === target.fieldId)
     if (!corr) return 0
-    const result = evaluateFormula(corr.formula, buildFieldValueMap(dayLogs))
+    const result = evaluateFormula(corr.formula, buildFieldValueMapWithCorrelators(dayLogs, correlations))
     return result !== null && Number.isFinite(result) ? result : 0
   }
   // Combined cross-tracker target: fieldId = "combined:{type}:{normalizedLabel}"

@@ -281,7 +281,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {correlations.map((c) => (
-                  <CorrelationCard key={c.id} correlation={c} logs={logs} />
+                  <CorrelationCard key={c.id} correlation={c} logs={logs} allCorrelations={correlations} />
                 ))}
               </div>
             </div>

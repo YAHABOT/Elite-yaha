@@ -1,7 +1,7 @@
 import type { Correlation } from '@/types/correlator'
 import type { TrackerLog } from '@/types/log'
 import {
-  buildFieldValueMap,
+  buildFieldValueMapWithCorrelators,
   evaluateFormula,
   formatResult,
 } from '@/lib/correlator/formula-engine'
@@ -9,10 +9,11 @@ import {
 type Props = {
   correlation: Correlation
   logs: TrackerLog[]
+  allCorrelations: Correlation[]
 }
 
-export function CorrelationCard({ correlation, logs }: Props): React.ReactElement {
-  const fieldValueMap = buildFieldValueMap(logs)
+export function CorrelationCard({ correlation, logs, allCorrelations }: Props): React.ReactElement {
+  const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations)
   const result = evaluateFormula(correlation.formula, fieldValueMap)
   const display = formatResult(result, correlation.unit)
 
