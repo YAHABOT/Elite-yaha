@@ -27,3 +27,18 @@ export type CreateCorrelationInput = {
 // Key format: `${trackerId}:${fieldId}` — e.g. "tracker-uuid:fld_001"
 // Correlator results stored as `corr:${correlatorId}`
 export type FieldValueMap = Map<string, number | null>
+
+export type CorrelatorSuggestion = {
+  name: string
+  description: string
+  unit: string
+  formula: FormulaNode
+  requiredFields: Array<{
+    label: string
+    trackerId: string
+    fieldId: string
+    found: boolean
+  }>
+  missingCount: number
+  readiness: 'ready' | 'almost' | 'aspirational'
+}

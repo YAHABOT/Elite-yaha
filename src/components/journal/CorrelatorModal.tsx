@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash } from 'lucide-react'
+import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, ChevronDown, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Tracker } from '@/types/tracker'
-import type { Correlation, FormulaNode } from '@/types/correlator'
+import type { Correlation, FormulaNode, CorrelatorSuggestion } from '@/types/correlator'
 import {
   createCorrelationAction,
   deleteCorrelationAction,
   updateCorrelationAction,
+  suggestCorrelationsAction,
 } from '@/app/actions/correlations'
 
 type Props = {
@@ -138,6 +139,10 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
   const [unit, setUnit] = useState('')
   const [rows, setRows] = useState<VariableRow[]>(DEFAULT_ROWS)
   const [error, setError] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<CorrelatorSuggestion[] | null>(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [expandedSuggestions, setExpandedSuggestions] = useState<Set<number>>(new Set())
+  const [creatingSuggestion, setCreatingSuggestion] = useState<number | null>(null)
 
   const fieldOptions = getFieldOptions(trackers)
 
@@ -162,6 +167,37 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
         ? { ...r, rowType: newType, trackerId: '', fieldId: '', constantValue: '', correlatorId: '' }
         : r
     ))
+  }
+
+  async function handleLoadSuggestions(): Promise<void> {
+    setLoadingSuggestions(true)
+    const result = await suggestCorrelationsAction(trackers, correlations)
+    if (result.suggestions) {
+      setSuggestions(result.suggestions)
+      const readyIndices = new Set(
+        result.suggestions.map((s, i) => (s.readiness === 'ready' ? i : -1)).filter(i => i >= 0)
+      )
+      setExpandedSuggestions(readyIndices)
+    }
+    setLoadingSuggestions(false)
+  }
+
+  function toggleSuggestionExpand(index: number): void {
+    setExpandedSuggestions(prev => {
+      const next = new Set(prev)
+      if (next.has(index)) { next.delete(index) } else { next.add(index) }
+      return next
+    })
+  }
+
+  async function handleCreateSuggestion(suggestion: CorrelatorSuggestion, index: number): Promise<void> {
+    setCreatingSuggestion(index)
+    const result = await createCorrelationAction({ name: suggestion.name, formula: suggestion.formula, unit: suggestion.unit })
+    setCreatingSuggestion(null)
+    if (!result.error) {
+      router.refresh()
+      setSuggestions(prev => prev ? prev.filter((_, i) => i !== index) : null)
+    }
   }
 
   function handleEdit(correlation: Correlation): void {
@@ -252,12 +288,22 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
           </div>
           <div className="flex items-center gap-2">
             {view === 'list' && (
-              <button
-                onClick={() => { resetForm(); setView('new') }}
-                className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white transition-all hover:scale-[1.02]"
-              >
-                <Plus className="h-3 w-3" /> New Metric
-              </button>
+              <>
+                <button
+                  onClick={handleLoadSuggestions}
+                  disabled={loadingSuggestions}
+                  className="flex items-center gap-1 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-400 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  {loadingSuggestions ? 'Analyzing...' : 'Suggest'}
+                </button>
+                <button
+                  onClick={() => { resetForm(); setView('new') }}
+                  className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white transition-all hover:scale-[1.02]"
+                >
+                  <Plus className="h-3 w-3" /> New Metric
+                </button>
+              </>
             )}
             <button onClick={onClose} className="rounded-lg p-1.5 text-textMuted hover:bg-surfaceHighlight">
               <X className="h-4 w-4" />
@@ -268,7 +314,85 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
         <div className="max-h-[70vh] overflow-y-auto">
           {view === 'list' ? (
             /* List view */
-            <div className="divide-y divide-border">
+            <div>
+              {loadingSuggestions && (
+                <div className="border-b border-border px-5 py-4 text-center">
+                  <p className="text-xs text-textMuted">Analyzing your fields...</p>
+                </div>
+              )}
+
+              {suggestions !== null && suggestions.length > 0 && (
+                <div className="border-b border-border">
+                  <div className="flex items-center justify-between px-5 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">Suggested Metrics</span>
+                    </div>
+                    <button onClick={() => setSuggestions(null)} className="rounded p-1 text-textMuted hover:text-textPrimary">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-2 px-4 pb-4">
+                    {suggestions.map((s, i) => {
+                      const isExpanded = expandedSuggestions.has(i)
+                      const isReady = s.readiness === 'ready'
+                      const isAlmost = s.readiness === 'almost'
+                      return (
+                        <div
+                          key={`${s.name}-${i}`}
+                          className={`rounded-xl border bg-surfaceHighlight p-3 ${
+                            isReady ? 'border-l-2 border-l-cyan-500/60 border-t-border border-r-border border-b-border'
+                            : isAlmost ? 'border-l-2 border-l-amber-500/50 border-t-border border-r-border border-b-border'
+                            : 'border-border'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-textPrimary">{s.name}</p>
+                              <p className="mt-0.5 text-xs text-textMuted">{s.description}</p>
+                            </div>
+                            <div className="flex flex-shrink-0 items-center gap-1.5">
+                              {!isReady && s.missingCount > 0 && (
+                                <button onClick={() => toggleSuggestionExpand(i)} className="flex items-center gap-0.5 text-xs text-amber-400">
+                                  {s.missingCount} missing
+                                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                </button>
+                              )}
+                              {isReady && (
+                                <button
+                                  onClick={() => handleCreateSuggestion(s, i)}
+                                  disabled={creatingSuggestion === i}
+                                  className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-cyan-500 disabled:opacity-50"
+                                >
+                                  {creatingSuggestion === i ? 'Creating...' : 'Create'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {(isReady || isExpanded) && s.requiredFields.length > 0 && (
+                            <div className="mt-2 space-y-1 border-t border-border pt-2">
+                              {s.requiredFields.map((rf, j) => (
+                                <div key={`${rf.fieldId}-${j}`} className="flex items-center gap-1.5">
+                                  <span className={rf.found ? 'text-green-400' : 'text-textMuted'}>{rf.found ? '✓' : '✗'}</span>
+                                  <span className={`text-xs ${rf.found ? 'text-green-400' : 'text-textMuted'}`}>{rf.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {suggestions !== null && suggestions.length === 0 && (
+                <div className="border-b border-border px-5 py-4 text-center">
+                  <p className="text-xs text-textMuted">No new suggestions based on your current fields.</p>
+                </div>
+              )}
+
+              <div className="divide-y divide-border">
               {correlations.length === 0 ? (
                 <div className="py-10 text-center">
                   <p className="text-sm text-textMuted">No correlations yet. Create one!</p>
@@ -300,6 +424,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                   </div>
                 ))
               )}
+              </div>
             </div>
           ) : (
             /* New / Edit correlation form */
