@@ -141,6 +141,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
   const [error, setError] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<CorrelatorSuggestion[] | null>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
   const [expandedSuggestions, setExpandedSuggestions] = useState<Set<number>>(new Set())
   const [creatingSuggestion, setCreatingSuggestion] = useState<number | null>(null)
 
@@ -171,15 +172,24 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
 
   async function handleLoadSuggestions(): Promise<void> {
     setLoadingSuggestions(true)
-    const result = await suggestCorrelationsAction(trackers, correlations)
-    if (result.suggestions) {
-      setSuggestions(result.suggestions)
-      const readyIndices = new Set(
-        result.suggestions.map((s, i) => (s.readiness === 'ready' ? i : -1)).filter(i => i >= 0)
-      )
-      setExpandedSuggestions(readyIndices)
+    setSuggestError(null)
+    setSuggestions(null)
+    try {
+      const result = await suggestCorrelationsAction(trackers, correlations)
+      if (result.suggestions) {
+        setSuggestions(result.suggestions)
+        const readyIndices = new Set(
+          result.suggestions.map((s, i) => (s.readiness === 'ready' ? i : -1)).filter(i => i >= 0)
+        )
+        setExpandedSuggestions(readyIndices)
+      } else {
+        setSuggestError(result.error ?? 'Failed to generate suggestions')
+      }
+    } catch {
+      setSuggestError('Failed to generate suggestions — check your connection')
+    } finally {
+      setLoadingSuggestions(false)
     }
-    setLoadingSuggestions(false)
   }
 
   function toggleSuggestionExpand(index: number): void {
@@ -315,9 +325,34 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
           {view === 'list' ? (
             /* List view */
             <div>
+              {/* Suggest row — idle state */}
+              {!loadingSuggestions && suggestions === null && !suggestError && (
+                <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                    <span className="text-xs text-textMuted">AI-suggested metrics from your trackers</span>
+                  </div>
+                  <button
+                    onClick={handleLoadSuggestions}
+                    className="flex items-center gap-1 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-400 transition-all hover:bg-cyan-500/20"
+                  >
+                    Suggest
+                  </button>
+                </div>
+              )}
+
+              {/* Loading state */}
               {loadingSuggestions && (
                 <div className="border-b border-border px-5 py-4 text-center">
                   <p className="text-xs text-textMuted">Analyzing your fields...</p>
+                </div>
+              )}
+
+              {/* Error state */}
+              {suggestError && !loadingSuggestions && (
+                <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                  <p className="text-xs text-red-400">{suggestError}</p>
+                  <button onClick={handleLoadSuggestions} className="ml-3 shrink-0 text-xs text-cyan-400 hover:underline">Retry</button>
                 </div>
               )}
 
