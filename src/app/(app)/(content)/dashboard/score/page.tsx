@@ -4,6 +4,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getTrackersBasic } from '@/lib/db/trackers'
 import { getUser } from '@/lib/db/users'
 import { ScoreDetailClient } from '@/components/dashboard/ScoreDetailClient'
+import { evaluateFormula, buildFieldValueMapWithCorrelators } from '@/lib/correlator/formula-engine'
+import type { CorrelationRecord } from '@/lib/db/dashboard-data'
 import type { TrackerLog } from '@/types/log'
 import type { UserTarget } from '@/lib/db/users'
 import type { Tracker } from '@/types/tracker'
@@ -34,11 +36,11 @@ function computeDayDetails(
   allLogs: TrackerLog[],
   targets: UserTarget[],
   trackers: Tracker[],
-  nDays: number
+  nDays: number,
+  correlations: CorrelationRecord[] = []
 ): DayDetail[] {
   const numericTargets = targets.filter(
-    t => t.trackerId !== '__correlations__' &&
-    ['number', 'rating', 'duration'].includes(t.fieldType) &&
+    t => ['number', 'rating', 'duration'].includes(t.fieldType) &&
     t.value > 0
   )
   const hasTargets = numericTargets.length > 0
@@ -56,10 +58,19 @@ function computeDayDetails(
 
     if (hasTargets) {
       const pcts = numericTargets.map(target => {
-        // Combined cross-tracker target: fieldId = "combined:{type}:{normalizedLabel}"
         let actual = 0
         let trackerType = 'custom'
-        if (target.trackerId === '__combined__') {
+        // Correlation target: evaluate the formula
+        if (target.trackerId === '__correlations__') {
+          trackerType = 'custom'
+          const corr = correlations.find(c => c.id === target.fieldId)
+          if (corr) {
+            const fieldMap = buildFieldValueMapWithCorrelators(dayLogs, correlations)
+            const result = evaluateFormula(corr.formula, fieldMap)
+            actual = result !== null && Number.isFinite(result) ? result : 0
+          }
+        // Combined cross-tracker target: fieldId = "combined:{type}:{normalizedLabel}"
+        } else if (target.trackerId === '__combined__') {
           const parts = target.fieldId.split(':')
           const [, cType, normalizedLabel] = parts
           trackerType = cType ?? 'custom'
@@ -132,18 +143,27 @@ export default async function ScorePage(): Promise<React.ReactElement> {
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  const { data: allLogs } = await supabase
-    .from('tracker_logs')
-    .select('id, tracker_id, fields, logged_at')
-    .eq('user_id', user.id)
-    .gte('logged_at', thirtyDaysAgo.toISOString())
-    .order('logged_at', { ascending: false })
+  const [{ data: allLogs }, { data: corrData }] = await Promise.all([
+    supabase
+      .from('tracker_logs')
+      .select('id, tracker_id, fields, logged_at')
+      .eq('user_id', user.id)
+      .gte('logged_at', thirtyDaysAgo.toISOString())
+      .order('logged_at', { ascending: false }),
+    supabase
+      .from('correlations')
+      .select('id, formula, unit')
+      .eq('user_id', user.id),
+  ])
+
+  const correlations = (corrData ?? []) as CorrelationRecord[]
 
   const dayDetails = computeDayDetails(
     (allLogs ?? []) as TrackerLog[],
     targets,
     trackers,
-    30
+    30,
+    correlations
   )
 
   return <ScoreDetailClient dayDetails={dayDetails} />
