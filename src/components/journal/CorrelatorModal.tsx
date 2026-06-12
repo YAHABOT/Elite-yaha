@@ -377,9 +377,9 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
                               : 'border-border opacity-70'
                           }`}
                         >
-                          {/* Header: name + create button */}
+                          {/* Header: display title + create button */}
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-semibold text-textPrimary leading-snug">{s.name}</p>
+                            <p className="text-sm font-semibold text-textPrimary leading-snug">{s.title ?? s.name}</p>
                             {isReady && (
                               <button
                                 onClick={() => handleCreateSuggestion(s, i)}

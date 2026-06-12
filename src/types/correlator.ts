@@ -54,4 +54,6 @@ export type CorrelatorSuggestion = {
   readiness: 'ready' | 'almost' | 'aspirational'
   /** Extra correlators to create alongside the main one (e.g. Macro Split creates 3 at once) */
   additionalCreates?: Array<{ name: string; formula: FormulaNode; unit: string }>
+  /** Display title shown in the suggestion card UI — defaults to name if not set */
+  title?: string
 }

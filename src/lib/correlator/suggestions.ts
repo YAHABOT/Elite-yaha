@@ -301,6 +301,7 @@ const TEMPLATES: Template[] = [
 
       return {
         name: 'Protein % of Calories',
+        title: 'Macro Split',
         description: 'Creates Protein %, Carbs % and Fat % of Calories — all three in one tap.',
         unit: '%',
         formula: proteinFormula,
@@ -406,9 +407,10 @@ const TEMPLATES: Template[] = [
     id: 'hydration_attainment',
     name: 'Hydration Attainment',
     build(resolve) {
+      // Strict patterns — 'hydrat' removed (matches "monohydrate"), 'ml' removed (unit not label)
       const water =
-        resolve(['water', 'hydrat', 'fluid', 'ml', 'litre', 'liter'], ['number'], ['water']) ??
-        resolve(['water', 'hydrat', 'fluid'], ['number'])
+        resolve(['water', 'fluid intake', 'h2o', 'hydration'], ['number'], ['water']) ??
+        resolve(['water intake', 'water consumed', 'daily water', 'fluid intake'], ['number'])
       const target = resolve(['water target', 'water goal', 'daily target', 'hydration goal'], ['number'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
