@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, ChevronDown, ChevronRight, Clock } from 'lucide-react'
+import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Tracker } from '@/types/tracker'
 import type { Correlation, FormulaNode, CorrelatorSuggestion } from '@/types/correlator'
@@ -154,7 +154,6 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
   const [suggestions, setSuggestions] = useState<CorrelatorSuggestion[] | null>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [suggestError, setSuggestError] = useState<string | null>(null)
-  const [expandedSuggestions, setExpandedSuggestions] = useState<Set<number>>(new Set())
   const [creatingSuggestion, setCreatingSuggestion] = useState<number | null>(null)
 
   const fieldOptions = getFieldOptions(trackers)
@@ -190,10 +189,6 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
       const result = await suggestCorrelationsAction(trackers, correlations)
       if (result.suggestions) {
         setSuggestions(result.suggestions)
-        const readyIndices = new Set(
-          result.suggestions.map((s, i) => (s.readiness === 'ready' ? i : -1)).filter(i => i >= 0)
-        )
-        setExpandedSuggestions(readyIndices)
       } else {
         setSuggestError(result.error ?? 'Failed to generate suggestions')
       }
@@ -202,14 +197,6 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
     } finally {
       setLoadingSuggestions(false)
     }
-  }
-
-  function toggleSuggestionExpand(index: number): void {
-    setExpandedSuggestions(prev => {
-      const next = new Set(prev)
-      if (next.has(index)) { next.delete(index) } else { next.add(index) }
-      return next
-    })
   }
 
   async function handleCreateSuggestion(suggestion: CorrelatorSuggestion, index: number): Promise<void> {
@@ -371,47 +358,43 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                   </div>
                   <div className="space-y-2 px-4 pb-4">
                     {suggestions.map((s, i) => {
-                      const isExpanded = expandedSuggestions.has(i)
                       const isReady = s.readiness === 'ready'
                       const isAlmost = s.readiness === 'almost'
                       return (
                         <div
                           key={`${s.name}-${i}`}
                           className={`rounded-xl border bg-surfaceHighlight p-3 ${
-                            isReady ? 'border-l-2 border-l-cyan-500/60 border-t-border border-r-border border-b-border'
-                            : isAlmost ? 'border-l-2 border-l-amber-500/50 border-t-border border-r-border border-b-border'
-                            : 'border-border'
+                            isReady
+                              ? 'border-l-2 border-l-cyan-500/60 border-t-border border-r-border border-b-border'
+                              : isAlmost
+                              ? 'border-l-2 border-l-amber-500/50 border-t-border border-r-border border-b-border'
+                              : 'border-border opacity-70'
                           }`}
                         >
+                          {/* Header: name + create button */}
                           <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-textPrimary">{s.name}</p>
-                              <p className="mt-0.5 text-xs text-textMuted">{s.description}</p>
-                            </div>
-                            <div className="flex flex-shrink-0 items-center gap-1.5">
-                              {!isReady && s.missingCount > 0 && (
-                                <button onClick={() => toggleSuggestionExpand(i)} className="flex items-center gap-0.5 text-xs text-amber-400">
-                                  {s.missingCount} missing
-                                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                                </button>
-                              )}
-                              {isReady && (
-                                <button
-                                  onClick={() => handleCreateSuggestion(s, i)}
-                                  disabled={creatingSuggestion === i}
-                                  className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-cyan-500 disabled:opacity-50"
-                                >
-                                  {creatingSuggestion === i ? 'Creating...' : 'Create'}
-                                </button>
-                              )}
-                            </div>
+                            <p className="text-sm font-semibold text-textPrimary leading-snug">{s.name}</p>
+                            {isReady && (
+                              <button
+                                onClick={() => handleCreateSuggestion(s, i)}
+                                disabled={creatingSuggestion === i}
+                                className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white transition-all hover:bg-cyan-500 disabled:opacity-50"
+                              >
+                                {creatingSuggestion === i ? '...' : 'Create'}
+                              </button>
+                            )}
                           </div>
-                          {(isReady || isExpanded) && s.requiredFields.length > 0 && (
+
+                          {/* Description */}
+                          <p className="mt-0.5 text-xs text-textMuted">{s.description}</p>
+
+                          {/* Fields — always visible */}
+                          {s.requiredFields.length > 0 && (
                             <div className="mt-2 space-y-1 border-t border-border pt-2">
                               {s.requiredFields.map((rf, j) => (
                                 <div key={`${rf.fieldId}-${j}`} className="flex items-center gap-1.5">
-                                  <span className={rf.found ? 'text-green-400' : 'text-textMuted'}>{rf.found ? '✓' : '✗'}</span>
-                                  <span className={`text-xs ${rf.found ? 'text-green-400' : 'text-textMuted'}`}>{rf.label}</span>
+                                  <span className={rf.found ? 'text-green-400' : 'text-red-400/70'}>{rf.found ? '✓' : '✗'}</span>
+                                  <span className={`text-xs ${rf.found ? 'text-textMuted' : 'text-red-400/70'}`}>{rf.label}</span>
                                 </div>
                               ))}
                             </div>
