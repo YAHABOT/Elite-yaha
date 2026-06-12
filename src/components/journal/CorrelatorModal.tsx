@@ -201,9 +201,14 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
 
   async function handleCreateSuggestion(suggestion: CorrelatorSuggestion, index: number): Promise<void> {
     setCreatingSuggestion(index)
-    const result = await createCorrelationAction({ name: suggestion.name, formula: suggestion.formula, unit: suggestion.unit })
+    // Create primary correlator + any additional ones (e.g. Macro Split creates 3)
+    const all = [
+      { name: suggestion.name, formula: suggestion.formula, unit: suggestion.unit },
+      ...(suggestion.additionalCreates ?? []),
+    ]
+    const results = await Promise.all(all.map(c => createCorrelationAction(c)))
     setCreatingSuggestion(null)
-    if (!result.error) {
+    if (results.every(r => !r.error)) {
       router.refresh()
       setSuggestions(prev => prev ? prev.filter((_, i) => i !== index) : null)
     }
@@ -380,7 +385,11 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                                 disabled={creatingSuggestion === i}
                                 className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white transition-all hover:bg-cyan-500 disabled:opacity-50"
                               >
-                                {creatingSuggestion === i ? '...' : 'Create'}
+                                {creatingSuggestion === i
+                                ? '...'
+                                : s.additionalCreates?.length
+                                ? `Create ×${(s.additionalCreates.length + 1)}`
+                                : 'Create'}
                               </button>
                             )}
                           </div>

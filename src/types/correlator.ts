@@ -45,4 +45,6 @@ export type CorrelatorSuggestion = {
   }>
   missingCount: number
   readiness: 'ready' | 'almost' | 'aspirational'
+  /** Extra correlators to create alongside the main one (e.g. Macro Split creates 3 at once) */
+  additionalCreates?: Array<{ name: string; formula: FormulaNode; unit: string }>
 }

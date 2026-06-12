@@ -220,84 +220,55 @@ const TEMPLATES: Template[] = [
     },
   },
 
-  // ── Protein % of Calories ─────────────────────────────────────────────────────
+  // ── Macro Split (creates Protein %, Carbs %, Fat % all at once) ──────────────
   {
-    id: 'protein_pct',
-    name: 'Protein % of Calories',
+    id: 'macro_split',
+    name: 'Macro Split',
     build(trackers) {
-      const protein = resolveField(trackers, ['protein'], ['number'], ['nutrition'])
+      const protein  = resolveField(trackers, ['protein'], ['number'], ['nutrition'])
+      const carbs    = resolveField(trackers, ['carb', 'carbohydrate'], ['number'], ['nutrition'])
+      const fat      = resolveField(trackers, ['fat'], ['number'], ['nutrition'])
       const calories = resolveField(trackers, ['calori', 'kcal', 'energy'], ['number'], ['nutrition'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
-        { label: protein ? protein.displayLabel : 'Protein (g) — Nutrition tracker', trackerId: protein?.trackerId ?? 'MISSING', fieldId: protein?.fieldId ?? 'MISSING_protein', found: !!protein },
-        { label: calories ? calories.displayLabel : 'Calories — Nutrition tracker', trackerId: calories?.trackerId ?? 'MISSING', fieldId: calories?.fieldId ?? 'MISSING_cal', found: !!calories },
+        { label: protein  ? protein.displayLabel  : 'Protein (g) — Nutrition tracker',        trackerId: protein?.trackerId  ?? 'MISSING', fieldId: protein?.fieldId  ?? 'MISSING_protein', found: !!protein },
+        { label: carbs    ? carbs.displayLabel    : 'Carbohydrates (g) — Nutrition tracker',  trackerId: carbs?.trackerId    ?? 'MISSING', fieldId: carbs?.fieldId    ?? 'MISSING_carbs',   found: !!carbs },
+        { label: fat      ? fat.displayLabel      : 'Fat (g) — Nutrition tracker',             trackerId: fat?.trackerId      ?? 'MISSING', fieldId: fat?.fieldId      ?? 'MISSING_fat',     found: !!fat },
+        { label: calories ? calories.displayLabel : 'Calories — Nutrition tracker',            trackerId: calories?.trackerId ?? 'MISSING', fieldId: calories?.fieldId ?? 'MISSING_cal',     found: !!calories },
       ]
 
       const missingCount = requiredFields.filter(f => !f.found).length
       const readiness: CorrelatorSuggestion['readiness'] =
         missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
 
-      // (protein × 4 / calories) × 100
-      const formula: FormulaNode =
-        protein && calories
-          ? op('*', op('/', op('*', fld(protein), num(4)), fld(calories)), num(100))
-          : num(0)
+      // Primary formula: Protein %
+      const proteinFormula: FormulaNode = protein && calories
+        ? op('*', op('/', op('*', fld(protein), num(4)), fld(calories)), num(100))
+        : num(0)
 
-      return { name: this.name, description: 'What share of your daily calories comes from protein.', unit: '%', formula, requiredFields, missingCount, readiness }
-    },
-  },
+      const additionalCreates = protein && carbs && fat && calories ? [
+        {
+          name: 'Carbs % of Calories',
+          formula: op('*', op('/', op('*', fld(carbs), num(4)), fld(calories)), num(100)) as FormulaNode,
+          unit: '%',
+        },
+        {
+          name: 'Fat % of Calories',
+          formula: op('*', op('/', op('*', fld(fat), num(9)), fld(calories)), num(100)) as FormulaNode,
+          unit: '%',
+        },
+      ] : undefined
 
-  // ── Carbs % of Calories ───────────────────────────────────────────────────────
-  {
-    id: 'carbs_pct',
-    name: 'Carbs % of Calories',
-    build(trackers) {
-      const carbs = resolveField(trackers, ['carb', 'carbohydrate'], ['number'], ['nutrition'])
-      const calories = resolveField(trackers, ['calori', 'kcal', 'energy'], ['number'], ['nutrition'])
-
-      const requiredFields: CorrelatorSuggestion['requiredFields'] = [
-        { label: carbs ? carbs.displayLabel : 'Carbohydrates (g) — Nutrition tracker', trackerId: carbs?.trackerId ?? 'MISSING', fieldId: carbs?.fieldId ?? 'MISSING_carbs', found: !!carbs },
-        { label: calories ? calories.displayLabel : 'Calories — Nutrition tracker', trackerId: calories?.trackerId ?? 'MISSING', fieldId: calories?.fieldId ?? 'MISSING_cal', found: !!calories },
-      ]
-
-      const missingCount = requiredFields.filter(f => !f.found).length
-      const readiness: CorrelatorSuggestion['readiness'] =
-        missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
-
-      const formula: FormulaNode =
-        carbs && calories
-          ? op('*', op('/', op('*', fld(carbs), num(4)), fld(calories)), num(100))
-          : num(0)
-
-      return { name: this.name, description: 'What share of your daily calories comes from carbohydrates.', unit: '%', formula, requiredFields, missingCount, readiness }
-    },
-  },
-
-  // ── Fat % of Calories ─────────────────────────────────────────────────────────
-  {
-    id: 'fat_pct',
-    name: 'Fat % of Calories',
-    build(trackers) {
-      // Restrict to nutrition tracker to avoid matching "body fat %" fields
-      const fat = resolveField(trackers, ['fat'], ['number'], ['nutrition'])
-      const calories = resolveField(trackers, ['calori', 'kcal', 'energy'], ['number'], ['nutrition'])
-
-      const requiredFields: CorrelatorSuggestion['requiredFields'] = [
-        { label: fat ? fat.displayLabel : 'Fat (g) — Nutrition tracker', trackerId: fat?.trackerId ?? 'MISSING', fieldId: fat?.fieldId ?? 'MISSING_fat', found: !!fat },
-        { label: calories ? calories.displayLabel : 'Calories — Nutrition tracker', trackerId: calories?.trackerId ?? 'MISSING', fieldId: calories?.fieldId ?? 'MISSING_cal', found: !!calories },
-      ]
-
-      const missingCount = requiredFields.filter(f => !f.found).length
-      const readiness: CorrelatorSuggestion['readiness'] =
-        missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
-
-      // (fat × 9 / calories) × 100
-      const formula: FormulaNode =
-        fat && calories
-          ? op('*', op('/', op('*', fld(fat), num(9)), fld(calories)), num(100))
-          : num(0)
-
-      return { name: this.name, description: 'What share of your daily calories comes from dietary fat.', unit: '%', formula, requiredFields, missingCount, readiness }
+      return {
+        name: this.name,
+        description: 'Creates Protein %, Carbs % and Fat % of Calories — all three in one tap.',
+        unit: '%',
+        formula: proteinFormula,
+        requiredFields,
+        missingCount,
+        readiness,
+        additionalCreates,
+      }
     },
   },
 
@@ -426,6 +397,9 @@ export function getCorrelatorSuggestions(
 ): CorrelatorSuggestion[] {
   const results: CorrelatorSuggestion[] = []
 
+  // Names to check for Macro Split dedup
+  const MACRO_NAMES = ['protein % of calories', 'carbs % of calories', 'fat % of calories', 'macro split']
+
   for (const template of TEMPLATES) {
     // Skip if a correlator with this name already exists (fuzzy match)
     const alreadyExists = existingCorrelations.some(c => {
@@ -436,6 +410,12 @@ export function getCorrelatorSuggestions(
         normTemplate.includes(normExisting)
     })
     if (alreadyExists) continue
+
+    // For Macro Split: also skip if any of the 3 individual macro correlators already exist
+    if (template.id === 'macro_split') {
+      const anyMacroExists = existingCorrelations.some(c => MACRO_NAMES.includes(normalize(c.name)))
+      if (anyMacroExists) continue
+    }
 
     const suggestion = template.build(trackers, existingCorrelations)
     if (suggestion === null) continue // self-gated (e.g. Zone 2 with no zone2 field)
