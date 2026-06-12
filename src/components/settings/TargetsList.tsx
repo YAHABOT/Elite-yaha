@@ -129,10 +129,10 @@ export function TargetsList({ targets }: Props): React.ReactElement {
         >
           {/* Tracker + field info */}
           <div className="flex-1 min-w-0">
-            <p className="font-display-heading text-sm text-textPrimary leading-snug break-words">
+            <p className="font-display-heading text-sm text-textPrimary leading-snug" style={{ overflowWrap: 'anywhere' }}>
               {target.fieldLabel}
             </p>
-            <p className="font-ui text-textMuted/50 mt-0.5 break-words" style={{ fontSize: '9px', letterSpacing: '0.10em' }}>
+            <p className="font-ui text-textMuted/50 mt-0.5" style={{ fontSize: '9px', letterSpacing: '0.10em', overflowWrap: 'anywhere' }}>
               {(target.trackerName ?? '').toUpperCase()}{target.fieldType ? ` · ${target.fieldType.toUpperCase()}` : ''}{target.unit ? ` · ${target.unit}` : ''}
             </p>
           </div>
