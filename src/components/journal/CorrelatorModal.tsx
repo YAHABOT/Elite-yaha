@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, Clock } from 'lucide-react'
+import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, Clock, Sigma } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Tracker } from '@/types/tracker'
 import type { Correlation, FormulaNode, CorrelatorSuggestion } from '@/types/correlator'
@@ -19,7 +19,7 @@ type Props = {
   lastKnownValues?: Record<string, number>
 }
 
-type RowType = 'field' | 'constant' | 'correlator' | 'lastKnown'
+type RowType = 'field' | 'constant' | 'correlator' | 'lastKnown' | 'crossTracker'
 
 type VariableRow = {
   id: string
@@ -29,6 +29,9 @@ type VariableRow = {
   fieldId: string
   constantValue: string
   correlatorId: string
+  crossTrackerType: string
+  crossTrackerLabel: string
+  crossTrackerAgg: 'sum' | 'avg'
 }
 
 const OPERATORS: Array<{ value: '+' | '-' | '*' | '/'; label: string }> = [
@@ -38,10 +41,13 @@ const OPERATORS: Array<{ value: '+' | '-' | '*' | '/'; label: string }> = [
   { value: '/', label: '÷' },
 ]
 
-const DEFAULT_ROWS: VariableRow[] = [
-  { id: '1', operator: '+', rowType: 'field', trackerId: '', fieldId: '', constantValue: '', correlatorId: '' },
-  { id: '2', operator: '+', rowType: 'field', trackerId: '', fieldId: '', constantValue: '', correlatorId: '' },
-]
+const EMPTY_ROW = (id: string): VariableRow => ({
+  id, operator: '+', rowType: 'field',
+  trackerId: '', fieldId: '', constantValue: '', correlatorId: '',
+  crossTrackerType: '', crossTrackerLabel: '', crossTrackerAgg: 'sum',
+})
+
+const DEFAULT_ROWS: VariableRow[] = [EMPTY_ROW('1'), EMPTY_ROW('2')]
 
 function buildFormula(rows: VariableRow[]): FormulaNode | null {
   if (rows.length === 0) return null
@@ -51,6 +57,7 @@ function buildFormula(rows: VariableRow[]): FormulaNode | null {
     if (r.rowType === 'lastKnown') return r.trackerId !== '' && r.fieldId !== ''
     if (r.rowType === 'constant') return r.constantValue.trim() !== '' && !isNaN(parseFloat(r.constantValue))
     if (r.rowType === 'correlator') return r.correlatorId !== ''
+    if (r.rowType === 'crossTracker') return r.crossTrackerType !== '' && r.crossTrackerLabel !== ''
     return false
   })
 
@@ -60,6 +67,7 @@ function buildFormula(rows: VariableRow[]): FormulaNode | null {
     if (r.rowType === 'constant') return { type: 'constant', value: parseFloat(r.constantValue) }
     if (r.rowType === 'correlator') return { type: 'correlator', correlatorId: r.correlatorId }
     if (r.rowType === 'lastKnown') return { type: 'lastKnown', trackerId: r.trackerId, fieldId: r.fieldId }
+    if (r.rowType === 'crossTracker') return { type: 'crossTracker', trackerType: r.crossTrackerType, fieldLabel: r.crossTrackerLabel, aggregation: r.crossTrackerAgg }
     return { type: 'field', trackerId: r.trackerId, fieldId: r.fieldId }
   }
 
@@ -82,44 +90,27 @@ function formulaToRows(formula: FormulaNode): VariableRow[] {
 
   function traverse(node: FormulaNode, operator: VariableRow['operator'] = '+'): void {
     if (node.type === 'field') {
-      rows.push({
-        id: String(Date.now() + rows.length),
-        operator,
-        rowType: 'field',
-        trackerId: node.trackerId,
-        fieldId: node.fieldId,
-        constantValue: '',
-        correlatorId: '',
-      })
+      rows.push({ ...EMPTY_ROW(String(Date.now() + rows.length)), operator, rowType: 'field', trackerId: node.trackerId, fieldId: node.fieldId })
     } else if (node.type === 'constant') {
-      rows.push({
-        id: String(Date.now() + rows.length),
-        operator,
-        rowType: 'constant',
-        trackerId: '',
-        fieldId: '',
-        constantValue: String(node.value),
-        correlatorId: '',
-      })
+      rows.push({ ...EMPTY_ROW(String(Date.now() + rows.length)), operator, rowType: 'constant', constantValue: String(node.value) })
     } else if (node.type === 'correlator') {
-      rows.push({
-        id: String(Date.now() + rows.length),
-        operator,
-        rowType: 'correlator',
-        trackerId: '',
-        fieldId: '',
-        constantValue: '',
-        correlatorId: node.correlatorId,
-      })
+      rows.push({ ...EMPTY_ROW(String(Date.now() + rows.length)), operator, rowType: 'correlator', correlatorId: node.correlatorId })
     } else if (node.type === 'lastKnown') {
       rows.push({
-        id: String(Date.now() + rows.length),
+        ...EMPTY_ROW(String(Date.now() + rows.length)),
         operator,
         rowType: 'lastKnown',
         trackerId: node.trackerId,
         fieldId: node.fieldId,
-        constantValue: '',
-        correlatorId: '',
+      })
+    } else if (node.type === 'crossTracker') {
+      rows.push({
+        ...EMPTY_ROW(String(Date.now() + rows.length)),
+        operator,
+        rowType: 'crossTracker',
+        crossTrackerType: node.trackerType,
+        crossTrackerLabel: node.fieldLabel,
+        crossTrackerAgg: node.aggregation,
       })
     } else if (node.type === 'op') {
       traverse(node.left, '+')
@@ -160,10 +151,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
   const fieldOptions = getFieldOptions(trackers)
 
   function addRow(): void {
-    setRows(prev => [
-      ...prev,
-      { id: String(Date.now()), operator: '+', rowType: 'field', trackerId: '', fieldId: '', constantValue: '', correlatorId: '' },
-    ])
+    setRows(prev => [...prev, EMPTY_ROW(String(Date.now()))])
   }
 
   function removeRow(id: string): void {
@@ -177,7 +165,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
   function toggleRowType(id: string, newType: RowType): void {
     setRows(prev => prev.map(r =>
       r.id === id
-        ? { ...r, rowType: newType, trackerId: '', fieldId: '', constantValue: '', correlatorId: '' }
+        ? { ...r, rowType: newType, trackerId: '', fieldId: '', constantValue: '', correlatorId: '', crossTrackerType: '', crossTrackerLabel: '', crossTrackerAgg: 'sum' as const }
         : r
     ))
   }
@@ -386,11 +374,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
                                 disabled={creatingSuggestion === i}
                                 className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white transition-all hover:bg-cyan-500 disabled:opacity-50"
                               >
-                                {creatingSuggestion === i
-                                ? '...'
-                                : s.additionalCreates?.length
-                                ? `Create ×${(s.additionalCreates.length + 1)}`
-                                : 'Create'}
+                                {creatingSuggestion === i ? '...' : 'Create'}
                               </button>
                             )}
                           </div>
@@ -550,7 +534,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
                           </button>
                           <button
                             onClick={() => toggleRowType(row.id, 'lastKnown')}
-                            className={`rounded-r h-6 px-2 text-xs font-semibold transition-colors ${
+                            className={`h-6 px-2 text-xs font-semibold transition-colors ${
                               row.rowType === 'lastKnown'
                                 ? 'bg-amber-500/80 text-white'
                                 : 'bg-background text-textMuted hover:bg-amber-500/20 hover:text-amber-400'
@@ -558,6 +542,17 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
                             title="Last known value — uses most recent entry even if not logged today"
                           >
                             <Clock className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => toggleRowType(row.id, 'crossTracker')}
+                            className={`rounded-r h-6 px-2 text-xs font-semibold transition-colors ${
+                              row.rowType === 'crossTracker'
+                                ? 'bg-cyan-600 text-white'
+                                : 'bg-background text-textMuted hover:bg-cyan-500/20 hover:text-cyan-400'
+                            }`}
+                            title="Cross-tracker sum/avg — aggregates across all trackers of a type"
+                          >
+                            <Sigma className="h-3 w-3" />
                           </button>
                         </div>
 
@@ -614,6 +609,17 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
                           placeholder="0"
                           className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-textPrimary placeholder:text-textMuted/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
                         />
+                      )}
+
+                      {row.rowType === 'crossTracker' && (
+                        <div className="w-full rounded-lg border border-cyan-500/30 bg-background px-3 py-1.5 flex items-center gap-1.5">
+                          <Sigma className="h-3 w-3 shrink-0 text-cyan-400" />
+                          <span className="text-xs text-textMuted truncate">
+                            {row.crossTrackerLabel
+                              ? `${row.crossTrackerAgg === 'avg' ? 'Avg' : 'Sum'} of ${row.crossTrackerLabel} (all ${row.crossTrackerType} trackers)`
+                              : 'Cross-tracker aggregate'}
+                          </span>
+                        </div>
                       )}
                     </div>
                   ))}
