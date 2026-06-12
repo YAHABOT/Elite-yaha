@@ -45,7 +45,7 @@ export function MacroGroupCard({ correlations, logs, allCorrelations, lastKnownV
 
   return (
     <div className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2.5">
-      <p className="font-ui-label text-[9px] uppercase tracking-widest text-textMuted leading-none mb-2">
+      <p className="font-ui-label text-[9px] uppercase tracking-wide text-textMuted leading-none mb-2">
         Macro Split
       </p>
       <div className="grid grid-cols-3 gap-2">
@@ -81,7 +81,7 @@ export function CorrelationCard({ correlation, logs, allCorrelations, lastKnownV
 
   return (
     <div className="rounded-xl border border-border bg-surface px-3 py-2.5">
-      <p className="font-ui-label text-[9px] uppercase tracking-widest text-textMuted leading-none truncate">
+      <p className="font-ui-label text-[9px] uppercase tracking-wide text-textMuted leading-tight line-clamp-2">
         {correlation.name}
       </p>
       <p
