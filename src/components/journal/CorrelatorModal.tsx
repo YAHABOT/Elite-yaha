@@ -298,22 +298,12 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
           </div>
           <div className="flex items-center gap-2">
             {view === 'list' && (
-              <>
-                <button
-                  onClick={handleLoadSuggestions}
-                  disabled={loadingSuggestions}
-                  className="flex items-center gap-1 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-400 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  {loadingSuggestions ? 'Analyzing...' : 'Suggest'}
-                </button>
-                <button
-                  onClick={() => { resetForm(); setView('new') }}
-                  className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white transition-all hover:scale-[1.02]"
-                >
-                  <Plus className="h-3 w-3" /> New Metric
-                </button>
-              </>
+              <button
+                onClick={() => { resetForm(); setView('new') }}
+                className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white transition-all hover:scale-[1.02]"
+              >
+                <Plus className="h-3 w-3" /> New Metric
+              </button>
             )}
             <button onClick={onClose} className="rounded-lg p-1.5 text-textMuted hover:bg-surfaceHighlight">
               <X className="h-4 w-4" />
@@ -321,7 +311,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
           </div>
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto">
+        <div className="max-h-[calc(100dvh-200px)] overflow-y-auto">
           {view === 'list' ? (
             /* List view */
             <div>
@@ -330,7 +320,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                 <div className="flex items-center justify-between border-b border-border px-5 py-3">
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="text-xs text-textMuted">AI-suggested metrics from your trackers</span>
+                    <span className="text-xs text-textMuted">Suggested metrics based on your trackers</span>
                   </div>
                   <button
                     onClick={handleLoadSuggestions}
@@ -344,7 +334,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
               {/* Loading state */}
               {loadingSuggestions && (
                 <div className="border-b border-border px-5 py-4 text-center">
-                  <p className="text-xs text-textMuted">Analyzing your fields...</p>
+                  <p className="text-xs text-textMuted">Checking your trackers...</p>
                 </div>
               )}
 
@@ -493,64 +483,76 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-textMuted">Formula</label>
                 <div className="space-y-2">
                   {rows.map((row, idx) => (
-                    <div key={row.id} className="flex items-center gap-2">
-                      {idx > 0 && (
-                        <div className="flex gap-1">
-                          {OPERATORS.map(op => (
-                            <button
-                              key={op.value}
-                              onClick={() => updateRow(row.id, { operator: op.value })}
-                              className={`min-w-[28px] rounded-lg px-2 py-1.5 text-sm font-bold transition-colors ${
-                                row.operator === op.value
-                                  ? 'bg-primary text-white'
-                                  : 'bg-surfaceHighlight text-textMuted hover:bg-primary/20 hover:text-primary'
-                              }`}
-                            >
-                              {op.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {idx === 0 && <div className="w-[88px] flex-shrink-0" />}
+                    <div key={row.id} className="rounded-xl border border-border bg-surfaceHighlight/40 p-2 space-y-1.5">
+                      {/* Top line: operator (if not first) + type toggle + delete */}
+                      <div className="flex items-center gap-1.5">
+                        {idx === 0 ? (
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-textMuted">Start with</span>
+                        ) : (
+                          <div className="flex gap-0.5">
+                            {OPERATORS.map(op => (
+                              <button
+                                key={op.value}
+                                onClick={() => updateRow(row.id, { operator: op.value })}
+                                className={`h-6 w-6 rounded text-xs font-bold transition-colors ${
+                                  row.operator === op.value
+                                    ? 'bg-primary text-white'
+                                    : 'bg-background text-textMuted hover:bg-primary/20 hover:text-primary'
+                                }`}
+                              >
+                                {op.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
-                      {/* Row type toggle: [Field] [Corr] [#] */}
-                      <div className="flex gap-0.5 flex-shrink-0">
-                        <button
-                          onClick={() => toggleRowType(row.id, 'field')}
-                          className={`rounded-l-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
-                            row.rowType === 'field'
-                              ? 'bg-primary text-white'
-                              : 'bg-surfaceHighlight text-textMuted hover:bg-primary/20 hover:text-primary'
-                          }`}
-                          title="Field value"
-                        >
-                          Field
-                        </button>
-                        <button
-                          onClick={() => toggleRowType(row.id, 'correlator')}
-                          className={`px-2 py-1.5 text-xs font-semibold transition-colors ${
-                            row.rowType === 'correlator'
-                              ? 'bg-primary text-white'
-                              : 'bg-surfaceHighlight text-textMuted hover:bg-primary/20 hover:text-primary'
-                          }`}
-                          title="Another metric"
-                        >
-                          <GitBranch className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => toggleRowType(row.id, 'constant')}
-                          className={`rounded-r-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
-                            row.rowType === 'constant'
-                              ? 'bg-primary text-white'
-                              : 'bg-surfaceHighlight text-textMuted hover:bg-primary/20 hover:text-primary'
-                          }`}
-                          title="Constant number"
-                        >
-                          <Hash className="h-3 w-3" />
-                        </button>
+                        <div className="flex-1" />
+
+                        {/* Row type toggle */}
+                        <div className="flex gap-0.5">
+                          <button
+                            onClick={() => toggleRowType(row.id, 'field')}
+                            className={`rounded-l h-6 px-2 text-xs font-semibold transition-colors ${
+                              row.rowType === 'field'
+                                ? 'bg-primary text-white'
+                                : 'bg-background text-textMuted hover:bg-primary/20 hover:text-primary'
+                            }`}
+                            title="Field value"
+                          >
+                            Field
+                          </button>
+                          <button
+                            onClick={() => toggleRowType(row.id, 'correlator')}
+                            className={`h-6 px-2 text-xs font-semibold transition-colors ${
+                              row.rowType === 'correlator'
+                                ? 'bg-primary text-white'
+                                : 'bg-background text-textMuted hover:bg-primary/20 hover:text-primary'
+                            }`}
+                            title="Another metric"
+                          >
+                            <GitBranch className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => toggleRowType(row.id, 'constant')}
+                            className={`rounded-r h-6 px-2 text-xs font-semibold transition-colors ${
+                              row.rowType === 'constant'
+                                ? 'bg-primary text-white'
+                                : 'bg-background text-textMuted hover:bg-primary/20 hover:text-primary'
+                            }`}
+                            title="Constant number"
+                          >
+                            <Hash className="h-3 w-3" />
+                          </button>
+                        </div>
+
+                        {rows.length > 1 && (
+                          <button onClick={() => removeRow(row.id)} className="h-6 w-6 flex items-center justify-center rounded text-textMuted hover:text-red-400">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
 
-                      {/* Input area based on row type */}
+                      {/* Bottom line: full-width input */}
                       {row.rowType === 'field' && (
                         <select
                           value={`${row.trackerId}::${row.fieldId}`}
@@ -558,7 +560,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                             const [tid, fid] = e.target.value.split('::')
                             updateRow(row.id, { trackerId: tid, fieldId: fid })
                           }}
-                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
                         >
                           <option value="::">Select field...</option>
                           {fieldOptions.map(opt => (
@@ -573,7 +575,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                         <select
                           value={row.correlatorId}
                           onChange={e => updateRow(row.id, { correlatorId: e.target.value })}
-                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
                         >
                           <option value="">Select metric...</option>
                           {availableCorrelations.map(c => (
@@ -590,14 +592,8 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                           value={row.constantValue}
                           onChange={e => updateRow(row.id, { constantValue: e.target.value })}
                           placeholder="0"
-                          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-textPrimary placeholder:text-textMuted/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-textPrimary placeholder:text-textMuted/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
                         />
-                      )}
-
-                      {rows.length > 1 && (
-                        <button onClick={() => removeRow(row.id)} className="p-1.5 text-textMuted hover:text-red-400">
-                          <X className="h-3.5 w-3.5" />
-                        </button>
                       )}
                     </div>
                   ))}
