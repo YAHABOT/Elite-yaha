@@ -332,7 +332,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                 <div className="flex items-center justify-between border-b border-border px-5 py-3">
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="text-xs text-textMuted">Suggested metrics based on your trackers</span>
+                    <span className="text-xs text-textMuted">See all suggested metrics and what fields each one needs</span>
                   </div>
                   <button
                     onClick={handleLoadSuggestions}

@@ -337,28 +337,27 @@ const TEMPLATES: Template[] = [
     },
   },
 
-  // ── Zone 2 % (self-gating — only shown if user has a zone 2 field) ───────────
+  // ── Zone 2 % ──────────────────────────────────────────────────────────────────
   {
     id: 'zone2_pct',
     name: 'Zone 2 %',
     build(trackers) {
       const zone2 = resolveField(trackers, ['zone 2', 'zone2', 'z2'], ['duration', 'number'])
-      if (!zone2) return null // self-gating
-
       const totalDuration =
         resolveField(trackers, ['duration', 'total time', 'workout time', 'total duration', 'session time'], ['duration', 'number'], ['workout']) ??
         resolveField(trackers, ['duration'], ['duration', 'number'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
-        { label: zone2.displayLabel, trackerId: zone2.trackerId, fieldId: zone2.fieldId, found: true },
+        { label: zone2 ? zone2.displayLabel : 'Zone 2 Time — add a "Time in Zone 2" field to your Workout tracker', trackerId: zone2?.trackerId ?? 'MISSING', fieldId: zone2?.fieldId ?? 'MISSING_zone2', found: !!zone2 },
         { label: totalDuration ? totalDuration.displayLabel : 'Total Duration — Workout tracker', trackerId: totalDuration?.trackerId ?? 'MISSING', fieldId: totalDuration?.fieldId ?? 'MISSING_duration', found: !!totalDuration },
       ]
 
       const missingCount = requiredFields.filter(f => !f.found).length
-      const readiness: CorrelatorSuggestion['readiness'] = missingCount === 0 ? 'ready' : 'almost'
+      const readiness: CorrelatorSuggestion['readiness'] =
+        missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
 
       const formula: FormulaNode =
-        totalDuration
+        zone2 && totalDuration
           ? op('*', op('/', fld(zone2), fld(totalDuration)), num(100))
           : num(0)
 
