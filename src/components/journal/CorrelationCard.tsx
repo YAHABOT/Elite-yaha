@@ -52,7 +52,7 @@ export function MacroGroupCard({ correlations, logs, allCorrelations, lastKnownV
         {items.map(({ name, result }) => (
           <div key={name}>
             <p className="font-ui-label text-[9px] uppercase tracking-wider text-textMuted truncate">{name}</p>
-            <p className={`font-data-value text-lg tabular-nums leading-none ${result === null ? 'text-textMuted' : 'text-textPrimary'}`}>
+            <p className={`font-data-value text-[15px] tabular-nums leading-none ${result === null ? 'text-textMuted' : 'text-textPrimary'}`}>
               {result === null ? '---' : `${Math.round(result * 10) / 10}%`}
             </p>
           </div>
@@ -85,7 +85,7 @@ export function CorrelationCard({ correlation, logs, allCorrelations, lastKnownV
         {correlation.name}
       </p>
       <p
-        className={`font-data-value mt-1.5 text-lg tabular-nums leading-none ${
+        className={`font-data-value mt-1.5 text-[15px] tabular-nums leading-none ${
           isDataMissing ? 'text-textMuted' : 'text-textPrimary'
         }`}
       >

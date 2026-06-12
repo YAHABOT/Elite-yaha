@@ -85,6 +85,13 @@ function buildFormula(rows: VariableRow[]): FormulaNode | null {
   return tree
 }
 
+/** Returns true if the formula contains crossTracker or lastKnown nodes (auto-generated, complex structure) */
+function hasComplexNodes(node: FormulaNode): boolean {
+  if (node.type === 'crossTracker' || node.type === 'lastKnown') return true
+  if (node.type === 'op') return hasComplexNodes(node.left) || hasComplexNodes(node.right)
+  return false
+}
+
 function formulaToRows(formula: FormulaNode): VariableRow[] {
   const rows: VariableRow[] = []
 
@@ -147,6 +154,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [suggestError, setSuggestError] = useState<string | null>(null)
   const [creatingSuggestion, setCreatingSuggestion] = useState<number | null>(null)
+  const [originalFormula, setOriginalFormula] = useState<FormulaNode | null>(null)
 
   const fieldOptions = getFieldOptions(trackers)
 
@@ -208,6 +216,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
     setName(correlation.name)
     setUnit(correlation.unit ?? '')
     setRows(formulaToRows(correlation.formula))
+    setOriginalFormula(correlation.formula)
     setView('edit')
     setError(null)
   }
@@ -215,6 +224,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
   function handleCancelEdit(): void {
     setView('list')
     setEditingId(null)
+    setOriginalFormula(null)
     setError(null)
   }
 
@@ -222,12 +232,16 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
     setName('')
     setUnit('')
     setRows(DEFAULT_ROWS)
+    setOriginalFormula(null)
     setError(null)
   }
 
+  const isComplexFormula = originalFormula !== null && hasComplexNodes(originalFormula)
+
   function handleSave(): void {
     setError(null)
-    const formula = buildFormula(rows)
+    // For complex (auto-generated) formulas, preserve the original formula structure
+    const formula = isComplexFormula ? originalFormula! : buildFormula(rows)
     if (!formula) { setError('Add at least one valid variable.'); return }
     if (!name.trim()) { setError('Name is required.'); return }
 
@@ -470,7 +484,13 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-textMuted">Formula</label>
-                <div className="space-y-2">
+                {isComplexFormula && (
+                  <div className="mb-2 flex items-start gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+                    <Sigma className="h-3.5 w-3.5 shrink-0 text-cyan-400 mt-0.5" />
+                    <p className="text-xs text-cyan-400/80 leading-relaxed">Auto-generated formula — edit name &amp; unit only. Delete and recreate from Suggest to change the formula.</p>
+                  </div>
+                )}
+                <div className={`space-y-2 ${isComplexFormula ? 'opacity-40 pointer-events-none select-none' : ''}`}>
                   {rows.map((row, idx) => (
                     <div key={row.id} className="rounded-xl border border-border bg-surfaceHighlight/40 p-2 space-y-1.5">
                       {/* Top line: operator (if not first) + type toggle + delete */}
@@ -624,12 +644,14 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={addRow}
-                  className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  <Plus className="h-3 w-3" /> Add Variable
-                </button>
+                {!isComplexFormula && (
+                  <button
+                    onClick={addRow}
+                    className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Plus className="h-3 w-3" /> Add Variable
+                  </button>
+                )}
               </div>
 
               {error && (
