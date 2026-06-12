@@ -17,6 +17,7 @@ type FieldMatch = {
   fieldId: string
   displayLabel: string
   fieldType: string
+  trackerType: string
 }
 
 function resolveField(
@@ -33,13 +34,30 @@ function resolveField(
     for (const f of t.schema) {
       if (!fieldTypes.includes(f.type)) continue
       if (!matchesAny(f.label, labelPatterns)) continue
-      const match = { trackerId: t.id, fieldId: f.fieldId, displayLabel: f.label, fieldType: f.type }
+      const match = { trackerId: t.id, fieldId: f.fieldId, displayLabel: f.label, fieldType: f.type, trackerType: t.type }
       // Prefer this tracker if it has been logged to recently
       if (lastKnownValues && `${t.id}:${f.fieldId}` in lastKnownValues) return match
       if (!fallback) fallback = match
     }
   }
   return fallback
+}
+
+// Check if a cross-tracker field is present in ANY matching tracker
+function crossTrackerFieldFound(
+  trackers: Tracker[],
+  labelPatterns: string[],
+  fieldTypes: string[],
+  trackerTypeFilter?: string[]
+): boolean {
+  for (const t of trackers) {
+    if (trackerTypeFilter && !trackerTypeFilter.includes(t.type)) continue
+    for (const f of t.schema) {
+      if (!fieldTypes.includes(f.type)) continue
+      if (matchesAny(f.label, labelPatterns)) return true
+    }
+  }
+  return false
 }
 
 function findCorrelatorByName(correlations: Correlation[], patterns: string[]): string | null {
@@ -63,9 +81,20 @@ function op(operator: '+' | '-' | '*' | '/', left: FormulaNode, right: FormulaNo
   return { type: 'op', operator, left, right }
 }
 
+// Cross-tracker aggregate node — sums/averages a named field across all trackers of a type
+function ct(trackerType: string, fieldLabel: string, aggregation: 'sum' | 'avg' = 'sum'): FormulaNode {
+  return { type: 'crossTracker', trackerType, fieldLabel, aggregation }
+}
+
 // Duration fields store raw seconds — divide by 60 to get minutes
 function toMinutes(f: FieldMatch): FormulaNode {
   return f.fieldType === 'duration' ? op('/', fld(f), num(60)) : fld(f)
+}
+
+// Cross-tracker duration in minutes (handles duration type storing seconds)
+function ctMinutes(trackerType: string, fieldLabel: string, fieldType: string): FormulaNode {
+  const node = ct(trackerType, fieldLabel, 'sum')
+  return fieldType === 'duration' ? op('/', node, num(60)) : node
 }
 
 // ── Template definitions ──────────────────────────────────────────────────────
@@ -304,12 +333,17 @@ const TEMPLATES: Template[] = [
       const readiness: CorrelatorSuggestion['readiness'] =
         missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
 
-      const formula: FormulaNode =
-        rpe && duration ? op('*', fld(rpe), toMinutes(duration)) : num(0)
+      // crossTracker: avg RPE × sum duration across all workout trackers that day
+      const formula: FormulaNode = rpe && duration
+        ? op('*',
+            ct(rpe.trackerType, rpe.displayLabel, 'avg'),
+            ctMinutes(duration.trackerType, duration.displayLabel, duration.fieldType)
+          )
+        : num(0)
 
       return {
         name: this.name,
-        description: 'RPE × duration in minutes — a standard measure of how hard a session was.',
+        description: 'Avg RPE × total duration in minutes — aggregated across all workout trackers logged that day.',
         unit: 'AU',
         formula,
         requiredFields,
@@ -330,22 +364,34 @@ const TEMPLATES: Template[] = [
         resolve(['duration'], ['duration', 'number'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
-        { label: zone2 ? zone2.displayLabel : 'Zone 2 Time — add a "Time in Zone 2" field to your Workout tracker', trackerId: zone2?.trackerId ?? 'MISSING', fieldId: zone2?.fieldId ?? 'MISSING_zone2', found: !!zone2 },
-        { label: totalDuration ? totalDuration.displayLabel : 'Total Duration — Workout tracker', trackerId: totalDuration?.trackerId ?? 'MISSING', fieldId: totalDuration?.fieldId ?? 'MISSING_duration', found: !!totalDuration },
+        {
+          label: zone2 ? `${zone2.displayLabel} (summed across all trackers)` : 'Zone 2 Time — add a "Time in Zone 2" field to your Workout tracker',
+          trackerId: zone2?.trackerId ?? 'MISSING', fieldId: zone2?.fieldId ?? 'MISSING_zone2', found: !!zone2,
+        },
+        {
+          label: totalDuration ? `${totalDuration.displayLabel} (summed across all trackers)` : 'Total Duration — Workout tracker',
+          trackerId: totalDuration?.trackerId ?? 'MISSING', fieldId: totalDuration?.fieldId ?? 'MISSING_duration', found: !!totalDuration,
+        },
       ]
 
       const missingCount = requiredFields.filter(f => !f.found).length
       const readiness: CorrelatorSuggestion['readiness'] =
         missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
 
-      const formula: FormulaNode =
-        zone2 && totalDuration
-          ? op('*', op('/', fld(zone2), fld(totalDuration)), num(100))
-          : num(0)
+      // Use crossTracker nodes — sums zone2 and duration across ALL matching trackers that day
+      const formula: FormulaNode = zone2 && totalDuration
+        ? op('*',
+            op('/',
+              ct(zone2.trackerType, zone2.displayLabel, 'sum'),
+              ctMinutes(totalDuration.trackerType, totalDuration.displayLabel, totalDuration.fieldType)
+            ),
+            num(100)
+          )
+        : num(0)
 
       return {
         name: this.name,
-        description: 'Time in aerobic base zone as a percentage of total workout duration.',
+        description: 'Zone 2 time as a % of total workout duration — summed across all workout trackers logged that day.',
         unit: '%',
         formula,
         requiredFields,

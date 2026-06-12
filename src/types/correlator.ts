@@ -5,13 +5,20 @@
 // - correlator reference: { type: 'correlator', correlatorId: string }
 // - last known: { type: 'lastKnown', trackerId: string, fieldId: string }
 //   Uses the most recent logged value for this field, even if not logged today.
-//   Useful for sparse fields like bodyweight (weekly weigh-ins).
+// - cross-tracker: { type: 'crossTracker', trackerType, fieldLabel, aggregation }
+//   Aggregates a named field across ALL trackers of the given type logged today.
+//   e.g. sum zone2 time from ALL workout trackers in one formula node.
 export type FormulaNode =
   | { type: 'field'; trackerId: string; fieldId: string }
   | { type: 'constant'; value: number }
   | { type: 'op'; operator: '+' | '-' | '*' | '/'; left: FormulaNode; right: FormulaNode }
   | { type: 'correlator'; correlatorId: string }
   | { type: 'lastKnown'; trackerId: string; fieldId: string }
+  | { type: 'crossTracker'; trackerType: string; fieldLabel: string; aggregation: 'sum' | 'avg' }
+
+// Pre-computed cross-tracker aggregates map.
+// Keys: `sum:trackerType:normalizedLabel` or `avg:trackerType:normalizedLabel`
+export type CrossTrackerMap = Map<string, number>
 
 export type Correlation = {
   id: string

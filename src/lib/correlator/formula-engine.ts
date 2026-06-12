@@ -1,7 +1,51 @@
-import type { FormulaNode, FieldValueMap } from '@/types/correlator'
+import type { FormulaNode, FieldValueMap, CrossTrackerMap } from '@/types/correlator'
 
 type MinimalCorrelation = { id: string; formula: FormulaNode }
+type MinimalTracker = { id: string; type: string; schema: Array<{ fieldId: string; label: string }> }
 import type { TrackerLog } from '@/types/log'
+
+/**
+ * Pre-compute cross-tracker aggregates from today's logs + tracker schemas.
+ * Stores `sum:trackerType:normalizedLabel` and `avg:trackerType:normalizedLabel` keys.
+ * Used by `crossTracker` formula nodes to aggregate across multiple trackers.
+ */
+export function buildCrossTrackerMap(
+  logs: TrackerLog[],
+  trackers: MinimalTracker[]
+): CrossTrackerMap {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+  // Build fast lookup: trackerId → { type, fieldId→normalizedLabel }
+  const trackerLookup = new Map<string, { type: string; labels: Map<string, string> }>()
+  for (const t of trackers) {
+    const labels = new Map<string, string>()
+    for (const f of t.schema) labels.set(f.fieldId, norm(f.label))
+    trackerLookup.set(t.id, { type: t.type, labels })
+  }
+
+  const sums = new Map<string, number>()
+  const counts = new Map<string, number>()
+
+  for (const log of logs) {
+    const info = trackerLookup.get(log.tracker_id)
+    if (!info) continue
+    for (const [fieldId, value] of Object.entries(log.fields)) {
+      if (typeof value !== 'number') continue
+      const label = info.labels.get(fieldId)
+      if (!label) continue
+      const key = `${info.type}:${label}`
+      sums.set(key, (sums.get(key) ?? 0) + value)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+  }
+
+  const result: CrossTrackerMap = new Map()
+  for (const [key, sum] of sums) {
+    result.set(`sum:${key}`, sum)
+    result.set(`avg:${key}`, sum / (counts.get(key) ?? 1))
+  }
+  return result
+}
 
 const MAX_DEPTH = 20
 
@@ -9,7 +53,8 @@ function evaluateNode(
   node: FormulaNode,
   values: FieldValueMap,
   depth: number,
-  lastKnownMap?: Map<string, number>
+  lastKnownMap?: Map<string, number>,
+  crossTrackerMap?: CrossTrackerMap
 ): number | null {
   if (depth > MAX_DEPTH) return null
 
@@ -26,10 +71,15 @@ function evaluateNode(
 
   if (node.type === 'lastKnown') {
     const key = `${node.trackerId}:${node.fieldId}`
-    // Prefer today's logged value; fall back to most recent historical value
     const todayValue = values.get(key)
     if (todayValue !== undefined) return todayValue
     return lastKnownMap?.get(key) ?? null
+  }
+
+  if (node.type === 'crossTracker') {
+    const normLabel = node.fieldLabel.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const key = `${node.aggregation}:${node.trackerType}:${normLabel}`
+    return crossTrackerMap?.get(key) ?? null
   }
 
   if (node.type === 'correlator') {
@@ -40,8 +90,8 @@ function evaluateNode(
   }
 
   // node.type === 'op'
-  const left = evaluateNode(node.left, values, depth + 1, lastKnownMap)
-  const right = evaluateNode(node.right, values, depth + 1, lastKnownMap)
+  const left = evaluateNode(node.left, values, depth + 1, lastKnownMap, crossTrackerMap)
+  const right = evaluateNode(node.right, values, depth + 1, lastKnownMap, crossTrackerMap)
 
   if (left === null || right === null) return null
 
@@ -59,9 +109,10 @@ function evaluateNode(
 export function evaluateFormula(
   node: FormulaNode,
   values: FieldValueMap,
-  lastKnownMap?: Map<string, number>
+  lastKnownMap?: Map<string, number>,
+  crossTrackerMap?: CrossTrackerMap
 ): number | null {
-  return evaluateNode(node, values, 0, lastKnownMap)
+  return evaluateNode(node, values, 0, lastKnownMap, crossTrackerMap)
 }
 
 export function buildFieldValueMap(logs: TrackerLog[]): FieldValueMap {
@@ -154,7 +205,8 @@ function topoSortCorrelations(correlations: MinimalCorrelation[]): {
 export function buildFieldValueMapWithCorrelators(
   logs: TrackerLog[],
   correlations: MinimalCorrelation[],
-  lastKnownMap?: Map<string, number>
+  lastKnownMap?: Map<string, number>,
+  crossTrackerMap?: CrossTrackerMap
 ): FieldValueMap {
   const map = buildFieldValueMap(logs)
 
@@ -164,7 +216,7 @@ export function buildFieldValueMapWithCorrelators(
 
   for (const corr of sorted) {
     if (cyclic.has(corr.id)) continue
-    const result = evaluateFormula(corr.formula, map, lastKnownMap)
+    const result = evaluateFormula(corr.formula, map, lastKnownMap, crossTrackerMap)
     if (result !== null) {
       map.set(`corr:${corr.id}`, result)
     }

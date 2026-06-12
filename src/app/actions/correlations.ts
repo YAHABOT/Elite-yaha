@@ -30,6 +30,14 @@ function isValidFormulaNode(node: unknown): node is FormulaNode {
     return typeof n.trackerId === 'string' && typeof n.fieldId === 'string'
   }
 
+  if (n.type === 'crossTracker') {
+    return (
+      typeof n.trackerType === 'string' &&
+      typeof n.fieldLabel === 'string' &&
+      (n.aggregation === 'sum' || n.aggregation === 'avg')
+    )
+  }
+
   if (n.type === 'op') {
     const validOperators = ['+', '-', '*', '/']
     return (

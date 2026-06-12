@@ -286,13 +286,13 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
                 return (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {macroGroup.length >= 2 && (
-                      <MacroGroupCard correlations={macroGroup} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
+                      <MacroGroupCard correlations={macroGroup} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} trackers={trackers} />
                     )}
                     {macroGroup.length === 1 && (
-                      <CorrelationCard correlation={macroGroup[0]} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
+                      <CorrelationCard correlation={macroGroup[0]} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} trackers={trackers} />
                     )}
                     {rest.map((c) => (
-                      <CorrelationCard key={c.id} correlation={c} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
+                      <CorrelationCard key={c.id} correlation={c} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} trackers={trackers} />
                     ))}
                   </div>
                 )

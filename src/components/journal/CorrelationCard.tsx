@@ -1,7 +1,9 @@
 import type { Correlation } from '@/types/correlator'
 import type { TrackerLog } from '@/types/log'
+import type { Tracker } from '@/types/tracker'
 import {
   buildFieldValueMapWithCorrelators,
+  buildCrossTrackerMap,
   evaluateFormula,
   formatResult,
 } from '@/lib/correlator/formula-engine'
@@ -14,18 +16,20 @@ export const MACRO_GROUP_NAMES = new Set([
 ])
 
 type GroupProps = {
-  correlations: Correlation[]   // the 2-3 macro correlators
+  correlations: Correlation[]
   logs: TrackerLog[]
   allCorrelations: Correlation[]
   lastKnownValues?: Record<string, number>
+  trackers?: Tracker[]
 }
 
-export function MacroGroupCard({ correlations, logs, allCorrelations, lastKnownValues }: GroupProps): React.ReactElement {
+export function MacroGroupCard({ correlations, logs, allCorrelations, lastKnownValues, trackers }: GroupProps): React.ReactElement {
   const lastKnownMap = lastKnownValues ? new Map(Object.entries(lastKnownValues)) : undefined
-  const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations, lastKnownMap)
+  const crossTrackerMap = trackers ? buildCrossTrackerMap(logs, trackers) : undefined
+  const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations, lastKnownMap, crossTrackerMap)
 
   const items = correlations.map(c => {
-    const result = evaluateFormula(c.formula, fieldValueMap, lastKnownMap)
+    const result = evaluateFormula(c.formula, fieldValueMap, lastKnownMap, crossTrackerMap)
     // Strip " % of Calories" → just "Protein", "Carbs", "Fat"
     const shortName = c.name.replace(/ % of Calories$/i, '').replace(/ %$/i, '')
     return { name: shortName, result }
@@ -55,12 +59,14 @@ type Props = {
   logs: TrackerLog[]
   allCorrelations: Correlation[]
   lastKnownValues?: Record<string, number>
+  trackers?: Tracker[]
 }
 
-export function CorrelationCard({ correlation, logs, allCorrelations, lastKnownValues }: Props): React.ReactElement {
+export function CorrelationCard({ correlation, logs, allCorrelations, lastKnownValues, trackers }: Props): React.ReactElement {
   const lastKnownMap = lastKnownValues ? new Map(Object.entries(lastKnownValues)) : undefined
-  const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations, lastKnownMap)
-  const result = evaluateFormula(correlation.formula, fieldValueMap, lastKnownMap)
+  const crossTrackerMap = trackers ? buildCrossTrackerMap(logs, trackers) : undefined
+  const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations, lastKnownMap, crossTrackerMap)
+  const result = evaluateFormula(correlation.formula, fieldValueMap, lastKnownMap, crossTrackerMap)
   const display = formatResult(result, correlation.unit)
 
   const isDataMissing = result === null
