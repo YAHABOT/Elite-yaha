@@ -90,19 +90,30 @@ export async function logFoodBankEntryAction(
   }
 }
 
+type ExistingEntryContext = {
+  name?: string
+  kcal?: number
+  protein_g?: number
+  carbs_g?: number
+  fat_g?: number
+  fibre_g?: number | null
+  ingredients?: Array<{ name: string; qty_label: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number }>
+}
+
 export async function parseFoodBankEntryAction(
   text: string,
   fileBase64?: string,
-  fileMimeType?: string
+  fileMimeType?: string,
+  existingEntry?: ExistingEntryContext
 ): Promise<{ data?: Partial<CreateFoodBankInput>; error?: string }> {
   try {
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) return { error: 'AI not configured' }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const systemInstruction = `Extract all nutritional data from the provided recipe or food item and return ONLY valid JSON with this exact structure (no markdown, no extra text):
-{
-  "name": "string - dish or item name",
+
+    const JSON_SCHEMA = `{
+  "name": "string",
   "entry_type": "dish or pantry_item",
   "shortcut": "string or null",
   "serving_label": "string or null",
@@ -119,7 +130,23 @@ export async function parseFoodBankEntryAction(
   "batch_carbs_g": number or null,
   "batch_fat_g": number or null,
   "notes": null
-}
+}`
+
+    const isAdjustment = !!existingEntry?.name || (existingEntry?.ingredients && existingEntry.ingredients.length > 0)
+
+    const systemInstruction = isAdjustment
+      ? `You are editing an existing food bank entry. The CURRENT entry data is:
+
+<EXISTING_ENTRY>
+${JSON.stringify(existingEntry, null, 2)}
+</EXISTING_ENTRY>
+
+The user wants to make a specific change. Apply ONLY the requested change — keep every other field identical to EXISTING_ENTRY. If the user says "change cheese to 30g", update only the cheese ingredient's qty_label and recalculate that ingredient's macros proportionally, then update the top-level totals. Do NOT replace the entire dish with just that ingredient.
+
+Return ONLY valid JSON with this exact structure (no markdown, no extra text):
+${JSON_SCHEMA}`
+      : `Extract all nutritional data from the provided recipe or food item and return ONLY valid JSON with this exact structure (no markdown, no extra text):
+${JSON_SCHEMA}
 Rules: entry_type is "dish" for prepared meals/recipes, "pantry_item" for raw ingredients or packaged products. Include ALL ingredients if a breakdown is present. Top-level kcal/protein/carbs/fat are PER SERVING values.`
 
     const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite', systemInstruction })

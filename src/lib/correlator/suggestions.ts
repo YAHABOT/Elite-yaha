@@ -461,8 +461,10 @@ export function getCorrelatorSuggestions(
   const resolve: ResolveFn = (labelPatterns, fieldTypes, trackerTypeFilter) =>
     resolveField(trackers, labelPatterns, fieldTypes, trackerTypeFilter, lastKnownValues)
 
-  // Names to check for Macro Split dedup
-  const MACRO_NAMES = ['protein % of calories', 'carbs % of calories', 'fat % of calories', 'macro split']
+  // Pre-normalized macro names for dedup check
+  const MACRO_NAMES_NORM = new Set(
+    ['protein % of calories', 'carbs % of calories', 'fat % of calories', 'macro split'].map(normalize)
+  )
 
   for (const template of TEMPLATES) {
     // Skip if a correlator with this name already exists (fuzzy match)
@@ -477,7 +479,7 @@ export function getCorrelatorSuggestions(
 
     // For Macro Split: also skip if any of the 3 individual macro correlators already exist
     if (template.id === 'macro_split') {
-      const anyMacroExists = existingCorrelations.some(c => MACRO_NAMES.includes(normalize(c.name)))
+      const anyMacroExists = existingCorrelations.some(c => MACRO_NAMES_NORM.has(normalize(c.name)))
       if (anyMacroExists) continue
     }
 

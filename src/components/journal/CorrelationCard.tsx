@@ -28,23 +28,31 @@ export function MacroGroupCard({ correlations, logs, allCorrelations, lastKnownV
   const crossTrackerMap = trackers ? buildCrossTrackerMap(logs, trackers) : undefined
   const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations, lastKnownMap, crossTrackerMap)
 
-  const items = correlations.map(c => {
-    const result = evaluateFormula(c.formula, fieldValueMap, lastKnownMap, crossTrackerMap)
-    // Strip " % of Calories" → just "Protein", "Carbs", "Fat"
-    const shortName = c.name.replace(/ % of Calories$/i, '').replace(/ %$/i, '')
-    return { name: shortName, result }
-  })
+  // Deduplicate by short name (guard against duplicate correlators in DB)
+  const seenNames = new Set<string>()
+  const items = correlations
+    .map(c => {
+      const result = evaluateFormula(c.formula, fieldValueMap, lastKnownMap, crossTrackerMap)
+      const shortName = c.name.replace(/ % of Calories$/i, '').replace(/ %$/i, '')
+      return { name: shortName, result }
+    })
+    .filter(({ name }) => {
+      if (seenNames.has(name)) return false
+      seenNames.add(name)
+      return true
+    })
+    .slice(0, 3)
 
   return (
     <div className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2.5">
       <p className="font-ui-label text-[9px] uppercase tracking-widest text-textMuted leading-none mb-2">
         Macro Split
       </p>
-      <div className="flex gap-5">
+      <div className="grid grid-cols-3 gap-2">
         {items.map(({ name, result }) => (
           <div key={name}>
-            <p className="font-ui-label text-[9px] uppercase tracking-wider text-textMuted">{name}</p>
-            <p className={`font-data-value text-xl tabular-nums leading-none ${result === null ? 'text-textMuted' : 'text-textPrimary'}`}>
+            <p className="font-ui-label text-[9px] uppercase tracking-wider text-textMuted truncate">{name}</p>
+            <p className={`font-data-value text-lg tabular-nums leading-none ${result === null ? 'text-textMuted' : 'text-textPrimary'}`}>
               {result === null ? '---' : `${Math.round(result * 10) / 10}%`}
             </p>
           </div>
@@ -77,7 +85,7 @@ export function CorrelationCard({ correlation, logs, allCorrelations, lastKnownV
         {correlation.name}
       </p>
       <p
-        className={`font-data-value mt-1.5 text-xl tabular-nums leading-none ${
+        className={`font-data-value mt-1.5 text-lg tabular-nums leading-none ${
           isDataMissing ? 'text-textMuted' : 'text-textPrimary'
         }`}
       >

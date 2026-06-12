@@ -101,7 +101,25 @@ export function FoodBankForm({ initialData }: Props) {
     if (!pasteText.trim() && !fileBase64) { setParseError('Paste some text or attach a file first.'); return }
     startParseTransition(async () => {
       setParseError(null)
-      const result = await parseFoodBankEntryAction(pasteText, fileBase64 ?? undefined, fileMimeType ?? undefined)
+      // Pass current form state so AI can apply adjustments instead of replacing the whole dish
+      const currentEntry = {
+        name: name.trim() || undefined,
+        kcal: parseFloat(kcal) || undefined,
+        protein_g: parseFloat(proteinG) || undefined,
+        carbs_g: parseFloat(carbsG) || undefined,
+        fat_g: parseFloat(fatG) || undefined,
+        fibre_g: fibreG ? parseFloat(fibreG) : undefined,
+        ingredients: showIngredients && ingredients.length > 0
+          ? ingredients.map(({ _key: _, ...ing }) => ing)
+          : undefined,
+      }
+      const hasExistingData = !!(currentEntry.name || (currentEntry.ingredients && currentEntry.ingredients.length > 0))
+      const result = await parseFoodBankEntryAction(
+        pasteText,
+        fileBase64 ?? undefined,
+        fileMimeType ?? undefined,
+        hasExistingData ? currentEntry : undefined
+      )
       if (result.error || !result.data) { setParseError(result.error ?? 'Could not parse recipe data'); return }
       const d = result.data
       if (d.name) setName(d.name)
