@@ -23,17 +23,23 @@ function resolveField(
   trackers: Tracker[],
   labelPatterns: string[],
   fieldTypes: string[],
-  trackerTypeFilter?: string[]
+  trackerTypeFilter?: string[],
+  lastKnownValues?: Record<string, number>
 ): FieldMatch | null {
+  let fallback: FieldMatch | null = null
+
   for (const t of trackers) {
     if (trackerTypeFilter && !trackerTypeFilter.includes(t.type)) continue
     for (const f of t.schema) {
       if (!fieldTypes.includes(f.type)) continue
       if (!matchesAny(f.label, labelPatterns)) continue
-      return { trackerId: t.id, fieldId: f.fieldId, displayLabel: f.label, fieldType: f.type }
+      const match = { trackerId: t.id, fieldId: f.fieldId, displayLabel: f.label, fieldType: f.type }
+      // Prefer this tracker if it has been logged to recently
+      if (lastKnownValues && `${t.id}:${f.fieldId}` in lastKnownValues) return match
+      if (!fallback) fallback = match
     }
   }
-  return null
+  return fallback
 }
 
 function findCorrelatorByName(correlations: Correlation[], patterns: string[]): string | null {
@@ -64,10 +70,16 @@ function toMinutes(f: FieldMatch): FormulaNode {
 
 // ── Template definitions ──────────────────────────────────────────────────────
 
+type ResolveFn = (
+  labelPatterns: string[],
+  fieldTypes: string[],
+  trackerTypeFilter?: string[]
+) => FieldMatch | null
+
 type Template = {
   id: string
   name: string
-  build(trackers: Tracker[], correlations: Correlation[]): CorrelatorSuggestion | null
+  build(resolve: ResolveFn, trackers: Tracker[], correlations: Correlation[]): CorrelatorSuggestion | null
 }
 
 const TEMPLATES: Template[] = [
@@ -75,11 +87,11 @@ const TEMPLATES: Template[] = [
   {
     id: 'net_caloric_balance',
     name: 'Net Caloric Balance',
-    build(trackers, correlations) {
-      const caloriesIn = resolveField(trackers, ['calori', 'kcal', 'energy'], ['number'], ['nutrition'])
+    build(resolve, trackers, correlations) {
+      const caloriesIn = resolve(['calori', 'kcal', 'energy'], ['number'], ['nutrition'])
       const caloriesBurned =
-        resolveField(trackers, ['calori burn', 'calori expend', 'active cal', 'energy out', 'total burn', 'calories out'], ['number']) ??
-        resolveField(trackers, ['burn', 'expend'], ['number'])
+        resolve(['calori burn', 'calori expend', 'active cal', 'energy out', 'total burn', 'calories out'], ['number']) ??
+        resolve(['burn', 'expend'], ['number'])
       const tefId = findCorrelatorByName(correlations, ['thermic', 'tef'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
@@ -129,12 +141,11 @@ const TEMPLATES: Template[] = [
   {
     id: 'sleep_efficiency',
     name: 'Sleep Efficiency',
-    build(trackers) {
+    build(resolve) {
       const sleepDuration =
-        resolveField(trackers, ['sleep duration', 'total sleep', 'actual sleep', 'time asleep', 'hours slept', 'sleep time'], ['duration', 'number'], ['sleep']) ??
-        resolveField(trackers, ['sleep', 'duration'], ['duration', 'number'], ['sleep'])
-      const timeInBed = resolveField(
-        trackers,
+        resolve(['sleep duration', 'total sleep', 'actual sleep', 'time asleep', 'hours slept', 'sleep time'], ['duration', 'number'], ['sleep']) ??
+        resolve(['sleep', 'duration'], ['duration', 'number'], ['sleep'])
+      const timeInBed = resolve(
         ['in bed', 'time in bed', 'time spent in bed', 'bed duration'],
         ['duration', 'number']
       )
@@ -179,9 +190,9 @@ const TEMPLATES: Template[] = [
   {
     id: 'protein_per_kg',
     name: 'Protein per kg',
-    build(trackers) {
-      const protein = resolveField(trackers, ['protein'], ['number'], ['nutrition'])
-      const weight = resolveField(trackers, ['weight', 'bodyweight', 'body weight', 'bw', 'mass', 'kg'], ['number'])
+    build(resolve) {
+      const protein = resolve(['protein'], ['number'], ['nutrition'])
+      const weight = resolve(['weight', 'bodyweight', 'body weight', 'bw', 'mass', 'kg'], ['number'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
         {
@@ -224,11 +235,11 @@ const TEMPLATES: Template[] = [
   {
     id: 'macro_split',
     name: 'Macro Split',
-    build(trackers) {
-      const protein  = resolveField(trackers, ['protein'], ['number'], ['nutrition'])
-      const carbs    = resolveField(trackers, ['carb', 'carbohydrate'], ['number'], ['nutrition'])
-      const fat      = resolveField(trackers, ['fat'], ['number'], ['nutrition'])
-      const calories = resolveField(trackers, ['calori', 'kcal', 'energy'], ['number'], ['nutrition'])
+    build(resolve) {
+      const protein  = resolve(['protein'], ['number'], ['nutrition'])
+      const carbs    = resolve(['carb', 'carbohydrate'], ['number'], ['nutrition'])
+      const fat      = resolve(['fat'], ['number'], ['nutrition'])
+      const calories = resolve(['calori', 'kcal', 'energy'], ['number'], ['nutrition'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
         { label: protein  ? protein.displayLabel  : 'Protein (g) — Nutrition tracker',        trackerId: protein?.trackerId  ?? 'MISSING', fieldId: protein?.fieldId  ?? 'MISSING_protein', found: !!protein },
@@ -260,7 +271,7 @@ const TEMPLATES: Template[] = [
       ] : undefined
 
       return {
-        name: this.name,
+        name: 'Protein % of Calories',
         description: 'Creates Protein %, Carbs % and Fat % of Calories — all three in one tap.',
         unit: '%',
         formula: proteinFormula,
@@ -276,13 +287,13 @@ const TEMPLATES: Template[] = [
   {
     id: 'training_load',
     name: 'Training Load',
-    build(trackers) {
+    build(resolve) {
       const rpe =
-        resolveField(trackers, ['rpe', 'perceived exertion', 'effort', 'intensity'], ['rating', 'number'], ['workout']) ??
-        resolveField(trackers, ['rpe', 'effort', 'intensity'], ['rating', 'number'])
+        resolve(['rpe', 'perceived exertion', 'effort', 'intensity'], ['rating', 'number'], ['workout']) ??
+        resolve(['rpe', 'effort', 'intensity'], ['rating', 'number'])
       const duration =
-        resolveField(trackers, ['duration', 'workout time', 'session time', 'exercise time', 'minutes', 'mins'], ['duration', 'number'], ['workout']) ??
-        resolveField(trackers, ['duration'], ['duration', 'number'])
+        resolve(['duration', 'workout time', 'session time', 'exercise time', 'minutes', 'mins'], ['duration', 'number'], ['workout']) ??
+        resolve(['duration'], ['duration', 'number'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
         { label: rpe ? rpe.displayLabel : 'RPE / Effort rating — Workout tracker', trackerId: rpe?.trackerId ?? 'MISSING', fieldId: rpe?.fieldId ?? 'MISSING_rpe', found: !!rpe },
@@ -312,11 +323,11 @@ const TEMPLATES: Template[] = [
   {
     id: 'zone2_pct',
     name: 'Zone 2 %',
-    build(trackers) {
-      const zone2 = resolveField(trackers, ['zone 2', 'zone2', 'z2'], ['duration', 'number'])
+    build(resolve) {
+      const zone2 = resolve(['zone 2', 'zone2', 'z2'], ['duration', 'number'])
       const totalDuration =
-        resolveField(trackers, ['duration', 'total time', 'workout time', 'total duration', 'session time'], ['duration', 'number'], ['workout']) ??
-        resolveField(trackers, ['duration'], ['duration', 'number'])
+        resolve(['duration', 'total time', 'workout time', 'total duration', 'session time'], ['duration', 'number'], ['workout']) ??
+        resolve(['duration'], ['duration', 'number'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
         { label: zone2 ? zone2.displayLabel : 'Zone 2 Time — add a "Time in Zone 2" field to your Workout tracker', trackerId: zone2?.trackerId ?? 'MISSING', fieldId: zone2?.fieldId ?? 'MISSING_zone2', found: !!zone2 },
@@ -348,11 +359,11 @@ const TEMPLATES: Template[] = [
   {
     id: 'hydration_attainment',
     name: 'Hydration Attainment',
-    build(trackers) {
+    build(resolve) {
       const water =
-        resolveField(trackers, ['water', 'hydrat', 'fluid', 'ml', 'litre', 'liter'], ['number'], ['water']) ??
-        resolveField(trackers, ['water', 'hydrat', 'fluid'], ['number'])
-      const target = resolveField(trackers, ['water target', 'water goal', 'daily target', 'hydration goal'], ['number'])
+        resolve(['water', 'hydrat', 'fluid', 'ml', 'litre', 'liter'], ['number'], ['water']) ??
+        resolve(['water', 'hydrat', 'fluid'], ['number'])
+      const target = resolve(['water target', 'water goal', 'daily target', 'hydration goal'], ['number'])
 
       const requiredFields: CorrelatorSuggestion['requiredFields'] = [
         {
@@ -393,9 +404,14 @@ const TEMPLATES: Template[] = [
 
 export function getCorrelatorSuggestions(
   trackers: Tracker[],
-  existingCorrelations: Correlation[]
+  existingCorrelations: Correlation[],
+  lastKnownValues?: Record<string, number>
 ): CorrelatorSuggestion[] {
   const results: CorrelatorSuggestion[] = []
+
+  // Resolver that prefers trackers with recent data when available
+  const resolve: ResolveFn = (labelPatterns, fieldTypes, trackerTypeFilter) =>
+    resolveField(trackers, labelPatterns, fieldTypes, trackerTypeFilter, lastKnownValues)
 
   // Names to check for Macro Split dedup
   const MACRO_NAMES = ['protein % of calories', 'carbs % of calories', 'fat % of calories', 'macro split']
@@ -417,8 +433,8 @@ export function getCorrelatorSuggestions(
       if (anyMacroExists) continue
     }
 
-    const suggestion = template.build(trackers, existingCorrelations)
-    if (suggestion === null) continue // self-gated (e.g. Zone 2 with no zone2 field)
+    const suggestion = template.build(resolve, trackers, existingCorrelations)
+    if (suggestion === null) continue
 
     results.push(suggestion)
   }

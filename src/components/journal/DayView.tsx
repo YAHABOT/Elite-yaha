@@ -7,7 +7,7 @@ import type { Tracker } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import type { Correlation } from '@/types/correlator'
 import { SortableJournalList } from '@/components/journal/SortableJournalList'
-import { CorrelationCard } from '@/components/journal/CorrelationCard'
+import { CorrelationCard, MacroGroupCard, MACRO_GROUP_NAMES } from '@/components/journal/CorrelationCard'
 import { CorrelatorModal } from '@/components/journal/CorrelatorModal'
 
 type Props = {
@@ -280,11 +280,23 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
                   <Plus className="h-3 w-3" /> New
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {correlations.map((c) => (
-                  <CorrelationCard key={c.id} correlation={c} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
-                ))}
-              </div>
+              {(() => {
+                const macroGroup = correlations.filter(c => MACRO_GROUP_NAMES.has(c.name.toLowerCase()))
+                const rest = correlations.filter(c => !MACRO_GROUP_NAMES.has(c.name.toLowerCase()))
+                return (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {macroGroup.length >= 2 && (
+                      <MacroGroupCard correlations={macroGroup} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
+                    )}
+                    {macroGroup.length === 1 && (
+                      <CorrelationCard correlation={macroGroup[0]} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
+                    )}
+                    {rest.map((c) => (
+                      <CorrelationCard key={c.id} correlation={c} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           )}
 
@@ -345,6 +357,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
           trackers={trackers}
           correlations={correlations}
           onClose={() => setCorrelatorOpen(false)}
+          lastKnownValues={lastKnownValues}
         />
       )}
     </div>

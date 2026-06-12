@@ -121,10 +121,11 @@ export async function deleteCorrelationAction(
 
 export async function suggestCorrelationsAction(
   trackers: Tracker[],
-  existingCorrelations: Correlation[]
+  existingCorrelations: Correlation[],
+  lastKnownValues?: Record<string, number>
 ): Promise<{ suggestions?: CorrelatorSuggestion[]; error?: string }> {
   try {
-    const suggestions = getCorrelatorSuggestions(trackers, existingCorrelations)
+    const suggestions = getCorrelatorSuggestions(trackers, existingCorrelations, lastKnownValues)
     return { suggestions }
   } catch (e) {
     console.error('[suggestCorrelations]', e instanceof Error ? e.message : e)

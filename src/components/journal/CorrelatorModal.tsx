@@ -16,6 +16,7 @@ type Props = {
   trackers: Tracker[]
   correlations: Correlation[]
   onClose: () => void
+  lastKnownValues?: Record<string, number>
 }
 
 type RowType = 'field' | 'constant' | 'correlator' | 'lastKnown'
@@ -142,7 +143,7 @@ function getFieldOptions(trackers: Tracker[]): Array<{ label: string; trackerId:
   return opts
 }
 
-export function CorrelatorModal({ trackers, correlations, onClose }: Props): React.ReactElement {
+export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValues }: Props): React.ReactElement {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [view, setView] = useState<'list' | 'new' | 'edit'>('list')
@@ -186,7 +187,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
     setSuggestError(null)
     setSuggestions(null)
     try {
-      const result = await suggestCorrelationsAction(trackers, correlations)
+      const result = await suggestCorrelationsAction(trackers, correlations, lastKnownValues)
       if (result.suggestions) {
         setSuggestions(result.suggestions)
       } else {
