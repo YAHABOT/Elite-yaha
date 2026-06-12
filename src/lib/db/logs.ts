@@ -115,6 +115,41 @@ export async function getLogsForDay(date: string, supabaseClient?: SupabaseClien
   return data as TrackerLog[]
 }
 
+/**
+ * Returns the most recent logged numeric value for every tracker:fieldId combination.
+ * Fetches the last 200 logs (descending), so the first occurrence of each key
+ * is guaranteed to be the most recent. Used by the formula engine's `lastKnown` node type
+ * to handle sparse fields (e.g. bodyweight logged weekly).
+ *
+ * Returns a plain Record (not a Map) so it can be serialized across the
+ * Next.js Server → Client Component boundary.
+ */
+export async function getLastKnownValues(
+  supabaseClient?: SupabaseClient
+): Promise<Record<string, number>> {
+  const supabase = supabaseClient ?? await createServerClient()
+  const user = await getSafeUser()
+  if (!user) return {}
+
+  const { data } = await supabase
+    .from('tracker_logs')
+    .select('tracker_id, fields')
+    .eq('user_id', user.id)
+    .order('logged_at', { ascending: false })
+    .limit(200)
+
+  const result: Record<string, number> = {}
+  for (const log of (data ?? [])) {
+    for (const [fieldId, value] of Object.entries(log.fields ?? {})) {
+      const key = `${log.tracker_id}:${fieldId}`
+      if (!(key in result) && typeof value === 'number' && !isNaN(value)) {
+        result[key] = value
+      }
+    }
+  }
+  return result
+}
+
 function cachedGetLoggedDates(userId: string, limit: number) {
   return unstable_cache(
     async () => {

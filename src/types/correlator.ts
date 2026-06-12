@@ -3,11 +3,15 @@
 // - constant: { type: 'constant', value: number }
 // - operation: { type: 'op', operator: '+' | '-' | '*' | '/', left: FormulaNode, right: FormulaNode }
 // - correlator reference: { type: 'correlator', correlatorId: string }
+// - last known: { type: 'lastKnown', trackerId: string, fieldId: string }
+//   Uses the most recent logged value for this field, even if not logged today.
+//   Useful for sparse fields like bodyweight (weekly weigh-ins).
 export type FormulaNode =
   | { type: 'field'; trackerId: string; fieldId: string }
   | { type: 'constant'; value: number }
   | { type: 'op'; operator: '+' | '-' | '*' | '/'; left: FormulaNode; right: FormulaNode }
   | { type: 'correlator'; correlatorId: string }
+  | { type: 'lastKnown'; trackerId: string; fieldId: string }
 
 export type Correlation = {
   id: string

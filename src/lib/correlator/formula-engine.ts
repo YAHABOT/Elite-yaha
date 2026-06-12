@@ -5,7 +5,12 @@ import type { TrackerLog } from '@/types/log'
 
 const MAX_DEPTH = 20
 
-function evaluateNode(node: FormulaNode, values: FieldValueMap, depth: number): number | null {
+function evaluateNode(
+  node: FormulaNode,
+  values: FieldValueMap,
+  depth: number,
+  lastKnownMap?: Map<string, number>
+): number | null {
   if (depth > MAX_DEPTH) return null
 
   if (node.type === 'constant') {
@@ -19,6 +24,14 @@ function evaluateNode(node: FormulaNode, values: FieldValueMap, depth: number): 
     return value
   }
 
+  if (node.type === 'lastKnown') {
+    const key = `${node.trackerId}:${node.fieldId}`
+    // Prefer today's logged value; fall back to most recent historical value
+    const todayValue = values.get(key)
+    if (todayValue !== undefined) return todayValue
+    return lastKnownMap?.get(key) ?? null
+  }
+
   if (node.type === 'correlator') {
     const key = `corr:${node.correlatorId}`
     const value = values.get(key)
@@ -27,8 +40,8 @@ function evaluateNode(node: FormulaNode, values: FieldValueMap, depth: number): 
   }
 
   // node.type === 'op'
-  const left = evaluateNode(node.left, values, depth + 1)
-  const right = evaluateNode(node.right, values, depth + 1)
+  const left = evaluateNode(node.left, values, depth + 1, lastKnownMap)
+  const right = evaluateNode(node.right, values, depth + 1, lastKnownMap)
 
   if (left === null || right === null) return null
 
@@ -43,8 +56,12 @@ function evaluateNode(node: FormulaNode, values: FieldValueMap, depth: number): 
   return null
 }
 
-export function evaluateFormula(node: FormulaNode, values: FieldValueMap): number | null {
-  return evaluateNode(node, values, 0)
+export function evaluateFormula(
+  node: FormulaNode,
+  values: FieldValueMap,
+  lastKnownMap?: Map<string, number>
+): number | null {
+  return evaluateNode(node, values, 0, lastKnownMap)
 }
 
 export function buildFieldValueMap(logs: TrackerLog[]): FieldValueMap {
@@ -136,7 +153,8 @@ function topoSortCorrelations(correlations: MinimalCorrelation[]): {
  */
 export function buildFieldValueMapWithCorrelators(
   logs: TrackerLog[],
-  correlations: MinimalCorrelation[]
+  correlations: MinimalCorrelation[],
+  lastKnownMap?: Map<string, number>
 ): FieldValueMap {
   const map = buildFieldValueMap(logs)
 
@@ -146,7 +164,7 @@ export function buildFieldValueMapWithCorrelators(
 
   for (const corr of sorted) {
     if (cyclic.has(corr.id)) continue
-    const result = evaluateFormula(corr.formula, map)
+    const result = evaluateFormula(corr.formula, map, lastKnownMap)
     if (result !== null) {
       map.set(`corr:${corr.id}`, result)
     }

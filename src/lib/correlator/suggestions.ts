@@ -202,8 +202,11 @@ const TEMPLATES: Template[] = [
       const readiness: CorrelatorSuggestion['readiness'] =
         missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
 
+      // Use lastKnown for weight — it's typically logged weekly not daily
       const formula: FormulaNode =
-        protein && weight ? op('/', fld(protein), fld(weight)) : num(0)
+        protein && weight
+          ? op('/', fld(protein), { type: 'lastKnown', trackerId: weight.trackerId, fieldId: weight.fieldId })
+          : num(0)
 
       return {
         name: this.name,

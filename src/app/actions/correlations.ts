@@ -26,6 +26,10 @@ function isValidFormulaNode(node: unknown): node is FormulaNode {
     return typeof n.correlatorId === 'string'
   }
 
+  if (n.type === 'lastKnown') {
+    return typeof n.trackerId === 'string' && typeof n.fieldId === 'string'
+  }
+
   if (n.type === 'op') {
     const validOperators = ['+', '-', '*', '/']
     return (

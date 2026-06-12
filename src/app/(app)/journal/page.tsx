@@ -1,5 +1,5 @@
 import { getTrackersBasic } from '@/lib/db/trackers'
-import { getLogsForDay, getLoggedDates } from '@/lib/db/logs'
+import { getLogsForDay, getLoggedDates, getLastKnownValues } from '@/lib/db/logs'
 import { getCorrelations } from '@/lib/db/correlations'
 import { DayView } from '@/components/journal/DayView'
 import { createServerClient } from '@/lib/supabase/server'
@@ -16,14 +16,15 @@ export default async function JournalPage({ searchParams }: Props): Promise<Reac
   const supabase = await createServerClient()
 
   try {
-    const [trackers, logs, loggedDates, correlations] = await Promise.all([
+    const [trackers, logs, loggedDates, correlations, lastKnownValues] = await Promise.all([
       getTrackersBasic(supabase),
       getLogsForDay(date, supabase),
       getLoggedDates(undefined, supabase),
       getCorrelations(supabase),
+      getLastKnownValues(supabase),
     ])
 
-    return <DayView date={date} trackers={trackers} logs={logs} loggedDates={loggedDates} correlations={correlations} />
+    return <DayView date={date} trackers={trackers} logs={logs} loggedDates={loggedDates} correlations={correlations} lastKnownValues={lastKnownValues} />
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Failed to load journal'
     return (

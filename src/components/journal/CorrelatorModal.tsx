@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, ChevronDown, ChevronRight } from 'lucide-react'
+import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, ChevronDown, ChevronRight, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Tracker } from '@/types/tracker'
 import type { Correlation, FormulaNode, CorrelatorSuggestion } from '@/types/correlator'
@@ -18,7 +18,7 @@ type Props = {
   onClose: () => void
 }
 
-type RowType = 'field' | 'constant' | 'correlator'
+type RowType = 'field' | 'constant' | 'correlator' | 'lastKnown'
 
 type VariableRow = {
   id: string
@@ -47,6 +47,7 @@ function buildFormula(rows: VariableRow[]): FormulaNode | null {
 
   const valid = rows.filter(r => {
     if (r.rowType === 'field') return r.trackerId !== '' && r.fieldId !== ''
+    if (r.rowType === 'lastKnown') return r.trackerId !== '' && r.fieldId !== ''
     if (r.rowType === 'constant') return r.constantValue.trim() !== '' && !isNaN(parseFloat(r.constantValue))
     if (r.rowType === 'correlator') return r.correlatorId !== ''
     return false
@@ -57,6 +58,7 @@ function buildFormula(rows: VariableRow[]): FormulaNode | null {
   function rowToNode(r: VariableRow): FormulaNode {
     if (r.rowType === 'constant') return { type: 'constant', value: parseFloat(r.constantValue) }
     if (r.rowType === 'correlator') return { type: 'correlator', correlatorId: r.correlatorId }
+    if (r.rowType === 'lastKnown') return { type: 'lastKnown', trackerId: r.trackerId, fieldId: r.fieldId }
     return { type: 'field', trackerId: r.trackerId, fieldId: r.fieldId }
   }
 
@@ -107,6 +109,16 @@ function formulaToRows(formula: FormulaNode): VariableRow[] {
         fieldId: '',
         constantValue: '',
         correlatorId: node.correlatorId,
+      })
+    } else if (node.type === 'lastKnown') {
+      rows.push({
+        id: String(Date.now() + rows.length),
+        operator,
+        rowType: 'lastKnown',
+        trackerId: node.trackerId,
+        fieldId: node.fieldId,
+        constantValue: '',
+        correlatorId: '',
       })
     } else if (node.type === 'op') {
       traverse(node.left, '+')
@@ -508,7 +520,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
 
                         <div className="flex-1" />
 
-                        {/* Row type toggle */}
+                        {/* Row type toggle: Field | Metric | # | ↺ */}
                         <div className="flex gap-0.5">
                           <button
                             onClick={() => toggleRowType(row.id, 'field')}
@@ -517,7 +529,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                                 ? 'bg-primary text-white'
                                 : 'bg-background text-textMuted hover:bg-primary/20 hover:text-primary'
                             }`}
-                            title="Field value"
+                            title="Today's field value"
                           >
                             Field
                           </button>
@@ -534,7 +546,7 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                           </button>
                           <button
                             onClick={() => toggleRowType(row.id, 'constant')}
-                            className={`rounded-r h-6 px-2 text-xs font-semibold transition-colors ${
+                            className={`h-6 px-2 text-xs font-semibold transition-colors ${
                               row.rowType === 'constant'
                                 ? 'bg-primary text-white'
                                 : 'bg-background text-textMuted hover:bg-primary/20 hover:text-primary'
@@ -542,6 +554,17 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                             title="Constant number"
                           >
                             <Hash className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => toggleRowType(row.id, 'lastKnown')}
+                            className={`rounded-r h-6 px-2 text-xs font-semibold transition-colors ${
+                              row.rowType === 'lastKnown'
+                                ? 'bg-amber-500/80 text-white'
+                                : 'bg-background text-textMuted hover:bg-amber-500/20 hover:text-amber-400'
+                            }`}
+                            title="Last known value — uses most recent entry even if not logged today"
+                          >
+                            <Clock className="h-3 w-3" />
                           </button>
                         </div>
 
@@ -553,16 +576,20 @@ export function CorrelatorModal({ trackers, correlations, onClose }: Props): Rea
                       </div>
 
                       {/* Bottom line: full-width input */}
-                      {row.rowType === 'field' && (
+                      {(row.rowType === 'field' || row.rowType === 'lastKnown') && (
                         <select
                           value={`${row.trackerId}::${row.fieldId}`}
                           onChange={e => {
                             const [tid, fid] = e.target.value.split('::')
                             updateRow(row.id, { trackerId: tid, fieldId: fid })
                           }}
-                          className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-textPrimary focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          className={`w-full rounded-lg border bg-background px-3 py-1.5 text-sm text-textPrimary focus:outline-none focus:ring-1 ${
+                            row.rowType === 'lastKnown'
+                              ? 'border-amber-500/30 focus:border-amber-500/50 focus:ring-amber-500/20'
+                              : 'border-border focus:border-primary/50 focus:ring-primary/30'
+                          }`}
                         >
-                          <option value="::">Select field...</option>
+                          <option value="::">{row.rowType === 'lastKnown' ? 'Select field (last known)...' : 'Select field...'}</option>
                           {fieldOptions.map(opt => (
                             <option key={`${opt.trackerId}::${opt.fieldId}`} value={`${opt.trackerId}::${opt.fieldId}`}>
                               {opt.label}

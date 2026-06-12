@@ -10,11 +10,13 @@ type Props = {
   correlation: Correlation
   logs: TrackerLog[]
   allCorrelations: Correlation[]
+  lastKnownValues?: Record<string, number>
 }
 
-export function CorrelationCard({ correlation, logs, allCorrelations }: Props): React.ReactElement {
-  const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations)
-  const result = evaluateFormula(correlation.formula, fieldValueMap)
+export function CorrelationCard({ correlation, logs, allCorrelations, lastKnownValues }: Props): React.ReactElement {
+  const lastKnownMap = lastKnownValues ? new Map(Object.entries(lastKnownValues)) : undefined
+  const fieldValueMap = buildFieldValueMapWithCorrelators(logs, allCorrelations, lastKnownMap)
+  const result = evaluateFormula(correlation.formula, fieldValueMap, lastKnownMap)
   const display = formatResult(result, correlation.unit)
 
   const isDataMissing = result === null

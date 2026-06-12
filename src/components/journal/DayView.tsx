@@ -16,6 +16,7 @@ type Props = {
   logs: TrackerLog[]
   loggedDates: string[]
   correlations: Correlation[]
+  lastKnownValues?: Record<string, number>
 }
 
 type GroupedLogs = Map<string, TrackerLog[]>
@@ -69,7 +70,7 @@ function getLocalDateStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function DayView({ date, trackers, logs, loggedDates, correlations }: Props): React.ReactElement {
+export function DayView({ date, trackers, logs, loggedDates, correlations, lastKnownValues }: Props): React.ReactElement {
   const router = useRouter()
   const [correlatorOpen, setCorrelatorOpen] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -281,7 +282,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations }: Pro
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {correlations.map((c) => (
-                  <CorrelationCard key={c.id} correlation={c} logs={logs} allCorrelations={correlations} />
+                  <CorrelationCard key={c.id} correlation={c} logs={logs} allCorrelations={correlations} lastKnownValues={lastKnownValues} />
                 ))}
               </div>
             </div>
