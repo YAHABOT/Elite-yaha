@@ -379,12 +379,14 @@ const TEMPLATES: Template[] = [
       const readiness: CorrelatorSuggestion['readiness'] =
         missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
 
-      // Use crossTracker nodes — sums zone2 and duration across ALL matching trackers that day
+      // Use crossTracker nodes — sums zone2 and duration across ALL matching trackers that day.
+      // Both fields must be in the SAME unit for the ratio to be correct (unit-independent ratio).
+      // Do NOT use ctMinutes here — dividing only duration by 60 makes the result 60× too large.
       const formula: FormulaNode = zone2 && totalDuration
         ? op('*',
             op('/',
               ct(zone2.trackerType, zone2.displayLabel, 'sum'),
-              ctMinutes(totalDuration.trackerType, totalDuration.displayLabel, totalDuration.fieldType)
+              ct(totalDuration.trackerType, totalDuration.displayLabel, 'sum')
             ),
             num(100)
           )
