@@ -335,11 +335,14 @@ const TEMPLATES: Template[] = [
       const readiness: CorrelatorSuggestion['readiness'] =
         missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
 
-      // crossTracker: avg RPE × sum duration across all workout trackers that day
+      // crossTracker: avg RPE × sum duration across all workout trackers that day.
+      // Use canonical label "Duration" (not displayLabel) so the formula matches fields
+      // named "Duration", "Workout duration", "Session duration", etc. via prefix-stripping
+      // in buildCrossTrackerMap. fieldType still comes from the resolved field for unit conversion.
       const formula: FormulaNode = rpe && duration
         ? op('*',
             ct(rpe.trackerType, rpe.displayLabel, 'avg'),
-            ctMinutes(duration.trackerType, duration.displayLabel, duration.fieldType)
+            ctMinutes(duration.trackerType, 'Duration', duration.fieldType)
           )
         : num(0)
 
@@ -384,11 +387,13 @@ const TEMPLATES: Template[] = [
       // Use crossTracker nodes — sums zone2 and duration across ALL matching trackers that day.
       // Both fields must be in the SAME unit for the ratio to be correct (unit-independent ratio).
       // Do NOT use ctMinutes here — dividing only duration by 60 makes the result 60× too large.
+      // Use canonical "Duration" label (not displayLabel) so the formula matches "Duration",
+      // "Workout duration", "Session duration", etc. via prefix-stripping in buildCrossTrackerMap.
       const formula: FormulaNode = zone2 && totalDuration
         ? op('*',
             op('/',
               ct(zone2.trackerType, zone2.displayLabel, 'sum'),
-              ct(totalDuration.trackerType, totalDuration.displayLabel, 'sum')
+              ct(totalDuration.trackerType, 'Duration', 'sum')
             ),
             num(100)
           )

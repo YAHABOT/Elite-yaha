@@ -4,9 +4,16 @@ type MinimalCorrelation = { id: string; formula: FormulaNode }
 type MinimalTracker = { id: string; type: string; schema: Array<{ fieldId: string; label: string }> }
 import type { TrackerLog } from '@/types/log'
 
+// Common word-prefixes that users prepend to field names (e.g. "Workout duration", "Total calories").
+// When stripping these, we also store the field under the shorter key so that a formula using
+// the canonical short label (e.g. "Duration") matches both "Duration" and "Workout duration".
+const LABEL_PREFIXES = ['workout', 'session', 'training', 'exercise', 'total', 'active', 'daily']
+
 /**
  * Pre-compute cross-tracker aggregates from today's logs + tracker schemas.
  * Stores `sum:trackerType:normalizedLabel` and `avg:trackerType:normalizedLabel` keys.
+ * Also stores prefix-stripped aliases so that "Workout duration" is reachable as "duration",
+ * allowing formulas to use canonical short labels regardless of how each tracker names the field.
  * Used by `crossTracker` formula nodes to aggregate across multiple trackers.
  */
 export function buildCrossTrackerMap(
@@ -26,6 +33,11 @@ export function buildCrossTrackerMap(
   const sums = new Map<string, number>()
   const counts = new Map<string, number>()
 
+  const accumulate = (key: string, value: number) => {
+    sums.set(key, (sums.get(key) ?? 0) + value)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+
   for (const log of logs) {
     const info = trackerLookup.get(log.tracker_id)
     if (!info) continue
@@ -33,9 +45,16 @@ export function buildCrossTrackerMap(
       if (typeof value !== 'number') continue
       const label = info.labels.get(fieldId)
       if (!label) continue
-      const key = `${info.type}:${label}`
-      sums.set(key, (sums.get(key) ?? 0) + value)
-      counts.set(key, (counts.get(key) ?? 0) + 1)
+      const exactKey = `${info.type}:${label}`
+      accumulate(exactKey, value)
+      // Also accumulate under prefix-stripped alias so "Workout duration" → "duration"
+      for (const prefix of LABEL_PREFIXES) {
+        if (label.startsWith(prefix) && label.length > prefix.length) {
+          const stripped = label.slice(prefix.length)
+          const strippedKey = `${info.type}:${stripped}`
+          if (strippedKey !== exactKey) accumulate(strippedKey, value)
+        }
+      }
     }
   }
 
