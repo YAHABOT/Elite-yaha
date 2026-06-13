@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, Clock, Sigma } from 'lucide-react'
+import { X, GitBranch, Plus, Trash2, Pencil, ChevronLeft, Hash, Sparkles, Clock, Sigma, Target } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { Tracker } from '@/types/tracker'
 import type { Correlation, FormulaNode, CorrelatorSuggestion } from '@/types/correlator'
@@ -12,6 +12,7 @@ import {
   suggestCorrelationsAction,
   createCorrelationsFromSuggestionAction,
 } from '@/app/actions/correlations'
+import { addTargetAction } from '@/app/actions/targets'
 
 type Props = {
   trackers: Tracker[]
@@ -156,7 +157,13 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
   const [suggestError, setSuggestError] = useState<string | null>(null)
   const [creatingSuggestion, setCreatingSuggestion] = useState<number | null>(null)
   const [originalFormula, setOriginalFormula] = useState<FormulaNode | null>(null)
-  const [saveNote, setSaveNote] = useState<string | null>(null)
+  const [pendingTarget, setPendingTarget] = useState<{
+    correlationId: string
+    name: string
+    unit: string
+  } | null>(null)
+  const [targetInputValue, setTargetInputValue] = useState('')
+  const [savingTarget, setSavingTarget] = useState(false)
 
   const fieldOptions = getFieldOptions(trackers)
 
@@ -202,14 +209,47 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
     setCreatingSuggestion(index)
     const result = await createCorrelationsFromSuggestionAction(suggestion)
     setCreatingSuggestion(null)
-    if (!result.error) {
-      if (suggestion.autoWidget) {
-        setSaveNote('Widget added to dashboard')
-        setTimeout(() => setSaveNote(null), 2000)
-      }
-      router.refresh()
-      setSuggestions(prev => prev ? prev.filter((_, i) => i !== index) : null)
+    if (result.error) {
+      setSuggestError(result.error)
+      return
     }
+    router.refresh()
+    setSuggestions(prev => prev ? prev.filter((_, i) => i !== index) : null)
+    // If this suggestion auto-creates a widget, pause before closing and offer a target
+    if (suggestion.autoWidget && result.correlationId) {
+      setPendingTarget({
+        correlationId: result.correlationId,
+        name: suggestion.name,
+        unit: suggestion.unit,
+      })
+    } else {
+      setTimeout(() => onClose(), 800)
+    }
+  }
+
+  async function handleSaveTarget(): Promise<void> {
+    if (!pendingTarget) return
+    const num = parseFloat(targetInputValue)
+    if (isNaN(num)) return
+    setSavingTarget(true)
+    await addTargetAction({
+      trackerId: '__correlations__',
+      trackerName: 'Correlations',
+      fieldId: pendingTarget.correlationId,
+      fieldLabel: pendingTarget.name,
+      fieldType: 'number',
+      unit: pendingTarget.unit,
+      value: num,
+      direction: 'above',
+    })
+    setSavingTarget(false)
+    setPendingTarget(null)
+    onClose()
+  }
+
+  function handleSkipTarget(): void {
+    setPendingTarget(null)
+    onClose()
   }
 
   function handleEdit(correlation: Correlation): void {
@@ -319,6 +359,53 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
           </div>
         </div>
 
+        {pendingTarget !== null ? (
+          /* Target step — shown after suggestion with autoWidget is accepted */
+          <div className="p-6 space-y-6">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+              <p className="text-base font-bold text-textPrimary">{pendingTarget.name}</p>
+              <p className="text-xs text-textMuted">Widget added to your dashboard.</p>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-textMuted text-center">
+                Set a weekly target? (optional)
+              </p>
+              <div className="flex flex-col items-center gap-1">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={targetInputValue}
+                  onChange={e => setTargetInputValue(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-lg font-bold text-textPrimary placeholder:text-textMuted/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                />
+                {pendingTarget.unit && (
+                  <p className="text-xs text-textMuted">{pendingTarget.unit}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleSaveTarget}
+                disabled={savingTarget || targetInputValue.trim() === '' || isNaN(parseFloat(targetInputValue))}
+                className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-white transition-all hover:scale-[1.02] disabled:opacity-40"
+              >
+                {savingTarget ? 'Saving...' : 'Set Target'}
+              </button>
+              <button
+                onClick={handleSkipTarget}
+                className="w-full rounded-xl border border-border py-2.5 text-sm font-medium text-textMuted transition-colors hover:bg-surfaceHighlight"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="max-h-[calc(100dvh-200px)] overflow-y-auto">
           {view === 'list' ? (
             /* List view */
@@ -421,11 +508,6 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
                 </div>
               )}
 
-              {saveNote && (
-                <div className="mx-4 mt-2 mb-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-400">
-                  {saveNote}
-                </div>
-              )}
 
               <div className="divide-y divide-border">
               {correlations.length === 0 ? (
@@ -667,9 +749,10 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
             </div>
           )}
         </div>
+        )}
 
         {/* Footer */}
-        {isFormView && (
+        {isFormView && pendingTarget === null && (
           <div className="flex gap-2 border-t border-border px-5 py-4">
             <button
               onClick={view === 'edit' ? handleCancelEdit : () => { setView('list'); setError(null) }}

@@ -144,7 +144,7 @@ export async function suggestCorrelationsAction(
 
 export async function createCorrelationsFromSuggestionAction(
   suggestion: CorrelatorSuggestion
-): Promise<{ success?: true; error?: string }> {
+): Promise<{ success?: true; correlationId?: string; error?: string }> {
   try {
     const primaryName = suggestion.name?.trim()
     if (!primaryName) return { error: 'Name is required.' }
@@ -197,7 +197,7 @@ export async function createCorrelationsFromSuggestionAction(
     if (user) revalidateTag(`correlations-${user.id}`)
     revalidatePath('/journal/correlations')
     revalidatePath('/dashboard')
-    return { success: true }
+    return { success: true, correlationId: primaryCorrelation.id }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to create correlation' }
   }
