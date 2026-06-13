@@ -77,6 +77,19 @@ const INSIGHTS: Array<{ patterns: string[]; insight: CorrelationInsight }> = [
     },
   },
   {
+    patterns: ['thermiceffect', 'tef'],
+    insight: {
+      what: 'Calories your body burns just digesting food. Protein costs the most to digest (~28% of its calories), carbs less (~7%), fat the least (~2.5%).',
+      howToRead: 'Typically 8–15% of total calorie intake. Higher protein diets naturally burn more calories through digestion. Used as an input to Net Caloric Balance.',
+      ranges: [
+        { label: 'Low-protein diet', description: '100 – 150 kcal/day' },
+        { label: 'Mixed diet', description: '150 – 250 kcal/day' },
+        { label: 'High-protein diet', description: '250 – 400+ kcal/day' },
+      ],
+    },
+  },
+
+  {
     patterns: ['proteinperkg', 'proteinkg'],
     insight: {
       what: 'Daily protein intake (g) divided by bodyweight (kg). The standard metric for assessing protein adequacy relative to body size.',

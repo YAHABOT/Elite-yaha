@@ -112,6 +112,46 @@ type Template = {
 }
 
 const TEMPLATES: Template[] = [
+  // ── Thermic Effect of Food (TEF) ─────────────────────────────────────────────
+  {
+    id: 'thermic_effect_of_food',
+    name: 'Thermic Effect of Food (TEF)',
+    build(resolve) {
+      const protein  = resolve(['protein'], ['number'], ['nutrition'])
+      const carbs    = resolve(['carb', 'carbohydrate'], ['number'], ['nutrition'])
+      const fat      = resolve(['fat'], ['number'], ['nutrition'])
+
+      const requiredFields: CorrelatorSuggestion['requiredFields'] = [
+        { label: protein ? protein.displayLabel : 'Protein (g) — Nutrition tracker',       trackerId: protein?.trackerId ?? 'MISSING', fieldId: protein?.fieldId ?? 'MISSING_protein', found: !!protein },
+        { label: carbs   ? carbs.displayLabel   : 'Carbs (g) — Nutrition tracker',         trackerId: carbs?.trackerId   ?? 'MISSING', fieldId: carbs?.fieldId   ?? 'MISSING_carbs',   found: !!carbs },
+        { label: fat     ? fat.displayLabel     : 'Fat (g) — Nutrition tracker',            trackerId: fat?.trackerId     ?? 'MISSING', fieldId: fat?.fieldId     ?? 'MISSING_fat',     found: !!fat },
+      ]
+
+      const missingCount = requiredFields.filter(f => !f.found).length
+      const readiness: CorrelatorSuggestion['readiness'] =
+        missingCount === 0 ? 'ready' : missingCount <= 2 ? 'almost' : 'aspirational'
+
+      // TEF = protein*1.12 + carbs*0.28 + fat*0.225
+      // (protein 28% of 4kcal/g, carbs 7% of 4kcal/g, fat 2.5% of 9kcal/g)
+      const formula: FormulaNode = protein && carbs && fat
+        ? op('+', op('+',
+            op('*', fld(protein), num(1.12)),
+            op('*', fld(carbs),   num(0.28))),
+            op('*', fld(fat),     num(0.225)))
+        : num(0)
+
+      return {
+        name: this.name,
+        description: 'Calories burned digesting food. Required for an accurate Net Caloric Balance.',
+        unit: 'kcal',
+        formula,
+        requiredFields,
+        missingCount,
+        readiness,
+      }
+    },
+  },
+
   // ── Net Caloric Balance ──────────────────────────────────────────────────────
   {
     id: 'net_caloric_balance',
