@@ -372,7 +372,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
 
             <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-textMuted text-center">
-                Set a weekly target? (optional)
+                Set a target? (optional)
               </p>
               <div className="flex flex-col items-center gap-1">
                 <input
