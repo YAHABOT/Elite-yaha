@@ -79,7 +79,21 @@ function evaluateNode(
   if (node.type === 'crossTracker') {
     const normLabel = node.fieldLabel.toLowerCase().replace(/[^a-z0-9]/g, '')
     const key = `${node.aggregation}:${node.trackerType}:${normLabel}`
-    return crossTrackerMap?.get(key) ?? null
+    const exact = crossTrackerMap?.get(key)
+    if (exact !== undefined) return exact
+
+    // Fallback: if the exact tracker-type key isn't found, scan for any tracker type
+    // with the same aggregation + label. Handles the case where a formula was created
+    // from one tracker type (e.g. 'workout') but the logs belong to a different type
+    // (e.g. 'custom') — tracker type mismatches between suggestion-time and log-time.
+    if (crossTrackerMap) {
+      const prefix = `${node.aggregation}:`
+      const suffix = `:${normLabel}`
+      for (const [k, v] of crossTrackerMap) {
+        if (k.startsWith(prefix) && k.endsWith(suffix)) return v
+      }
+    }
+    return null
   }
 
   if (node.type === 'correlator') {
