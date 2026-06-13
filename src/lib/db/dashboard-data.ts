@@ -424,7 +424,7 @@ export function computeWidgetValueOptimized(
       // Always compute sparkline per-day so bars exactly reflect daily formula results
       const sparkDays = getSparklineDays(widget)
       const sparkStart = getSparklineStartDate(widget)
-      const correlatorTrend: number[] = []
+      const correlatorTrend: (number | null)[] = []
       let cumulativeValue = 0
       let hasDayValue = false
 
@@ -440,7 +440,13 @@ export function computeWidgetValueOptimized(
           cumulativeValue += dayResult as number
           hasDayValue = true
         }
-        correlatorTrend.push(isValid ? (dayResult as number) : 0)
+        // null for days with no data — keeps the sparkline from dropping to 0
+        correlatorTrend.push(isValid ? (dayResult as number) : null)
+      }
+
+      // Trim trailing nulls — don't show empty days at the end (e.g. today before data is logged)
+      while (correlatorTrend.length > 0 && correlatorTrend[correlatorTrend.length - 1] === null) {
+        correlatorTrend.pop()
       }
 
       // For period-based widgets (this_week / last_week): VALUE = sum of per-day bars.
@@ -460,7 +466,7 @@ export function computeWidgetValueOptimized(
         value: result !== null ? Math.round(result * 10) / 10 : null,
         unit: correlation.unit,
         label: widget.label,
-        trend: correlatorTrend.some(v => v !== 0) ? correlatorTrend : undefined,
+        trend: correlatorTrend.some(v => v !== null) ? correlatorTrend : undefined,
       }
     }
 
