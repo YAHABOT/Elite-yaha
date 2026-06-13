@@ -6,7 +6,7 @@ import { getColorForTrackerType } from '@/lib/db/dashboard-data'
 import type { Widget, CreateWidgetInput } from '@/types/widget'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const WIDGET_COLUMNS = 'id, user_id, type, label, tracker_id, field_id, correlation_id, days, period, position, color, width, extra_fields, target_display'
+const WIDGET_COLUMNS = 'id, user_id, type, label, tracker_id, field_id, correlation_id, days, period, position, color, width, extra_fields, target_display, pb_direction, aggregation'
 
 function cachedGetWidgets(userId: string) {
   return unstable_cache(
@@ -90,6 +90,8 @@ export async function createWidget(input: CreateWidgetInput): Promise<Widget> {
       extra_fields: input.extra_fields ?? [],
       target_display: input.target_display ?? 'bar',
       period: input.period ?? null,
+      pb_direction: input.pb_direction ?? 'above',
+      aggregation: input.aggregation ?? 'sum',
     })
     .select(WIDGET_COLUMNS)
     .single()
@@ -119,6 +121,8 @@ export async function updateWidget(
   if (data.extra_fields !== undefined) updates.extra_fields = data.extra_fields
   if (data.target_display !== undefined) updates.target_display = data.target_display
   if (data.period !== undefined) updates.period = data.period ?? null
+  if (data.pb_direction !== undefined) updates.pb_direction = data.pb_direction
+  if (data.aggregation !== undefined) updates.aggregation = data.aggregation
 
   if (Object.keys(updates).length === 0) {
     throw new Error('No fields to update')

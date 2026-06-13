@@ -426,6 +426,7 @@ export function computeWidgetValueOptimized(
       const sparkStart = getSparklineStartDate(widget)
       const correlatorTrend: (number | null)[] = []
       let cumulativeValue = 0
+      let dayCount = 0
       let hasDayValue = false
 
       for (let i = 0; i < sparkDays; i++) {
@@ -439,6 +440,7 @@ export function computeWidgetValueOptimized(
         const isValid = dayResult !== null && Number.isFinite(dayResult)
         if (isValid) {
           cumulativeValue += dayResult as number
+          dayCount++
           hasDayValue = true
         }
         // null for days with no data — keeps the sparkline from dropping to 0
@@ -453,13 +455,19 @@ export function computeWidgetValueOptimized(
         trimmedNulls++
       }
 
-      // For period-based widgets (this_week / last_week): VALUE = sum of per-day bars.
-      // This keeps VALUE consistent with sparkline and avoids inflated sums when
-      // one formula operand is missing for part of the period (e.g. no burn log yet today).
+      // For period-based widgets (this_week / last_week): VALUE = sum or avg of per-day bars.
+      // aggregation='sum' (default): Training Load, Calorie Balance — values accumulate across days.
+      // aggregation='avg': Zone 2 %, Sleep Efficiency — daily rates should be averaged, not summed.
       // For N-day widgets: fall back to full-period field map (preserves existing behaviour).
       let result: number | null
       if (widget.period === 'this_week' || widget.period === 'last_week') {
-        result = hasDayValue ? cumulativeValue : null
+        if (!hasDayValue) {
+          result = null
+        } else if (widget.aggregation === 'avg') {
+          result = dayCount > 0 ? cumulativeValue / dayCount : null
+        } else {
+          result = cumulativeValue
+        }
       } else {
         const correlatorLogs = filterByPeriod(nDayLogs, widget)
         const fullCrossTrackerMap = buildCrossTrackerMap(correlatorLogs, trackers)

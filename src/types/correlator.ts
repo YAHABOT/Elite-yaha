@@ -60,5 +60,6 @@ export type CorrelatorSuggestion = {
   autoWidget?: {
     label: string
     period: 'this_week'
+    aggregation: 'sum' | 'avg'
   }
 }

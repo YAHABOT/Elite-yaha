@@ -186,6 +186,7 @@ export async function createCorrelationsFromSuggestionAction(
         correlation_id: primaryCorrelation.id,
         label: suggestion.autoWidget.label,
         period: suggestion.autoWidget.period,
+        aggregation: suggestion.autoWidget.aggregation,
         width: 'full',
         days: 7,
         position: 0, // createWidget computes next position server-side

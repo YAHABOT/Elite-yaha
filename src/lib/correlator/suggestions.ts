@@ -162,7 +162,7 @@ const TEMPLATES: Template[] = [
           : base
       }
 
-      return { name: this.name, description, unit: 'kcal', formula, requiredFields, missingCount, readiness, autoWidget: { label: 'Calorie Balance This Week', period: 'this_week' as const } }
+      return { name: this.name, description, unit: 'kcal', formula, requiredFields, missingCount, readiness, autoWidget: { label: 'Calorie Balance This Week', period: 'this_week' as const, aggregation: 'sum' as const } }
     },
   },
 
@@ -211,7 +211,7 @@ const TEMPLATES: Template[] = [
         requiredFields,
         missingCount,
         readiness,
-        autoWidget: { label: 'Sleep Efficiency This Week', period: 'this_week' as const },
+        autoWidget: { label: 'Sleep Efficiency This Week', period: 'this_week' as const, aggregation: 'avg' as const },
       }
     },
   },
@@ -351,7 +351,7 @@ const TEMPLATES: Template[] = [
         requiredFields,
         missingCount,
         readiness,
-        autoWidget: { label: 'Training Load This Week', period: 'this_week' as const },
+        autoWidget: { label: 'Training Load This Week', period: 'this_week' as const, aggregation: 'sum' as const },
       }
     },
   },
@@ -402,7 +402,7 @@ const TEMPLATES: Template[] = [
         requiredFields,
         missingCount,
         readiness,
-        autoWidget: { label: 'Zone 2 % This Week', period: 'this_week' as const },
+        autoWidget: { label: 'Zone 2 % This Week', period: 'this_week' as const, aggregation: 'avg' as const },
       }
     },
   },

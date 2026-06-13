@@ -1,6 +1,7 @@
 export type WidgetType = 'field_latest' | 'field_average' | 'field_total' | 'correlator' | 'tracker_latest' | 'combined_field'
 export type TargetDisplay = 'bar' | 'ring' | 'number' | 'hide'
 export type WidgetPeriod = 'this_week' | 'last_week'
+export type WidgetAggregation = 'sum' | 'avg'
 
 export const WIDGET_TYPES: WidgetType[] = [
   'field_latest',
@@ -41,13 +42,15 @@ export type Widget = {
   target_display?: TargetDisplay
   period?: WidgetPeriod
   pb_direction?: 'above' | 'below'
+  aggregation?: WidgetAggregation  // for correlator widgets: 'sum' (default) or 'avg' across period days
 }
 
 export type WidgetValue = {
   value: number | string | null
   unit?: string
   fieldType?: string      // e.g. 'duration' — drives display formatting in WidgetCard
-  trend?: number[]
+  trend?: (number | null)[]
+  trendDayOffset?: number // 0 = ends today, 1 = ends yesterday (shifted back when today has no data)
   delta?: number          // % change vs previous period (e.g. 12.5 means +12.5%)
   label: string
   extraValues?: ExtraFieldValue[]
