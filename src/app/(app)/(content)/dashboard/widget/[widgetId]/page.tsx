@@ -4,8 +4,8 @@ import { getWidgets } from '@/lib/db/dashboard'
 import { getTrackersBasic } from '@/lib/db/trackers'
 import { getLogs } from '@/lib/db/logs'
 import { getUser } from '@/lib/db/users'
-import { getCorrelation } from '@/lib/db/correlations'
-import { evaluateFormula, buildFieldValueMap } from '@/lib/correlator/formula-engine'
+import { getCorrelation, getCorrelations } from '@/lib/db/correlations'
+import { evaluateFormula, buildCrossTrackerMap, buildFieldValueMapWithCorrelators } from '@/lib/correlator/formula-engine'
 import { WidgetDetailClient } from '@/components/dashboard/WidgetDetailClient'
 import type { Widget } from '@/types/widget'
 import type { TrackerLog } from '@/types/log'
@@ -47,13 +47,23 @@ function buildDateList(start: string, end: string): string[] {
   return dates
 }
 
-/** Extract every unique trackerId referenced in a formula tree. */
+/** Extract every unique trackerId referenced in a formula tree (field + lastKnown nodes). */
 function extractTrackerIds(node: FormulaNode): string[] {
-  if (node.type === 'field') return node.trackerId ? [node.trackerId] : []
+  if (node.type === 'field' || node.type === 'lastKnown') return node.trackerId ? [node.trackerId] : []
   if (node.type === 'constant') return []
   if (node.type === 'op') return [
     ...extractTrackerIds(node.left),
     ...extractTrackerIds(node.right),
+  ]
+  return []
+}
+
+/** Extract tracker types needed by crossTracker nodes. */
+function extractCrossTrackerTypes(node: FormulaNode): string[] {
+  if (node.type === 'crossTracker') return [node.trackerType]
+  if (node.type === 'op') return [
+    ...extractCrossTrackerTypes(node.left),
+    ...extractCrossTrackerTypes(node.right),
   ]
   return []
 }
@@ -91,9 +101,9 @@ export default async function WidgetDetailPage({ params }: Props) {
     : undefined
 
   const userTargets = userData?.targets ?? []
-  const matchingTarget = userTargets.find(t =>
-    t.trackerId === widget.tracker_id && t.fieldId === widget.field_id
-  )
+  const matchingTarget = widget.type === 'correlator'
+    ? userTargets.find(t => t.trackerId === '__correlations__' && t.fieldId === widget.correlation_id)
+    : userTargets.find(t => t.trackerId === widget.tracker_id && t.fieldId === widget.field_id)
   const targetValue = matchingTarget ? matchingTarget.value : null
 
   const fieldDef = tracker?.schema?.find(f => f.fieldId === widget.field_id)
@@ -101,7 +111,9 @@ export default async function WidgetDetailPage({ params }: Props) {
   const fieldType = fieldDef?.type ?? 'number'
 
   const trackerName = tracker?.name ?? widget.label
-  const trackerColor = widget.color ?? tracker?.color ?? '#00d4ff'
+  const GREY_MUTED = ['#6b7280', '#6B7280', '#94a3b8', '#94A3B8']
+  const rawColor = widget.color ?? tracker?.color ?? '#00d4ff'
+  const trackerColor = GREY_MUTED.includes(rawColor) ? '#00d4ff' : rawColor
 
   const { start, end } = buildDateRange(365)
   const allDates = buildDateList(start, end)
@@ -109,19 +121,42 @@ export default async function WidgetDetailPage({ params }: Props) {
   const endISO = end + 'T23:59:59.999Z'
 
   let dailyPoints: DailyPoint[] = []
+  let correlationName: string | null = null
+  let correlationUnit = ''
 
   // ── Correlator — evaluate formula from raw logs per day ──────────────────────
   if (widget.type === 'correlator' && widget.correlation_id) {
-    const correlation = await getCorrelation(widget.correlation_id)
+    const [correlation, allCorrelations] = await Promise.all([
+      getCorrelation(widget.correlation_id),
+      getCorrelations(),
+    ])
+    correlationName = correlation.name
+    correlationUnit = correlation.unit ?? ''
     const formula = correlation.formula as FormulaNode
 
-    // Find every tracker the formula needs
-    const trackerIds = [...new Set(extractTrackerIds(formula))]
+    // Determine which trackers we need logs from:
+    // - field/lastKnown nodes: specific tracker IDs
+    // - crossTracker nodes: ALL trackers of the required type(s)
+    const fieldTrackerIds = [...new Set(extractTrackerIds(formula))]
+    const crossTrackerTypes = new Set(extractCrossTrackerTypes(formula))
+
+    // For crossTracker: collect all tracker IDs of required types
+    const crossTrackerIds = crossTrackerTypes.size > 0
+      ? trackers.filter(t => crossTrackerTypes.has(t.type)).map(t => t.id)
+      : []
+
+    const allNeededTrackerIds = [...new Set([...fieldTrackerIds, ...crossTrackerIds])]
+
+    // If no explicit tracker IDs found (formula is purely crossTracker with no field nodes,
+    // or all correlator chain) fetch from all trackers as fallback
+    const trackerIdsToFetch = allNeededTrackerIds.length > 0
+      ? allNeededTrackerIds
+      : trackers.map(t => t.id)
 
     // Fetch logs for all involved trackers in parallel
     const allLogs: TrackerLog[] = (
       await Promise.all(
-        trackerIds.map(tid =>
+        trackerIdsToFetch.map(tid =>
           getLogs(tid, { limit: LOG_LIMIT, startDate: startISO, endDate: endISO })
         )
       )
@@ -134,8 +169,9 @@ export default async function WidgetDetailPage({ params }: Props) {
       const dayLogs = byDate.get(date)
       if (!dayLogs || dayLogs.length === 0) return { date, value: null }
 
-      const fieldValueMap = buildFieldValueMap(dayLogs)
-      const result = evaluateFormula(formula, fieldValueMap)
+      const dayCrossTrackerMap = buildCrossTrackerMap(dayLogs, trackers)
+      const fieldValueMap = buildFieldValueMapWithCorrelators(dayLogs, allCorrelations, undefined, dayCrossTrackerMap)
+      const result = evaluateFormula(formula, fieldValueMap, undefined, dayCrossTrackerMap)
       return {
         date,
         value: result !== null ? Math.round(result * 10) / 10 : null,
@@ -255,16 +291,24 @@ export default async function WidgetDetailPage({ params }: Props) {
     dailyPoints = allDates.map(date => ({ date, value: null }))
   }
 
+  // Page title: field label for field-based widgets, correlation name for correlator,
+  // widget label only for tracker_latest (which has no single field)
+  const pageTitle =
+    widget.type === 'correlator' ? (correlationName ?? widget.label) :
+    widget.type === 'tracker_latest' ? widget.label :
+    fieldDef?.label ?? widget.label
+
   return (
     <WidgetDetailClient
       widget={widget}
       dailyPoints={dailyPoints}
       trackerName={trackerName}
       trackerColor={trackerColor}
-      unit={unit}
+      unit={widget.type === 'correlator' ? correlationUnit : unit}
       fieldType={fieldType}
       target={targetValue}
       targetDirection={widget.pb_direction ?? 'above'}
+      pageTitle={pageTitle}
     />
   )
 }

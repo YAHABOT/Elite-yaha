@@ -54,10 +54,13 @@ export function EditWidgetModal({ widget, trackers, targets = [], correlations =
 
   const selectedTracker = trackers.find(t => t.id === selectedTrackerId) ?? null
 
-  const matchingTarget = isFieldType && selectedFieldId
-    ? (targets.find(t => t.fieldId === selectedFieldId) ??
-       targets.find(t => t.fieldLabel.toLowerCase() === (selectedTracker?.schema.find(f => f.fieldId === selectedFieldId)?.label ?? '').toLowerCase()))
-    : null
+  const matchingTarget = isCorrelatorType && selectedCorrelationId
+    ? (targets.find(t => t.trackerId === '__correlations__' && t.fieldId === selectedCorrelationId) ?? null)
+    : isFieldType && selectedFieldId
+      ? (targets.find(t => t.fieldId === selectedFieldId) ??
+         targets.find(t => t.fieldLabel.toLowerCase() === (selectedTracker?.schema.find(f => f.fieldId === selectedFieldId)?.label ?? '').toLowerCase()) ??
+         null)
+      : null
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault()
@@ -354,6 +357,37 @@ export function EditWidgetModal({ widget, trackers, targets = [], correlations =
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-textPrimary backdrop-blur-sm transition-colors focus:border-nutrition/40 focus:outline-none"
                 />
               )}
+            </div>
+          )}
+
+          {/* Week aggregation — Total vs Average (shown when This Week / Last Week period is active) */}
+          {(selectedPeriod === 'this_week' || selectedPeriod === 'last_week') &&
+           (selectedType === 'field_average' || selectedType === 'field_total') && (
+            <div>
+              <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
+                {selectedPeriod === 'this_week' ? 'This Week' : 'Last Week'} — show as
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['field_total', 'field_average'] as const).map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setSelectedType(opt)}
+                    className={`flex flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition-all duration-200 border ${
+                      selectedType === opt
+                        ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
+                        : 'border-white/10 bg-white/5 text-textMuted hover:border-white/20'
+                    }`}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest">
+                      {opt === 'field_total' ? 'Total' : 'Average'}
+                    </span>
+                    <span className="text-[8px] opacity-60 normal-case tracking-normal font-normal">
+                      {opt === 'field_total' ? 'Sum of all entries' : 'Avg per day'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
