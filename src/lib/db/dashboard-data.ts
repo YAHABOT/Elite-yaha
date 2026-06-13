@@ -444,9 +444,12 @@ export function computeWidgetValueOptimized(
         correlatorTrend.push(isValid ? (dayResult as number) : null)
       }
 
-      // Trim trailing nulls — don't show empty days at the end (e.g. today before data is logged)
+      // Trim trailing nulls — don't show empty days at the end (e.g. today before data is logged).
+      // Count how many are trimmed so the Sparkline can shift day labels back by the same amount.
+      let trimmedNulls = 0
       while (correlatorTrend.length > 0 && correlatorTrend[correlatorTrend.length - 1] === null) {
         correlatorTrend.pop()
+        trimmedNulls++
       }
 
       // For period-based widgets (this_week / last_week): VALUE = sum of per-day bars.
@@ -467,6 +470,7 @@ export function computeWidgetValueOptimized(
         unit: correlation.unit,
         label: widget.label,
         trend: correlatorTrend.some(v => v !== null) ? correlatorTrend : undefined,
+        trendDayOffset: trimmedNulls > 0 ? trimmedNulls : undefined,
       }
     }
 
