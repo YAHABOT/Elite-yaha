@@ -10,6 +10,7 @@ import {
   deleteCorrelationAction,
   updateCorrelationAction,
   suggestCorrelationsAction,
+  createCorrelationsFromSuggestionAction,
 } from '@/app/actions/correlations'
 
 type Props = {
@@ -155,6 +156,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
   const [suggestError, setSuggestError] = useState<string | null>(null)
   const [creatingSuggestion, setCreatingSuggestion] = useState<number | null>(null)
   const [originalFormula, setOriginalFormula] = useState<FormulaNode | null>(null)
+  const [saveNote, setSaveNote] = useState<string | null>(null)
 
   const fieldOptions = getFieldOptions(trackers)
 
@@ -198,14 +200,13 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
 
   async function handleCreateSuggestion(suggestion: CorrelatorSuggestion, index: number): Promise<void> {
     setCreatingSuggestion(index)
-    // Create primary correlator + any additional ones (e.g. Macro Split creates 3)
-    const all = [
-      { name: suggestion.name, formula: suggestion.formula, unit: suggestion.unit },
-      ...(suggestion.additionalCreates ?? []),
-    ]
-    const results = await Promise.all(all.map(c => createCorrelationAction(c)))
+    const result = await createCorrelationsFromSuggestionAction(suggestion)
     setCreatingSuggestion(null)
-    if (results.every(r => !r.error)) {
+    if (!result.error) {
+      if (suggestion.autoWidget) {
+        setSaveNote('Widget added to dashboard')
+        setTimeout(() => setSaveNote(null), 2000)
+      }
       router.refresh()
       setSuggestions(prev => prev ? prev.filter((_, i) => i !== index) : null)
     }
@@ -417,6 +418,12 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
               {suggestions !== null && suggestions.length === 0 && (
                 <div className="border-b border-border px-5 py-4 text-center">
                   <p className="text-xs text-textMuted">No new suggestions based on your current fields.</p>
+                </div>
+              )}
+
+              {saveNote && (
+                <div className="mx-4 mt-2 mb-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-400">
+                  {saveNote}
                 </div>
               )}
 

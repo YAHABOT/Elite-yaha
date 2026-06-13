@@ -3,6 +3,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { getSafeUser } from '@/lib/supabase/auth'
 import { createCorrelation, deleteCorrelation, updateCorrelation } from '@/lib/db/correlations'
+import { createWidget } from '@/lib/db/dashboard'
 import { getCorrelatorSuggestions } from '@/lib/correlator/suggestions'
 import type { FormulaNode, CreateCorrelationInput, CorrelatorSuggestion, Correlation } from '@/types/correlator'
 import type { Tracker } from '@/types/tracker'
@@ -138,5 +139,65 @@ export async function suggestCorrelationsAction(
   } catch (e) {
     console.error('[suggestCorrelations]', e instanceof Error ? e.message : e)
     return { error: 'Failed to load suggestions' }
+  }
+}
+
+export async function createCorrelationsFromSuggestionAction(
+  suggestion: CorrelatorSuggestion
+): Promise<{ success?: true; error?: string }> {
+  try {
+    const primaryName = suggestion.name?.trim()
+    if (!primaryName) return { error: 'Name is required.' }
+    if (primaryName.length > MAX_NAME_LENGTH) {
+      return { error: `Name must be ${MAX_NAME_LENGTH} characters or fewer.` }
+    }
+
+    const primaryUnit = suggestion.unit?.trim() ?? ''
+    if (primaryUnit.length > MAX_UNIT_LENGTH) {
+      return { error: `Unit must be ${MAX_UNIT_LENGTH} characters or fewer.` }
+    }
+
+    if (!isValidFormulaNode(suggestion.formula)) {
+      return { error: 'Invalid formula structure.' }
+    }
+
+    // Step 1: Create the primary correlation
+    const primaryCorrelation = await createCorrelation({
+      name: primaryName,
+      formula: suggestion.formula,
+      unit: primaryUnit,
+    })
+
+    // Step 2: Create any additional correlations (e.g. Macro Split creates 3)
+    if (suggestion.additionalCreates && suggestion.additionalCreates.length > 0) {
+      await Promise.all(
+        suggestion.additionalCreates.map(c => createCorrelation({
+          name: c.name.trim(),
+          formula: c.formula,
+          unit: c.unit.trim(),
+        }))
+      )
+    }
+
+    // Step 3: If autoWidget is defined, create a correlator widget on the dashboard
+    if (suggestion.autoWidget) {
+      await createWidget({
+        type: 'correlator',
+        correlation_id: primaryCorrelation.id,
+        label: suggestion.autoWidget.label,
+        period: suggestion.autoWidget.period,
+        width: 'full',
+        days: 7,
+        position: 0, // createWidget computes next position server-side
+      })
+    }
+
+    const user = await getSafeUser()
+    if (user) revalidateTag(`correlations-${user.id}`)
+    revalidatePath('/journal/correlations')
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to create correlation' }
   }
 }

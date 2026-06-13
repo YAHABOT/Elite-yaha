@@ -1,4 +1,4 @@
-import { evaluateFormula, buildFieldValueMap, buildFieldValueMapWithCorrelators } from '@/lib/correlator/formula-engine'
+import { evaluateFormula, buildFieldValueMap, buildFieldValueMapWithCorrelators, buildCrossTrackerMap } from '@/lib/correlator/formula-engine'
 import type { Widget, WidgetValue, ExtraFieldValue } from '@/types/widget'
 import type { TrackerLog } from '@/types/log'
 import type { FormulaNode } from '@/types/correlator'
@@ -433,8 +433,9 @@ export function computeWidgetValueOptimized(
         d.setDate(sparkStart.getDate() + i)
         const dayStr = d.toISOString().split('T')[0]
         const dayLogs = nDayLogs.filter(l => l.logged_at.startsWith(dayStr))
-        const dayFieldMap = buildFieldValueMapWithCorrelators(dayLogs, correlations)
-        const dayResult = evaluateFormula(correlation.formula, dayFieldMap)
+        const dayCrossTrackerMap = buildCrossTrackerMap(dayLogs, trackers)
+        const dayFieldMap = buildFieldValueMapWithCorrelators(dayLogs, correlations, undefined, dayCrossTrackerMap)
+        const dayResult = evaluateFormula(correlation.formula, dayFieldMap, undefined, dayCrossTrackerMap)
         const isValid = dayResult !== null && Number.isFinite(dayResult)
         if (isValid) {
           cumulativeValue += dayResult as number
@@ -461,8 +462,9 @@ export function computeWidgetValueOptimized(
         result = hasDayValue ? cumulativeValue : null
       } else {
         const correlatorLogs = filterByPeriod(nDayLogs, widget)
-        const fieldMap = buildFieldValueMapWithCorrelators(correlatorLogs, correlations)
-        result = evaluateFormula(correlation.formula, fieldMap)
+        const fullCrossTrackerMap = buildCrossTrackerMap(correlatorLogs, trackers)
+        const fieldMap = buildFieldValueMapWithCorrelators(correlatorLogs, correlations, undefined, fullCrossTrackerMap)
+        result = evaluateFormula(correlation.formula, fieldMap, undefined, fullCrossTrackerMap)
       }
 
       return {

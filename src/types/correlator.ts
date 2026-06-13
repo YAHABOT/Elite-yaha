@@ -56,4 +56,9 @@ export type CorrelatorSuggestion = {
   additionalCreates?: Array<{ name: string; formula: FormulaNode; unit: string }>
   /** Display title shown in the suggestion card UI — defaults to name if not set */
   title?: string
+  /** If set, a dashboard widget is automatically created when this suggestion is accepted */
+  autoWidget?: {
+    label: string
+    period: 'this_week'
+  }
 }
