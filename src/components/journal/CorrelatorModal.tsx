@@ -163,6 +163,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
     unit: string
   } | null>(null)
   const [targetInputValue, setTargetInputValue] = useState('')
+  const [targetDirection, setTargetDirection] = useState<'above' | 'below'>('above')
   const [savingTarget, setSavingTarget] = useState(false)
 
   const fieldOptions = getFieldOptions(trackers)
@@ -217,6 +218,8 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
     setSuggestions(prev => prev ? prev.filter((_, i) => i !== index) : null)
     // If this suggestion auto-creates a widget, pause before closing and offer a target
     if (suggestion.autoWidget && result.correlationId) {
+      setTargetInputValue('')
+      setTargetDirection('above')
       setPendingTarget({
         correlationId: result.correlationId,
         name: suggestion.name,
@@ -240,7 +243,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
       fieldType: 'number',
       unit: pendingTarget.unit,
       value: num,
-      direction: 'above',
+      direction: targetDirection,
     })
     setSavingTarget(false)
     setPendingTarget(null)
@@ -361,45 +364,87 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
 
         {pendingTarget !== null ? (
           /* Target step — shown after suggestion with autoWidget is accepted */
-          <div className="p-6 space-y-6">
-            <div className="flex flex-col items-center gap-2 text-center">
+          <div className="p-5 space-y-5">
+            {/* Header */}
+            <div className="flex flex-col items-center gap-1.5 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15">
                 <Target className="h-5 w-5 text-primary" />
               </div>
               <p className="text-base font-bold text-textPrimary">{pendingTarget.name}</p>
-              <p className="text-xs text-textMuted">Widget added to your dashboard.</p>
+              <p className="text-[11px] text-textMuted">Widget added to your dashboard.</p>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-textMuted text-center">
-                Set a target? (optional)
+            {/* Source (read-only, matches real target flow) */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-textMuted">Source</p>
+              <div className="rounded-xl border border-border bg-background px-4 py-3 text-sm text-textPrimary">
+                {pendingTarget.name}{pendingTarget.unit ? ` (${pendingTarget.unit})` : ''}
+              </div>
+            </div>
+
+            {/* Direction picker */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-textMuted">Direction</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setTargetDirection('above')}
+                  className={`rounded-xl border px-3 py-2.5 text-left transition-all ${
+                    targetDirection === 'above'
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-border bg-background text-textMuted hover:bg-surfaceHighlight'
+                  }`}
+                >
+                  <p className="text-xs font-semibold">↑ At least</p>
+                  <p className="text-[10px] opacity-70">Higher is better</p>
+                </button>
+                <button
+                  onClick={() => setTargetDirection('below')}
+                  className={`rounded-xl border px-3 py-2.5 text-left transition-all ${
+                    targetDirection === 'below'
+                      ? 'border-cyan-400/40 bg-cyan-400/10 text-cyan-400'
+                      : 'border-border bg-background text-textMuted hover:bg-surfaceHighlight'
+                  }`}
+                >
+                  <p className="text-xs font-semibold">↓ No more than</p>
+                  <p className="text-[10px] opacity-70">Lower is better</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Value input */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-textMuted">
+                {targetDirection === 'above' ? 'At least' : 'No more than'}{pendingTarget.unit ? ` (${pendingTarget.unit})` : ''}
               </p>
-              <div className="flex flex-col items-center gap-1">
+              <div className="relative">
                 <input
                   type="number"
                   inputMode="decimal"
                   value={targetInputValue}
                   onChange={e => setTargetInputValue(e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-lg font-bold text-textPrimary placeholder:text-textMuted/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-textPrimary placeholder:text-textMuted/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
                 />
                 {pendingTarget.unit && (
-                  <p className="text-xs text-textMuted">{pendingTarget.unit}</p>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-textMuted pointer-events-none">
+                    {pendingTarget.unit}
+                  </span>
                 )}
               </div>
             </div>
 
+            {/* Actions */}
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleSaveTarget}
                 disabled={savingTarget || targetInputValue.trim() === '' || isNaN(parseFloat(targetInputValue))}
                 className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-white transition-all hover:scale-[1.02] disabled:opacity-40"
               >
-                {savingTarget ? 'Saving...' : 'Set Target'}
+                {savingTarget ? 'Saving...' : '✓ Save Target'}
               </button>
               <button
                 onClick={handleSkipTarget}
-                className="w-full rounded-xl border border-border py-2.5 text-sm font-medium text-textMuted transition-colors hover:bg-surfaceHighlight"
+                className="w-full rounded-xl border border-border py-2 text-sm font-medium text-textMuted transition-colors hover:bg-surfaceHighlight"
               >
                 Skip
               </button>
