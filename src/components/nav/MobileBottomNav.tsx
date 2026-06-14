@@ -12,6 +12,7 @@ import {
 
 type TabItem = {
   href: string
+  activeMatch?: string
   icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>
   label: string
   center?: boolean
@@ -20,7 +21,7 @@ type TabItem = {
 const TABS: TabItem[] = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/journal', icon: BookOpen, label: 'Journal' },
-  { href: '/chat', icon: MessageCircle, label: 'Chat', center: true },
+  { href: '/chat/new', activeMatch: '/chat', icon: MessageCircle, label: 'Chat', center: true },
   { href: '/trackers', icon: Boxes, label: 'Trackers' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ]
@@ -33,8 +34,8 @@ export function MobileBottomNav(): React.ReactElement {
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl overflow-visible"
       style={{
         background: 'transparent',
-        height: 62,
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        height: 'calc(62px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {/* SVG: fills ONLY below the arc (transparent above) + draws the border stroke.
@@ -69,7 +70,8 @@ export function MobileBottomNav(): React.ReactElement {
 
       <div className="flex items-stretch h-full">
         {TABS.map((tab) => {
-          const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/')
+          const matchPath = tab.activeMatch ?? tab.href
+          const isActive = pathname === matchPath || pathname.startsWith(matchPath + '/')
           const isCenter = tab.center === true
           const Icon = tab.icon
 
