@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -1054,7 +1054,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       )}
 
       {/* Dynamic Header — shrink-0 keeps it pinned at top while messages scroll */}
-      <div className="shrink-0 bg-card/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 py-3 md:px-6">
+      <div className="shrink-0 bg-card/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] md:px-6">
         <div className="flex items-center gap-3">
           {/* Hamburger — mobile only */}
           <button
@@ -1168,8 +1168,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                   background: 'linear-gradient(135deg, #00d4ff, #0090cc)',
                   boxShadow: '0 4px 20px rgba(0,212,255,0.22)',
                 } : {
-                  background: '#0e243a',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: '#152e47',
+                  border: '1px solid rgba(0,212,255,0.15)',
                 }}
               >
                 <MarkdownText content={message.content.replace(/```json\s*[\s\S]*?```/g, '').trim()} />
@@ -1291,12 +1291,12 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                 .trimEnd()
               return visibleText ? (
                 // B8: render partial streaming text as it arrives
-                <div className="max-w-[78%] rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-textPrimary/90" style={{ background: '#0e243a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="max-w-[78%] rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-textPrimary/90" style={{ background: '#152e47', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <p className="whitespace-pre-wrap">{visibleText}</p>
                   <span className="inline-block h-3 w-0.5 animate-pulse ml-0.5 align-bottom" style={{ background: 'rgba(0,212,255,0.60)' }} />
                 </div>
               ) : (
-              <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm px-4 py-3" style={{ background: '#0e243a', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm px-4 py-3" style={{ background: '#152e47', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
                 <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
                 <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: 'rgba(0,212,255,0.60)' }} />
@@ -1322,54 +1322,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
           </div>
           <button
             type="button"
-            onClick={async () => {
-              setIsLoading(true)
-              abortControllerRef.current?.abort()
-              const controller = new AbortController()
-              abortControllerRef.current = controller
-              try {
-                const res = await fetch('/api/chat', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    message: 'skip',
-                    sessionId: currentSessionId,
-                    routineId: session?.active_routine_id,
-                    agentId: activeAgentId,
-                    attachments: [],
-                    date: getLocalDateStr(),
-                    ...activeLibraryExtras,
-                  }),
-                  signal: controller.signal,
-                })
-                if (!res.ok) throw new Error('Failed to skip step')
-                const attachContentType = res.headers.get('content-type') ?? ''
-                if (attachContentType.includes('text/event-stream') && res.body) {
-                  const reader = res.body.getReader()
-                  const decoder = new TextDecoder()
-                  let buffer = ''
-                  for (;;) {
-                    const { done, value } = await reader.read()
-                    if (done) break
-                    buffer += decoder.decode(value, { stream: true })
-                    const lines = buffer.split('\n')
-                    buffer = lines.pop() ?? ''
-                    for (const line of lines) {
-                      if (!line.startsWith('data: ')) continue
-                      try {
-                        const event = JSON.parse(line.slice(6)) as { type: string; sessionId?: string; content?: string }
-                        if (event.type === 'done') {
-                          if (event.sessionId) setCurrentSessionId(event.sessionId)
-                        }
-                      } catch { /* ignore parse errors */ }
-                    }
-                  }
-                }
-              } catch (e) {
-                console.error('Skip failed:', e)
-              } finally {
-                setIsLoading(false)
-              }
+            onClick={() => {
+              void handleSendSilentRef.current?.('skip', currentSessionId)
             }}
             disabled={isLoading}
             className="px-3 py-2 rounded-xl bg-nutrition/20 hover:bg-nutrition/30 text-nutrition text-xs font-bold uppercase transition-colors disabled:opacity-50"
@@ -1398,7 +1352,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
       )}
 
       {/* Input — shrink-0 keeps it always visible above mobile bottom nav; no sticky needed inside flex column */}
-      <div className="shrink-0 bg-card/60 backdrop-blur-xl border-t border-white/5 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:p-5 lg:px-12">
+      <div className="shrink-0 bg-card/60 backdrop-blur-xl border-t border-white/5 px-4 pt-4 pb-4 md:p-5 lg:px-12">
         <form data-testid="chat-form" onSubmit={handleSubmit} className="relative mx-auto max-w-4xl">
           {/* Image file input */}
           <input

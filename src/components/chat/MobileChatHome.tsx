@@ -303,7 +303,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden bg-background md:hidden">
       {/* Fixed header */}
-      <div className="shrink-0 border-b border-[rgba(0,212,255,0.10)] px-4 py-4">
+      <div className="shrink-0 border-b border-[rgba(0,212,255,0.10)] px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
         {!isSelectionMode ? (
           <div className="flex items-center justify-between">
             <h1 className="font-display-heading text-sm text-textPrimary">Chat</h1>
@@ -498,7 +498,7 @@ export function MobileChatHome({ sessions }: MobileChatHomeProps): React.ReactEl
       )}
 
       {/* New chat input — fixed at bottom */}
-      <div className="shrink-0 border-t border-white/5 bg-card/60 backdrop-blur-xl px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+      <div className="shrink-0 border-t border-white/5 bg-card/60 backdrop-blur-xl px-4 pt-4 pb-4">
         {/* Hidden file inputs */}
         <input
           ref={fileImageInputRef}
