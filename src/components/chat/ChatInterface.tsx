@@ -28,17 +28,14 @@ const MAX_TEXTAREA_ROWS = 6
 // routine is still in progress. Legitimate re-starts work after the TTL expires.
 const ROUTINE_TRIGGER_TTL_MS = 30 * 60 * 1000
 const ACCEPTED_IMAGE_TYPES = 'image/*'
-// Gemini inlineData supports images, audio, text, and PDF — Office formats excluded
-// Updated to match backend ALLOWED_MIME_TYPES (src/lib/ai/gemini.ts)
-const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv,.md,.doc,.docx,.xls,.xlsx,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+// Gemini inlineData supports: images, audio, PDF, plain text, CSV — Office formats (doc/docx/xls/xlsx) are NOT supported
+const ACCEPTED_FILE_TYPES = '.txt,.pdf,.csv,.md,application/pdf,text/plain,text/csv,text/markdown'
 const ALLOWED_MIME_PREFIXES = ['image/', 'audio/']
 const ALLOWED_MIME_EXACT = new Set([
   'application/pdf',
   'text/plain',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
   'text/csv',
+  'text/markdown',
 ])
 
 function isAllowedMimeType(mimeType: string): boolean {
