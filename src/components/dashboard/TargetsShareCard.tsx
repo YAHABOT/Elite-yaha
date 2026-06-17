@@ -40,9 +40,8 @@ function formatDuration(seconds: number): string {
   const total = Math.round(Math.abs(seconds))
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  if (h > 0) return `${h}h${String(m).padStart(2, '0')}m`
-  return `${m}m${String(s).padStart(2, '0')}s`
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`
+  return `${m}m`
 }
 
 function fmtVal(val: number, fieldType?: string, unit?: string): string {
@@ -87,7 +86,7 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
         backgroundColor: '#0b1a28',
         display: 'flex',
         flexDirection: 'column',
-        padding: '28px 22px 20px',
+        padding: '26px 22px 18px',
         overflow: 'hidden',
         fontFamily: F_SANS,
         boxSizing: 'border-box',
@@ -95,39 +94,39 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
     >
       {/* Header */}
       <div style={{ textAlign: 'center', flexShrink: 0 }}>
-        <div style={{ fontFamily: F_UI, fontSize: '10px', letterSpacing: '3px', textTransform: 'uppercase', color: '#2a5a70', marginBottom: '6px' }}>
+        <div style={{ fontFamily: F_UI, fontSize: '9px', letterSpacing: '3px', textTransform: 'uppercase', color: '#2a5a70', marginBottom: '5px' }}>
           Daily Targets
         </div>
-        <div style={{ fontFamily: F_DISPLAY, fontWeight: 900, fontSize: '22px', color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '2px', lineHeight: 1.2, marginBottom: '8px' }}>
+        <div style={{ fontFamily: F_DISPLAY, fontWeight: 900, fontSize: '20px', color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '2px', lineHeight: 1.2, marginBottom: '7px' }}>
           Powered by YAHA
         </div>
-        <div style={{ fontFamily: F_UI, fontSize: '11px', color: '#00d4ff', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '4px' }}>
+        <div style={{ fontFamily: F_UI, fontSize: '10px', color: '#00d4ff', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '3px' }}>
           {formatShareDate(date)}
         </div>
-        <div style={{ fontFamily: F_SANS, fontSize: '10px', color: '#1e3a4a' }}>
+        <div style={{ fontFamily: F_SANS, fontSize: '9px', color: '#1e3a4a' }}>
           The tracker that evolves with you
         </div>
       </div>
 
       {/* Divider */}
-      <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '16px 0' }} />
+      <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '14px 0' }} />
 
-      {/* Score section */}
+      {/* Score card */}
       <div style={{
         background: '#152e47',
         border: `1px solid ${scoreColor}33`,
         borderTop: `2px solid ${scoreColor}`,
         borderRadius: '16px',
-        padding: '20px',
+        padding: '18px 20px',
         display: 'flex',
         alignItems: 'center',
         gap: '20px',
         flexShrink: 0,
         boxSizing: 'border-box',
       }}>
-        {/* SVG ring */}
-        <div style={{ position: 'relative', flexShrink: 0, width: '100px', height: '100px' }}>
-          <svg width="100" height="100" viewBox="0 0 96 96">
+        {/* Ring — score number ONLY inside, nothing duplicated outside */}
+        <div style={{ position: 'relative', width: '96px', height: '96px', flexShrink: 0 }}>
+          <svg width="96" height="96" viewBox="0 0 96 96">
             <circle cx="48" cy="48" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" />
             {hasTargets && (
               <circle
@@ -142,25 +141,23 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
               />
             )}
           </svg>
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontFamily: F_MONO, fontSize: '26px', fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
-              {hasTargets ? score : '—'}
+              {hasTargets ? score : '--'}
             </span>
-            {hasTargets && (
-              <span style={{ fontFamily: F_UI, fontSize: '8px', letterSpacing: '0.10em', color: `${scoreColor}80` }}>
-                / 100
-              </span>
-            )}
+            <span style={{ fontFamily: F_UI, fontSize: '7px', letterSpacing: '0.08em', color: `${scoreColor}70`, marginTop: '2px' }}>
+              / 100
+            </span>
           </div>
         </div>
 
-        {/* Right info */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
+        {/* Right side: label + targets count + bar */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {scoreLabel && (
             <div style={{
               display: 'inline-block',
+              padding: '4px 12px',
               borderRadius: '9999px',
-              padding: '3px 10px',
               fontFamily: F_UI,
               fontSize: '9px',
               letterSpacing: '0.15em',
@@ -172,29 +169,29 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
               {scoreLabel}
             </div>
           )}
-          <span style={{ fontFamily: F_DISPLAY, fontSize: '24px', fontWeight: 900, color: '#e2e8f0', lineHeight: 1 }}>
-            {hasTargets ? `${score} / 100` : 'No targets'}
-          </span>
-          <span style={{ fontFamily: F_SANS, fontSize: '10px', color: '#2a5a70' }}>
+          <span style={{ fontFamily: F_DISPLAY, fontWeight: 900, fontSize: '13px', color: '#e2e8f0', letterSpacing: '0.05em' }}>
             {targets.length} target{targets.length !== 1 ? 's' : ''} tracked
           </span>
           {hasTargets && (
-            <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', overflow: 'hidden', marginTop: '2px' }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: `linear-gradient(90deg, ${scoreColor}80, ${scoreColor})`, borderRadius: '9999px', boxShadow: `0 0 6px ${scoreColor}60` }} />
+            <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${pct}%`,
+                height: '100%',
+                background: `linear-gradient(90deg, ${scoreColor}80, ${scoreColor})`,
+                borderRadius: '9999px',
+                boxShadow: `0 0 6px ${scoreColor}60`,
+              }} />
             </div>
           )}
         </div>
       </div>
 
-      {/* Divider */}
-      <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)', margin: '14px 0 12px' }} />
-
-      {/* Targets eyebrow */}
-      <div style={{ fontFamily: F_UI, fontSize: '8px', letterSpacing: '3px', textTransform: 'uppercase', color: '#2a5a70', marginBottom: '10px', flexShrink: 0 }}>
+      {/* Section label */}
+      <div style={{ fontFamily: F_UI, fontSize: '8px', letterSpacing: '3px', textTransform: 'uppercase', color: '#2a5a70', margin: '14px 0 10px', flexShrink: 0 }}>
         Individual Targets
       </div>
 
-      {/* Target rows — fills remaining space */}
+      {/* Target rows */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0, overflow: 'hidden' }}>
         {targets.map(target => {
           const color = getColor(target.trackerType)
@@ -213,22 +210,22 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
               boxSizing: 'border-box',
               flexShrink: 0,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                  <span style={{ fontFamily: F_UI, fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: `${color}80` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '7px' }}>
+                <div>
+                  <div style={{ fontFamily: F_UI, fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: `${color}80`, marginBottom: '2px' }}>
                     {target.trackerName}
-                  </span>
-                  <span style={{ fontFamily: F_DISPLAY, fontSize: '11px', fontWeight: 700, color: '#e2e8f0', whiteSpace: 'nowrap' }}>
+                  </div>
+                  <div style={{ fontFamily: F_DISPLAY, fontSize: '11px', fontWeight: 700, color: '#e2e8f0' }}>
                     {target.fieldLabel}
-                  </span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0, marginLeft: '12px' }}>
-                  <span style={{ fontFamily: F_MONO, fontSize: '16px', color: barColor, letterSpacing: '0.03em', lineHeight: 1 }}>
+                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '12px' }}>
+                  <div style={{ fontFamily: F_MONO, fontSize: '16px', color: barColor, letterSpacing: '0.03em', lineHeight: 1 }}>
                     {fmtVal(target.actual, target.fieldType, target.unit)}
-                  </span>
-                  <span style={{ fontFamily: F_UI, fontSize: '7px', letterSpacing: '0.06em', color: 'rgba(42,90,112,0.8)' }}>
-                    {isBelow ? '≤' : '≥'} {fmtVal(target.targetValue, target.fieldType, target.unit)}
-                  </span>
+                  </div>
+                  <div style={{ fontFamily: F_UI, fontSize: '7px', letterSpacing: '0.06em', color: 'rgba(42,90,112,0.8)', marginTop: '2px' }}>
+                    {isBelow ? '<=' : '>='} {fmtVal(target.targetValue, target.fieldType, target.unit)}
+                  </div>
                 </div>
               </div>
               <div style={{ height: '5px', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', overflow: 'hidden' }}>
@@ -241,11 +238,11 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
                     : isOver
                     ? 'linear-gradient(90deg, #ef444499, #ef4444)'
                     : `linear-gradient(90deg, ${color}99, ${color})`,
-                  boxShadow: isComplete ? '0 0 4px rgba(16,185,129,0.5)' : isOver ? '0 0 3px rgba(239,68,68,0.5)' : `0 0 3px ${color}60`,
+                  boxShadow: isComplete ? '0 0 4px rgba(16,185,129,0.5)' : `0 0 3px ${color}60`,
                 }} />
               </div>
               <div style={{ marginTop: '4px', fontFamily: F_UI, fontSize: '7px', letterSpacing: '0.06em', color: isComplete ? '#10b98180' : isOver ? 'rgba(239,68,68,0.5)' : 'rgba(42,90,112,0.6)' }}>
-                {isComplete ? '✓ Goal reached' : isOver ? 'Over limit' : `${target.pct}% complete`}
+                {isComplete ? '+ Goal reached' : isOver ? 'Over limit' : `${target.pct}% complete`}
               </div>
             </div>
           )
@@ -253,8 +250,8 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
       </div>
 
       {/* Footer */}
-      <div style={{ textAlign: 'center', marginTop: '14px', flexShrink: 0 }}>
-        <div style={{ fontFamily: F_DISPLAY, fontWeight: 900, fontSize: '11px', color: '#00d4ff', letterSpacing: '4px', textTransform: 'uppercase' }}>YAHA</div>
+      <div style={{ textAlign: 'center', marginTop: '12px', flexShrink: 0 }}>
+        <div style={{ fontFamily: F_DISPLAY, fontWeight: 900, fontSize: '10px', color: '#00d4ff', letterSpacing: '4px', textTransform: 'uppercase' }}>YAHA</div>
         <div style={{ fontFamily: F_UI, fontSize: '7px', color: '#1e3a4a', letterSpacing: '2px', textTransform: 'uppercase', marginTop: '3px' }}>Your data · Your evolution</div>
       </div>
     </div>

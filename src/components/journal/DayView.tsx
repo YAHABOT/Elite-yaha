@@ -128,7 +128,8 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
               }
             }
             const formatted = formatFieldValue(displayVal, schemaDef.unit, schemaDef.label, schemaDef.type)
-            return [{ label: schemaDef.label, value: formatted, isKey: fi === 0 }]
+            const isNumeric = ['number', 'rating', 'duration'].includes(schemaDef.type)
+            return [{ label: schemaDef.label, value: formatted, isKey: fi === 0 && isNumeric }]
           })
         if (computedFields.length === 0) return []
         return [{ name: tracker.name, type: tracker.type, fields: computedFields }]
