@@ -8,12 +8,12 @@ import { ChatInterface } from '@/components/chat/ChatInterface'
 
 type Props = {
   params: Promise<{ sessionId: string }>
-  searchParams: Promise<{ routine?: string; agent?: string }>
+  searchParams: Promise<{ routine?: string; agent?: string; prompt?: string }>
 }
 
 export default async function ChatSessionPage({ params, searchParams }: Props): Promise<React.ReactElement> {
   const { sessionId } = await params
-  const { routine: routineParam, agent: agentParam } = await searchParams
+  const { routine: routineParam, agent: agentParam, prompt: promptParam } = await searchParams
 
   if (sessionId === 'new') {
     const [sessions, initialRoutine] = await Promise.all([
@@ -32,6 +32,7 @@ export default async function ChatSessionPage({ params, searchParams }: Props): 
             initialRoutine={initialRoutine}
             sessions={sessions}
             initialAgentId={agentParam ?? null}
+            initialPrompt={promptParam}
           />
         </div>
       </div>

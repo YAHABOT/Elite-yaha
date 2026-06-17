@@ -14,6 +14,15 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+// Compact duration for sparkline labels — H:MM only (no seconds) to prevent clipping
+function formatDurationShort(seconds: number): string {
+  const totalSeconds = Math.round(Math.abs(seconds))
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}`
+  return `${m}m`
+}
+
 function formatDisplayValue(val: number | string | null, fieldType?: string): string | null {
   if (val === null || val === undefined) return null
   if (typeof val === 'string') return val
@@ -34,11 +43,11 @@ function timeAgo(isoStr: string): string {
 const SPARKLINE_HEIGHT = 82
 const DEFAULT_BORDER_COLOR = '#1E1E1E'
 
-function getDayLabels(n: number): string[] {
+function getDayLabels(n: number, offset: number = 0): string[] {
   const today = new Date()
   return Array.from({ length: n }, (_, i) => {
     const d = new Date(today)
-    d.setDate(today.getDate() - (n - 1 - i))
+    d.setDate(today.getDate() - (n - 1 - i) - offset)
     return d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3).toUpperCase()
   })
 }
@@ -54,21 +63,29 @@ type Props = {
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
 }
 
-function Sparkline({ trend, color }: { trend: number[]; color: string }): React.ReactElement | null {
+function Sparkline({ trend, color, fieldType, dayOffset = 0 }: { trend: (number | null)[]; color: string; fieldType?: string; dayOffset?: number }): React.ReactElement | null {
   if (trend.length < 2) return null
 
   try {
-    const labels = getDayLabels(trend.length)
+    const labels = getDayLabels(trend.length, dayOffset)
+    const isDuration = fieldType === 'duration'
     const chartData = trend.map((v, i) => ({
       day: labels[i],
-      v,
-      display: formatDisplayValue(v) ?? '',
+      v: v,
+      display: v !== null
+        ? isDuration
+          ? formatDurationShort(v)
+          : (formatDisplayValue(v, fieldType) ?? '')
+        : '',
     }))
+
+    // Duration labels are wider (e.g. "7:22") — expand margins so edge labels don't clip
+    const hMargin = isDuration ? 20 : 8
 
     return (
       <div className="mt-3">
         <ResponsiveContainer width="100%" height={SPARKLINE_HEIGHT}>
-          <LineChart data={chartData} margin={{ top: 16, right: 8, bottom: 0, left: 8 }}>
+          <LineChart data={chartData} margin={{ top: 16, right: hMargin, bottom: 0, left: hMargin }}>
             <XAxis
               dataKey="day"
               axisLine={false}
@@ -81,8 +98,8 @@ function Sparkline({ trend, color }: { trend: number[]; color: string }): React.
               dataKey="v"
               stroke={color}
               strokeWidth={1.5}
-              dot={false}
-              activeDot={{ r: 2, fill: color, strokeWidth: 0 }}
+              dot={{ r: 2, fill: color, strokeWidth: 1, stroke: 'rgba(0,0,0,0.35)' }}
+              activeDot={{ r: 3, fill: color, strokeWidth: 0 }}
             >
               <LabelList
                 dataKey="display"
@@ -308,7 +325,7 @@ export function WidgetCard({ widget, value, editMode, onDelete, onEdit, target, 
 
       {/* Sparkline — always cyan so the line is clearly visible on OLED */}
       {value.trend && value.trend.length > 1 && (
-        <Sparkline trend={value.trend} color="#00d4ff" />
+        <Sparkline trend={value.trend} color="#00d4ff" fieldType={value.fieldType} dayOffset={value.trendDayOffset} />
       )}
 
       {/* Multi-metric strip — shown on full-width cards with extra fields */}

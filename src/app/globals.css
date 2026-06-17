@@ -4,22 +4,22 @@
 
 :root {
   /* MasterLog Navy Theme */
-  --background: 210 57% 10%;          /* #0b1a28 — deepest navy (lifted from 7%) */
+  --background: 210 57% 10%;          /* #0b1a28 — deepest navy */
   --foreground: 210 30% 91%;          /* #e2e8f0 — primary text */
 
-  --card: 210 62% 14%;                /* #0e243a — card/sidebar bg (lifted from 9%) */
+  --card: 210 55% 18%;                /* #152e47 — card/sidebar bg */
   --card-foreground: 210 30% 91%;
 
-  --popover: 210 55% 18%;             /* #152e47 — slightly lighter (lifted from 13%) */
+  --popover: 210 52% 23%;             /* #1c3858 — slightly lighter */
   --popover-foreground: 210 30% 91%;
 
   --primary: 191 100% 50%;            /* #00d4ff — cyan */
   --primary-foreground: 210 100% 4%;  /* dark text on cyan */
 
-  --secondary: 210 55% 18%;           /* #152e47 (lifted from 13%) */
+  --secondary: 210 52% 23%;           /* #1c3858 */
   --secondary-foreground: 210 30% 91%;
 
-  --muted: 210 55% 14%;               /* lifted from 10% */
+  --muted: 210 55% 18%;               /* matches card */
   --muted-foreground: 215 19% 65%;    /* #94a3b8 */
 
   --accent: 191 100% 50%;             /* cyan */
@@ -28,8 +28,8 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 200 50% 17%;              /* lifted from 12% — more visible on all screens */
-  --input: 210 62% 14%;               /* matches card */
+  --border: 200 50% 22%;              /* lifted for visibility */
+  --input: 210 55% 18%;               /* matches card */
   --ring: 191 100% 50%;               /* cyan ring */
 
   --radius: 1rem;                    /* 16px — matches MasterLog cards */
@@ -116,4 +116,8 @@ html {
 
 ::selection {
   @apply bg-primary/30 text-primary-foreground;
+}
+
+.step-desc-text {
+  color: #F5F5F5 !important;
 }

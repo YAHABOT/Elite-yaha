@@ -7,7 +7,7 @@ import type { TrackerLog, CreateLogInput, UpdateLogInput } from '@/types/log'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { recomputeDayStats } from '@/lib/db/daily-stats'
 
-const DEFAULT_LIMIT = 50
+
 const DEFAULT_SOURCE = 'manual'
 
 const LOG_COLUMNS = 'id, tracker_id, user_id, fields, logged_at, source, created_at'
@@ -71,7 +71,7 @@ export async function getLogs(
   const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  const limit = options?.limit ?? DEFAULT_LIMIT
+  const limit = options?.limit
   const offset = options?.offset ?? 0
 
   let query = supabase
@@ -79,7 +79,10 @@ export async function getLogs(
     .select(LOG_COLUMNS)
     .eq('tracker_id', trackerId)
     .order('logged_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+
+  if (limit !== undefined) {
+    query = query.range(offset, offset + limit - 1)
+  }
 
   if (options?.startDate) {
     query = query.gte('logged_at', options.startDate)

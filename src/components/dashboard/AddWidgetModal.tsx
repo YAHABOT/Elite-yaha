@@ -54,6 +54,7 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
   const [extraFields, setExtraFields]             = useState<ExtraField[]>([])
   const [targetDisplay, setTargetDisplay]         = useState<TargetDisplay>('bar')
   const [pbLower, setPbLower]                     = useState(false)
+  const [weekAgg, setWeekAgg]                     = useState<'total' | 'average'>('total')
   const [submitting, setSubmitting]               = useState(false)
   const [error, setError]                         = useState<string | null>(null)
   // Combined-field state
@@ -116,12 +117,13 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
        targets.find(t => t.fieldLabel.toLowerCase() === (selectedTracker?.schema.find(f => f.fieldId === selectedFieldId)?.label ?? '').toLowerCase()))
     : null
 
+  const isWeekPeriod = aggregation === 'this_week' || aggregation === 'last_week'
   const widgetType: WidgetType =
-    entryMode === 'correlator'    ? 'correlator' :
-    entryMode === 'combined_field'? 'combined_field' :
-    aggregation === 'average'     ? 'field_average' :
-    (aggregation === 'total' || aggregation === 'today' || aggregation === 'this_week' || aggregation === 'last_week')
-                                  ? 'field_total' :
+    entryMode === 'correlator'                    ? 'correlator' :
+    entryMode === 'combined_field'                ? 'combined_field' :
+    aggregation === 'average'                     ? 'field_average' :
+    (isWeekPeriod && weekAgg === 'average')       ? 'field_average' :
+    (aggregation === 'total' || aggregation === 'today' || isWeekPeriod) ? 'field_total' :
     'field_latest'
 
   // ── Navigation handlers ──────────────────────────────────────────────────
@@ -564,6 +566,36 @@ export function AddWidgetModal({ trackers, targets = [], correlations = [], onCl
                     >
                       <span className="text-[9px] font-black uppercase tracking-widest leading-none">{tLabel}</span>
                       <span className="text-[7px] opacity-60 normal-case tracking-normal font-normal">{desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Week aggregation — Total vs Average (only for this_week / last_week, not correlator) */}
+            {isWeekPeriod && entryMode !== 'correlator' && (
+              <div>
+                <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-textMuted">
+                  {aggregation === 'this_week' ? 'This Week' : 'Last Week'} — show as
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['total', 'average'] as const).map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setWeekAgg(opt)}
+                      className={`flex flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition-all duration-200 border ${
+                        weekAgg === opt
+                          ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
+                          : 'border-white/10 bg-white/5 text-textMuted hover:border-white/20'
+                      }`}
+                    >
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {opt === 'total' ? 'Total' : 'Average'}
+                      </span>
+                      <span className="text-[8px] opacity-60 normal-case tracking-normal font-normal">
+                        {opt === 'total' ? 'Sum of all entries' : 'Avg per day'}
+                      </span>
                     </button>
                   ))}
                 </div>

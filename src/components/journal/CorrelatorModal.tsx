@@ -414,7 +414,7 @@ export function CorrelatorModal({ trackers, correlations, onClose, lastKnownValu
             {/* Value input */}
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-textMuted">
-                {targetDirection === 'above' ? 'At least' : 'No more than'}{pendingTarget.unit ? ` (${pendingTarget.unit})` : ''}
+                {targetDirection === 'above' ? 'At least' : 'No more than'}
               </p>
               <div className="relative">
                 <input

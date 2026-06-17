@@ -5,8 +5,6 @@ import { TrackerHistoryView } from '@/components/trackers/TrackerHistoryView'
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 
-const HISTORY_LIMIT = 100
-
 type Props = {
   params: Promise<{ id: string }>
 }
@@ -23,7 +21,7 @@ export default async function TrackerDetailPage({ params }: Props): Promise<Reac
 
   let logs: TrackerLog[]
   try {
-    logs = await getLogs(id, { limit: HISTORY_LIMIT })
+    logs = await getLogs(id)
   } catch {
     logs = []
   }

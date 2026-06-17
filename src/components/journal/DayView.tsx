@@ -1,14 +1,20 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight, GitBranch, Eye, EyeOff, Plus, Menu, X } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, GitBranch, Eye, EyeOff, Plus, Menu, X, Share2 } from 'lucide-react'
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import type { Correlation } from '@/types/correlator'
+import type { ShareCardConfig, ShareTrackerItem } from '@/lib/db/users'
 import { SortableJournalList } from '@/components/journal/SortableJournalList'
 import { CorrelationCard, MacroGroupCard, MACRO_GROUP_NAMES } from '@/components/journal/CorrelationCard'
 import { CorrelatorModal } from '@/components/journal/CorrelatorModal'
+import { JournalCalendar } from '@/components/journal/JournalCalendar'
+import { JournalShareCard, type ComputedTracker, type ComputedField, type ComputedCorrelation } from '@/components/journal/JournalShareCard'
+import { captureAndShare } from '@/lib/share/capture'
+import { buildFieldValueMapWithCorrelators, evaluateFormula, formatResult } from '@/lib/correlator/formula-engine'
+import { formatFieldValue } from '@/lib/utils/format'
 
 type Props = {
   date: string
@@ -17,7 +23,11 @@ type Props = {
   loggedDates: string[]
   correlations: Correlation[]
   lastKnownValues?: Record<string, number>
+  initialOpenCorrelator?: boolean
+  shareCardConfig?: ShareCardConfig
 }
+
+type ShareData = { trackers: ComputedTracker[]; correlations: ComputedCorrelation[] }
 
 type GroupedLogs = Map<string, TrackerLog[]>
 
@@ -30,18 +40,6 @@ function groupLogsByTracker(logs: TrackerLog[]): GroupedLogs {
   return grouped
 }
 
-function formatSidebarDate(dateStr: string): { day: string; date: string; label: string } {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  const d = new Date(Date.UTC(year, month - 1, day))
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const dayName = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
-  const dateNum = d.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' })
-  const monthStr = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
-
-  return { day: dayName, date: dateNum, label: monthStr }
-}
 
 function formatHeaderDateParts(dateStr: string): { weekday: string; date: string } {
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -70,14 +68,84 @@ function getLocalDateStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function DayView({ date, trackers, logs, loggedDates, correlations, lastKnownValues }: Props): React.ReactElement {
+export function DayView({ date, trackers, logs, loggedDates, correlations, lastKnownValues, initialOpenCorrelator, shareCardConfig }: Props): React.ReactElement {
   const router = useRouter()
-  const [correlatorOpen, setCorrelatorOpen] = useState(false)
+  const [correlatorOpen, setCorrelatorOpen] = useState(initialOpenCorrelator ?? false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   // showTotals: controls the daily totals row at the bottom of each tracker group
   const [showTotals, setShowTotals] = useState(true)
+  const [isSharing, setIsSharing] = useState(false)
+  const [shareData, setShareData] = useState<ShareData | null>(null)
+  const shareCardRef = useRef<HTMLDivElement>(null)
+  const pendingCapture = useRef(false)
   const today = getLocalDateStr()
   const isToday = date === today
+
+  useEffect(() => {
+    if (shareData && pendingCapture.current) {
+      pendingCapture.current = false
+      void captureAndShare(shareCardRef, `yaha-${date}.jpg`).finally(() => {
+        setShareData(null)
+        setIsSharing(false)
+      })
+    }
+  }, [shareData, date])
+
+  function handleShare() {
+    if (isSharing) return
+    setIsSharing(true)
+
+    const items = shareCardConfig?.items ?? []
+    const fvMap = buildFieldValueMapWithCorrelators(logs, correlations)
+
+    const computedTrackers: ComputedTracker[] = items
+      .filter(i => i.enabled && i.type === 'tracker')
+      .flatMap(i => {
+        const item = i as ShareTrackerItem
+        const tracker = trackers.find(t => t.id === item.id)
+        if (!tracker) return []
+        const trackerLogs = logs.filter(l => l.tracker_id === item.id)
+        if (trackerLogs.length === 0) return []
+        const computedFields: ComputedField[] = item.fields
+          .filter(f => f.enabled)
+          .flatMap((fc, fi) => {
+            const schemaDef = tracker.schema.find(s => s.fieldId === fc.fieldId)
+            if (!schemaDef) return []
+            const rawVals = trackerLogs
+              .map(l => (l.fields as Record<string, unknown>)[fc.fieldId])
+              .filter(v => v != null && v !== '')
+            if (rawVals.length === 0) return []
+            let displayVal: number | string
+            if (rawVals.length === 1) {
+              displayVal = rawVals[0] as number | string
+            } else {
+              const nums = rawVals.map(v => Number(v)).filter(n => !isNaN(n))
+              if (nums.length === 0) {
+                displayVal = String(rawVals[rawVals.length - 1])
+              } else {
+                const sum = nums.reduce((a, b) => a + b, 0)
+                displayVal = fc.aggregation === 'avg' ? sum / nums.length : sum
+              }
+            }
+            const formatted = formatFieldValue(displayVal, schemaDef.unit, schemaDef.label, schemaDef.type)
+            return [{ label: schemaDef.label, value: formatted, isKey: fi === 0 }]
+          })
+        if (computedFields.length === 0) return []
+        return [{ name: tracker.name, type: tracker.type, fields: computedFields }]
+      })
+
+    const computedCorrelations: ComputedCorrelation[] = items
+      .filter(i => i.enabled && i.type === 'correlation')
+      .flatMap(i => {
+        const corr = correlations.find(c => c.id === i.id)
+        if (!corr) return []
+        const result = evaluateFormula(corr.formula, fvMap)
+        return [{ name: corr.name, value: result != null ? formatResult(result, corr.unit) : '—' }]
+      })
+
+    pendingCapture.current = true
+    setShareData({ trackers: computedTrackers, correlations: computedCorrelations })
+  }
 
   const grouped = groupLogsByTracker(logs)
   const trackersWithLogs = trackers.filter((t) => grouped.has(t.id))
@@ -93,10 +161,9 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
     if (group.length < 2) crossTrackerGroups.delete(type)
   }
 
-  // When the user is viewing today and today has no logs yet, inject today into
-  // the sidebar so it shows an active highlight and TODAY badge. Only inject for
-  // the currently-viewed date — other logless dates never get phantom entries.
-  const allDates =
+  // When the user is viewing today and today has no logs yet, inject today so
+  // the calendar highlights it as selected. Only for the currently-viewed date.
+  const calendarDates =
     date === today && !loggedDates.includes(today)
       ? [today, ...loggedDates]
       : loggedDates
@@ -104,51 +171,6 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
   function goTo(d: string) {
     router.push(`/journal?date=${d}`)
   }
-
-  // Shared date list — rendered in both desktop sidebar and mobile drawer
-  const dateList = (
-    <>
-      <div className="px-3 pb-2 pt-4">
-        <p className="font-ui text-[10px] uppercase tracking-widest text-textMuted">Log Days</p>
-        <p className="mt-0.5 text-xs text-textMuted">{loggedDates.length} days</p>
-      </div>
-      <div className="flex-1 overflow-y-auto overscroll-y-none">
-        {allDates.map((d) => {
-          const { day, date: dateNum, label } = formatSidebarDate(d)
-          const isActive = d === date
-          const isCurrentDay = d === today
-          return (
-            <button
-              key={d}
-              onClick={() => { goTo(d); setMobileSidebarOpen(false) }}
-              className={`w-full border-b border-white/[0.03] px-3 py-2.5 text-left transition-all duration-300 ${
-                isActive
-                  ? 'bg-white/[0.04] border-l-2 border-l-primary shadow-[inset_0_0_12px_rgba(163,230,53,0.04)]'
-                  : 'hover:bg-white/[0.02]'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-primary' : 'text-textMuted'}`}>
-                  {day}
-                </span>
-                {isCurrentDay && (
-                  <span className="rounded-full bg-primary/20 px-1 py-0.5 text-[8px] font-black uppercase tracking-widest text-primary">
-                    Today
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className={`text-lg font-bold leading-tight ${isActive ? 'text-primary' : 'text-textPrimary'}`}>
-                  {dateNum}
-                </span>
-                <span className="text-[10px] text-textMuted">{label}</span>
-              </div>
-            </button>
-          )
-        })}
-      </div>
-    </>
-  )
 
   return (
     <div className="flex h-full min-h-0">
@@ -162,11 +184,11 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-none" />
           {/* Drawer panel */}
           <div
-            className="absolute left-0 top-0 z-10 h-full w-56 flex flex-col bg-surface border-r border-white/5 animate-in slide-in-from-left-4 duration-300"
+            className="absolute left-0 top-0 z-10 h-full w-56 flex flex-col bg-surface border-r border-white/5 animate-in slide-in-from-left-4 duration-300 relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer header: action buttons + close */}
-            <div className="flex items-center justify-between border-b border-white/[0.04] px-3 py-3">
+            <div className="flex items-center justify-between border-b border-white/[0.04] px-3 py-3 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { setShowTotals((v) => !v); setMobileSidebarOpen(false) }}
@@ -186,6 +208,14 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
                   <GitBranch className="h-3 w-3" />
                   <span>Correlator</span>
                 </button>
+                <button
+                  onClick={() => { setMobileSidebarOpen(false); handleShare() }}
+                  disabled={isSharing}
+                  className="flex flex-col items-center gap-0.5 rounded-xl border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-3 py-1.5 text-xs font-semibold text-[#00d4ff] transition-all duration-300 hover:bg-[#00d4ff]/20 disabled:opacity-40"
+                >
+                  <Share2 className="h-3 w-3" />
+                  <span>Share</span>
+                </button>
               </div>
               <button
                 type="button"
@@ -196,14 +226,24 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
                 <X className="h-4 w-4" />
               </button>
             </div>
-            {dateList}
+            <JournalCalendar
+              loggedDates={calendarDates}
+              selectedDate={date}
+              today={today}
+              onSelectDate={(d) => { goTo(d); setMobileSidebarOpen(false) }}
+            />
           </div>
         </div>
       )}
 
-      {/* ── Left Sidebar: Date List (desktop only) ── */}
-      <aside className="hidden w-44 flex-shrink-0 overflow-y-auto overscroll-y-none border-r border-white/5 bg-surface md:flex md:flex-col">
-        {dateList}
+      {/* ── Left Sidebar: Calendar (desktop only) ── */}
+      <aside className="hidden w-52 flex-shrink-0 border-r border-white/5 bg-surface md:flex md:flex-col relative overflow-hidden">
+        <JournalCalendar
+          loggedDates={calendarDates}
+          selectedDate={date}
+          today={today}
+          onSelectDate={goTo}
+        />
       </aside>
 
       {/* ── Main Content ── */}
@@ -259,6 +299,15 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
             >
               <GitBranch className="h-3 w-3" />
               Correlator
+            </button>
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              title="Share today's overview"
+              className="flex items-center gap-1.5 rounded-xl border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-3 py-1.5 text-xs font-semibold text-[#00d4ff] transition-all duration-300 hover:bg-[#00d4ff]/20 disabled:opacity-40"
+            >
+              <Share2 className="h-3 w-3" />
+              Share
             </button>
           </div>
         </div>
@@ -358,6 +407,16 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
           correlations={correlations}
           onClose={() => setCorrelatorOpen(false)}
           lastKnownValues={lastKnownValues}
+        />
+      )}
+
+      {/* Off-screen share card — mounted only during capture */}
+      {shareData && (
+        <JournalShareCard
+          ref={shareCardRef}
+          date={date}
+          trackers={shareData.trackers}
+          correlations={shareData.correlations}
         />
       )}
     </div>

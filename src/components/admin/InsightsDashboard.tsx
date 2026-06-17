@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import {
   BarChart,
@@ -134,7 +134,7 @@ function ActivityBars({ days, color }: { days: number[]; color: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TOOLTIP_STYLE = {
-  background: '#0e243a',
+  background: '#152e47',
   border: '1px solid rgba(255,255,255,0.05)',
   borderRadius: '12px',
   color: '#f5f5f5',
@@ -690,7 +690,7 @@ export function InsightsDashboard({ insights }: Props): React.ReactElement {
                 key={user.id}
                 className="rounded-2xl overflow-hidden transition-all"
                 style={{
-                  background: `linear-gradient(135deg, ${statusColor}08 0%, transparent 60%), #0e243a`,
+                  background: `linear-gradient(135deg, ${statusColor}08 0%, transparent 60%), #152e47`,
                   border: `1px solid ${statusColor}25`,
                   boxShadow: `0 0 20px ${statusColor}0a`,
                 }}

@@ -205,7 +205,7 @@ export async function updateLogAction(
     // Verify the log exists
     const { data: existingLog } = await supabase
       .from('tracker_logs')
-      .select('id, fields')
+      .select('id, fields, logged_at')
       .eq('id', card.logId)
       .eq('tracker_id', card.trackerId)
       .eq('user_id', user.id)
@@ -229,6 +229,10 @@ export async function updateLogAction(
       .eq('user_id', user.id)
 
     if (error) return { error: `Failed to update log: ${error.message}` }
+
+    // Refresh daily score snapshot for the log's date (fire-and-forget)
+    const logDateStr = (existingLog.logged_at as string).split('T')[0]
+    void upsertScoreForDate(supabase, user.id, logDateStr).catch(() => {})
 
     // Persist confirmed: true onto the matching action card in the message JSONB
     if (messageId) {

@@ -3,6 +3,9 @@ import { redirect } from 'next/navigation'
 import { DesktopSidebar } from '@/components/nav/DesktopSidebar'
 import { MobileBottomNav } from '@/components/nav/MobileBottomNav'
 import { FeedbackModal } from '@/components/feedback/FeedbackModal'
+import { getOnboardingState } from '@/lib/db/onboarding'
+import { OnboardingRoot } from '@/components/onboarding/OnboardingRoot'
+import { ONBOARDING_STEPS } from '@/components/onboarding/steps'
 
 export default async function AppLayout({
   children,
@@ -14,6 +17,13 @@ export default async function AppLayout({
 
   if (!user) {
     redirect('/login')
+  }
+
+  let onboardingState = null
+  try {
+    onboardingState = await getOnboardingState(user.id)
+  } catch {
+    // Non-blocking — skip onboarding if DB error
   }
 
   return (
@@ -43,6 +53,9 @@ export default async function AppLayout({
         {children}
       </main>
       <FeedbackModal />
+      {onboardingState && (
+        <OnboardingRoot initialState={onboardingState} steps={ONBOARDING_STEPS} />
+      )}
     </div>
   )
 }

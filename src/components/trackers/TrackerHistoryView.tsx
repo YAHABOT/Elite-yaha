@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -147,7 +147,7 @@ function CollapsibleDaySection({
     <section
       className="overflow-hidden rounded-[20px]"
       style={{
-        background: '#0e243a',
+        background: '#152e47',
         border: `1px solid ${tracker.color}22`,
       }}
     >
@@ -163,7 +163,7 @@ function CollapsibleDaySection({
           {/* Entry count badge */}
           <span
             className="shrink-0 rounded-full px-2 py-0.5 font-ui-label text-[#94a3b8]"
-            style={{ background: '#1c3858', fontSize: '9px' }}
+            style={{ background: '#234468', fontSize: '9px' }}
           >
             {group.entries.length} {group.entries.length === 1 ? 'entry' : 'entries'}
           </span>
@@ -172,7 +172,7 @@ function CollapsibleDaySection({
         {/* Chevron toggle button */}
         <div
           className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full transition-all duration-200"
-          style={{ background: '#1c3858' }}
+          style={{ background: '#234468' }}
         >
           {isOpen ? (
             <ChevronDown className="h-3.5 w-3.5 text-[#94a3b8]" strokeWidth={2} />
@@ -218,7 +218,7 @@ function CollapsibleDaySection({
                 <button
                   onClick={onOpenConfig}
                   className="flex items-center gap-1 rounded-full px-2.5 py-1 font-ui-label text-textMuted transition-colors hover:text-textPrimary"
-                  style={{ background: '#1c3858', border: '1px solid rgba(0,212,255,0.13)', fontSize: '9px' }}
+                  style={{ background: '#234468', border: '1px solid rgba(0,212,255,0.13)', fontSize: '9px' }}
                   title="Configure totals"
                 >
                   <Settings className="h-2.5 w-2.5" />
@@ -435,4 +435,3 @@ export function TrackerHistoryView({ tracker, logs }: Props): React.ReactElement
     </div>
   )
 }
-

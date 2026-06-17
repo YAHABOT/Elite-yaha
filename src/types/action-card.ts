@@ -34,6 +34,7 @@ export type UpdateDataCard = {
   fieldLabels?: Record<string, string>
   fieldUnits?: Record<string, string>
   fieldOrder?: string[]
+  fieldDefinitions?: Record<string, { fieldId: string; label: string; type: string; unit?: string; selectOptions?: string[]; multiSelect?: boolean }>
   confirmed?: boolean
 }
 

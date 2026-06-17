@@ -307,7 +307,7 @@ export default async function WidgetDetailPage({ params }: Props) {
       unit={widget.type === 'correlator' ? correlationUnit : unit}
       fieldType={fieldType}
       target={targetValue}
-      targetDirection={widget.pb_direction ?? 'above'}
+      targetDirection={(widget.type === 'correlator' ? matchingTarget?.direction : widget.pb_direction) ?? 'above'}
       pageTitle={pageTitle}
     />
   )

@@ -16,7 +16,6 @@ import { WidgetCard } from '@/components/dashboard/WidgetCard'
 import { AddWidgetModal } from '@/components/dashboard/AddWidgetModal'
 import { EditWidgetModal } from '@/components/dashboard/EditWidgetModal'
 import { ScoreCard } from '@/components/dashboard/ScoreCard'
-import { WeeklyBarChart } from '@/components/dashboard/WeeklyBarChart'
 import { deleteWidgetAction, reorderWidgetsAction } from '@/app/actions/dashboard'
 import { resetDayStateAction, resetEndDayStateAction, skipStartDayAction, skipEndDayAction } from '@/app/actions/day-state'
 import { getTrackerTypeColor } from '@/lib/utils/tracker-colors'
@@ -25,7 +24,6 @@ import type { Tracker } from '@/types/tracker'
 import type { Routine } from '@/types/routine'
 import type { UserDayState } from '@/lib/db/day-state'
 import type { UserTarget } from '@/lib/db/users'
-import type { DayScore } from '@/lib/db/dashboard-data'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone
 function getLocalDateStr(): string {
@@ -47,14 +45,17 @@ type Props = {
   userName: string
   targets: UserTarget[]
   dailyScore: number | null
-  dayScores: DayScore[]
   correlations: CorrelationOption[]
 }
 
-/** Match a widget to a user target (for any field_* widget type). */
+/** Match a widget to a user target (for any field_* or correlator widget type). */
 function getWidgetTarget(widget: Widget, targets: UserTarget[]): { value: number; direction: 'above' | 'below' } | undefined {
-  if (!['field_latest', 'field_average', 'field_total'].includes(widget.type)) return undefined
   if (!targets.length) return undefined
+  if (widget.type === 'correlator' && widget.correlation_id) {
+    const t = targets.find(t => t.trackerId === '__correlations__' && t.fieldId === widget.correlation_id)
+    return t ? { value: t.value, direction: t.direction ?? 'above' } : undefined
+  }
+  if (!['field_latest', 'field_average', 'field_total'].includes(widget.type)) return undefined
   const byFieldId = targets.find(t => t.fieldId === widget.field_id)
   if (byFieldId) return { value: byFieldId.value, direction: byFieldId.direction ?? 'above' }
   const byLabel = targets.find(t => t.fieldLabel.toLowerCase() === widget.label.toLowerCase())
@@ -155,20 +156,16 @@ export function DashboardClient({
   userName,
   targets,
   dailyScore,
-  dayScores,
   correlations,
 }: Props): React.ReactElement {
   const router = useRouter()
   const [editMode, setEditMode] = useState(false)
   const [showScoreCard, setShowScoreCard] = useState(true)
-  const [showBarChart, setShowBarChart] = useState(true)
 
   // Restore hide/show preferences from localStorage after mount (SSR-safe)
   useEffect(() => {
     const sc = localStorage.getItem('dash:showScoreCard')
     if (sc !== null) setShowScoreCard(sc !== 'false')
-    const bc = localStorage.getItem('dash:showBarChart')
-    if (bc !== null) setShowBarChart(bc !== 'false')
   }, [])
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingWidget, setEditingWidget] = useState<Widget | null>(null)
@@ -459,36 +456,6 @@ export function DashboardClient({
               className="flex w-full items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-2.5 transition-all hover:border-white/10"
             >
               <span className="font-ui text-textMuted/40" style={{ fontSize: '9px', letterSpacing: '0.14em' }}>DAILY SCORE</span>
-              <Eye className="h-3 w-3 text-textMuted/30" />
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ── Weekly / N-day bar chart ── */}
-      {targets.length > 0 && (showBarChart || editMode) && (
-        <div className="relative">
-          {showBarChart ? (
-            <>
-              <WeeklyBarChart dayScores={dayScores} />
-              {editMode && (
-                <button
-                  type="button"
-                  onClick={() => { setShowBarChart(false); localStorage.setItem('dash:showBarChart', 'false') }}
-                  className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-black/40 text-textMuted/50 transition-all hover:border-white/20 hover:text-textMuted"
-                  title="Hide bar chart"
-                >
-                  <EyeOff className="h-3 w-3" />
-                </button>
-              )}
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => { setShowBarChart(true); localStorage.setItem('dash:showBarChart', 'true') }}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-2.5 transition-all hover:border-white/10"
-            >
-              <span className="font-ui text-textMuted/40" style={{ fontSize: '9px', letterSpacing: '0.14em' }}>TARGET COMPLETION</span>
               <Eye className="h-3 w-3 text-textMuted/30" />
             </button>
           )}

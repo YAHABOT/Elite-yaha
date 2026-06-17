@@ -132,7 +132,7 @@ export function SaveToFoodBankCard({ card }: Props): React.ReactElement {
               placeholder="Name…"
             />
           ) : (
-            <p className="text-sm font-bold text-textPrimary truncate">{editable.name}</p>
+            <p className="text-sm font-bold text-textPrimary break-words leading-snug">{editable.name}</p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">

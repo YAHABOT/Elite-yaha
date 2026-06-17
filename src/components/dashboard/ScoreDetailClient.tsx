@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronLeft, SlidersHorizontal } from 'lucide-react'
+import { ChevronLeft, SlidersHorizontal, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import type { DayDetail, TargetDetail } from '@/app/(app)/(content)/dashboard/score/page'
+import { TargetsShareCard } from '@/components/dashboard/TargetsShareCard'
+import { captureAndShare } from '@/lib/share/capture'
 
 const TRACKER_COLORS: Record<string, string> = {
   nutrition: '#10b981',
@@ -180,10 +182,26 @@ type Props = {
   dayDetails: DayDetail[]
 }
 
+type ShareState = { date: string; score: number; targets: TargetDetail[]; hasTargets: boolean } | null
+
 export function ScoreDetailClient({ dayDetails }: Props): React.ReactElement {
   const todayIndex = dayDetails.length - 1
   const [selectedIndex, setSelectedIndex] = useState(todayIndex)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const targetsCardRef = useRef<HTMLDivElement>(null)
+  const [isSharing, setIsSharing] = useState(false)
+  const [shareState, setShareState] = useState<ShareState>(null)
+  const pendingCapture = useRef(false)
+
+  useEffect(() => {
+    if (shareState && pendingCapture.current) {
+      pendingCapture.current = false
+      void captureAndShare(targetsCardRef, `yaha-targets-${shareState.date}.jpg`).finally(() => {
+        setShareState(null)
+        setIsSharing(false)
+      })
+    }
+  }, [shareState])
 
   // Auto-scroll to today on mount
   useEffect(() => {
@@ -191,6 +209,13 @@ export function ScoreDetailClient({ dayDetails }: Props): React.ReactElement {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
     }
   }, [])
+
+  function handleShare() {
+    if (isSharing || !selected) return
+    setIsSharing(true)
+    pendingCapture.current = true
+    setShareState({ date: selected.date, score: selected.score, targets: selected.targets, hasTargets: selected.hasTargets })
+  }
 
   const selected = dayDetails[selectedIndex]
   const scoreColor = selected ? getScoreColor(selected.score) : '#334155'
@@ -225,13 +250,25 @@ export function ScoreDetailClient({ dayDetails }: Props): React.ReactElement {
             {displayDate}
           </h1>
         </div>
-        <Link
-          href="/settings/targets"
-          className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-textMuted transition-all hover:border-white/20 hover:text-textPrimary"
-        >
-          <SlidersHorizontal className="h-3 w-3" />
-          <span className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>MANAGE TARGETS</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleShare}
+            disabled={isSharing || !selected?.hasTargets}
+            title="Share today's targets"
+            className="flex items-center gap-1.5 rounded-xl border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-3 py-1.5 text-[#00d4ff] transition-all hover:bg-[#00d4ff]/20 disabled:opacity-30"
+          >
+            <Share2 className="h-3 w-3" />
+            <span className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>SHARE</span>
+          </button>
+          <Link
+            href="/settings/targets"
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-textMuted transition-all hover:border-white/20 hover:text-textPrimary"
+          >
+            <SlidersHorizontal className="h-3 w-3" />
+            <span className="font-ui" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>MANAGE</span>
+          </Link>
+        </div>
       </div>
 
       {/* Day bar chart — horizontal scroll */}
@@ -368,6 +405,17 @@ export function ScoreDetailClient({ dayDetails }: Props): React.ReactElement {
             </div>
           )}
         </div>
+      )}
+
+      {/* Off-screen targets share card — mounted only during capture */}
+      {shareState && (
+        <TargetsShareCard
+          ref={targetsCardRef}
+          date={shareState.date}
+          score={shareState.score}
+          targets={shareState.targets}
+          hasTargets={shareState.hasTargets}
+        />
       )}
     </div>
   )

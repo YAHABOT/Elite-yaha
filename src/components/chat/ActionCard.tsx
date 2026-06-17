@@ -448,6 +448,11 @@ export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm,
       Object.entries(card.fields).map(([key, val]) => {
         if (val === null || val === undefined) return [key, '']
         if (Array.isArray(val)) return [key, val.join(', ')]
+        // Duration fields: convert raw seconds → H:MM:SS for the input
+        if (card.fieldDefinitions?.[key]?.type === 'duration') {
+          const numVal = typeof val === 'number' ? val : typeof val === 'string' ? parseFloat(val as string) : NaN
+          if (!isNaN(numVal)) return [key, formatDuration(numVal)]
+        }
         return [key, val]
       })
     )
@@ -458,8 +463,18 @@ export function UpdateDataCardComponent({ card, messageId, cardIndex, onConfirm,
   async function handleConfirm(): Promise<void> {
     setStatus('loading')
     setErrorMessage(null)
+    // Convert H:MM:SS strings back to seconds for duration fields (mirrors LOG_DATA confirm)
+    const fieldsToConfirm = Object.fromEntries(
+      Object.entries(editableFields).map(([key, val]) => {
+        if (card.fieldDefinitions?.[key]?.type === 'duration' && typeof val === 'string' && val.includes(':')) {
+          const secs = parseDuration(val)
+          return [key, secs ?? val]
+        }
+        return [key, val]
+      })
+    )
     const confirmedFields = Object.fromEntries(
-      Object.entries(editableFields).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+      Object.entries(fieldsToConfirm).filter(([, v]) => v !== '' && v !== null && v !== undefined)
     )
     const result = await updateLogAction({ ...card, fields: confirmedFields }, messageId, cardIndex)
     if (result.error) {

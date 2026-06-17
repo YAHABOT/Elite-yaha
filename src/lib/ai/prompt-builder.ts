@@ -264,6 +264,12 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - Store exactly what user/image provided.
     - Exception: If rounding is explicitly stated in the field definition (e.g., "nearest 5min" for time), apply only that rounding.
     - NEVER fabricate values because fields are blank. Ask the user first.
+15b. **COMPLETE FIELD EXTRACTION — NO PARTIAL READS**: When an image, screenshot, or structured data source contains values for a tracker with multiple fields:
+    - You MUST extract and populate EVERY field that has a visible, readable value. Do NOT stop after filling a few fields.
+    - Scan the ENTIRE image/data top-to-bottom. Every numeric, text, or time value visible must be mapped to its matching tracker field ID.
+    - After building the action card JSON, mentally verify: "Did I fill every field that had data?" If any readable field is missing from the JSON, add it.
+    - NEVER ask the user to provide data that is already visible in the image/screenshot they sent. Only ask for values that are genuinely not shown.
+    - For fitness/workout screenshots specifically: ALWAYS check for and extract Steps, Distance, Duration, Calories, all Heart Rate Zone times (Zones 1–5), Pace, Cadence, VO2 Max, Elevation Gain, and any score fields. These fields are commonly missed on first pass — do a deliberate second scan of the image for any numeric value not yet mapped to a field.
 
 ### Extended Anti-Hallucination Rules (16-21)
 16. **NO SELF-ANSWER OR FABRICATED CONFIRMATIONS**: NEVER output a SELECT field with a pre-selected value unless the user explicitly provided it. If the user hasn't answered a SELECT question yet, present an EMPTY or PLACEHOLDER action card with the question visible, and wait for user input. NEVER assume what the user will select or fill in blank SELECT fields with guesses. Example:
@@ -527,6 +533,7 @@ When the user says "add to food bank", "save to food bank", "save to pantry", "a
 You can return SAVE_TO_FOOD_BANK and LOG_DATA in the same response array when the user wants both.
 NEVER create a tracker or use LOG_DATA for food bank save-only requests.
 NEVER ask for confirmation before generating the card — just produce it.
+NEVER PROACTIVELY SUGGEST OR ASK about saving to the food bank. If the user just logs food normally, produce only a LOG_DATA card. Do NOT add phrases like "Would you like to save this to your food bank?" or "Shall I add this to your pantry?" unless the user explicitly asked. The food bank is opt-in on the user's request only.
 
 Dish example: [{"type":"SAVE_TO_FOOD_BANK","name":"Meat & Cheese Sandwich","entry_type":"dish","shortcut":null,"serving_label":"1 sandwich","serving_size_g":270,"kcal":520,"protein_g":32,"carbs_g":48,"fat_g":22,"fibre_g":3,"ingredients":[{"name":"Bread","qty_label":"100g","kcal":265,"protein_g":9,"carbs_g":49,"fat_g":3},{"name":"Cheese","qty_label":"30g","kcal":114,"protein_g":7,"carbs_g":0,"fat_g":9}],"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
 Pantry example: [{"type":"SAVE_TO_FOOD_BANK","name":"Rolled Oats","entry_type":"pantry_item","shortcut":"oats","serving_label":"100g","serving_size_g":100,"kcal":389,"protein_g":17,"carbs_g":66,"fat_g":7,"fibre_g":10,"ingredients":null,"batch_yield_g":null,"batch_kcal":null,"batch_protein_g":null,"batch_carbs_g":null,"batch_fat_g":null,"notes":null}]
@@ -545,7 +552,7 @@ export function buildFoodBankSection(entries: FoodBankEntry[], referencedNames: 
   const shortcutStr = (e: FoodBankEntry) => e.shortcut ? ` [${e.shortcut}]` : ''
   const servingStr = (e: FoodBankEntry) => e.serving_label ? ` | ${e.serving_label}` : ''
 
-  let out = `## FOOD BANK (Your Saved Items)\nThe user has activated food bank mode. Match items by name or shortcut (case-insensitive).\nIf no food bank item matches, estimate normally — never mention the food bank lookup.\n`
+  let out = `## FOOD BANK (Your Saved Items)\n🔴 ABSOLUTE PRIORITY RULE: Food bank entries override ALL other data sources. When ANY item in the user's message matches a food bank entry by name OR shortcut (case-insensitive), you MUST use the stored macros EXACTLY — no exceptions. It is FORBIDDEN to use USDA estimates, generic values, or any other source for matched items. The food bank values are pre-verified by the user.\nIf genuinely no food bank entry matches an item, THEN estimate normally — but never mention the food bank lookup.\n`
 
   if (pantry.length > 0) {
     out += `\n### PANTRY ITEMS (scale proportionally if qty differs from stored serving)\n`
@@ -929,22 +936,22 @@ NEVER say "Approved and Logged" means you merely prepared a log-ready format —
 `
 
   const YES_NO_FIELD_RULE = `
-## 🟡 YES/NO (BOOLEAN) FIELD RULE — CRITICAL — NO AMBIGUITY
-SELECT fields with ["Yes", "No"] options are ALWAYS data fields, NEVER skip/navigation controls.
+## 🟡 YES/NO (BOOLEAN) FIELD RULE — CRITICAL — OVERRIDES SELECT VALIDATION
+SELECT fields with ["Yes", "No"] (or ["yes", "no"] or any capitalisation) are BOOLEAN fields. They follow COMPLETELY DIFFERENT rules from other SELECT fields — do NOT apply SELECT_FIELD_VALIDATION_RULE to them.
 
-**User input → Action:**
-- "yes", "yeah", "yep" → Log the field as "Yes" (or true) — MANDATORY
-- "no", "nope", "nah" → Log the field as "No" (or false) — MANDATORY
+🔴 CASE-INSENSITIVE — accept any of these without asking for clarification:
+- For "Yes": "yes", "Yes", "YES", "yeah", "yep", "y", "sure", "correct", "true" → log as the stored "Yes" option (exact stored value)
+- For "No": "no", "No", "NO", "nope", "nah", "n", "negative", "not really" → log as the stored "No" option (exact stored value)
 - "skip", "skip this", "pass", "next step" → Skip this ENTIRE step (do NOT log) — only for these explicit words
 
-**DO NOT:**
-- Treat "no" as a skip intent. "No" to a boolean field = log false, not skip.
-- Ask the user to clarify if they mean "no" as data vs. skip — the context is unambiguous.
-- Use tone, hesitation, or context clues to override the rule — the rule is absolute.
+🔴 NEVER say "That's not in the list" for a yes/no field. "no" and "No" and "NO" are ALL valid for a [Yes/No] select.
+🔴 NEVER ask the user to clarify. "No" to a yes/no field = log the "No" option immediately. MANDATORY.
+🔴 DO NOT treat "no" as skip intent. Only the word "skip" means skip.
 
 **Example:**
-- Step has field "Did you exercise today?" (SELECT: ["Yes", "No"])
-- User: "no, I was busy" → LOG CARD with "No" selected
+- Step has field "Was today a Benchmark Day?" (SELECT: ["Yes", "No"])
+- User: "No" → LOG CARD with stored "No" value — IMMEDIATELY, no clarification needed
+- User: "no" → same, LOG CARD with "No"
 - User: "skip" → DO NOT LOG, advance to next step
 `
 
@@ -1041,7 +1048,7 @@ ${targetsSection}${historicalSection ? `\n${historicalSection}\n` : ''}
 4. **Present & Confirm (MANDATORY)**:
    - When the user provides data for the ACTIVE STEP, produce the JSON log card.
    - After the card, write ONE short sentence acknowledging the data (e.g., "Got it — Sleep logged!").
-   - ${nextStep ? `Let ${name} know the card is ready to confirm, and that Step ${currentStepIndex + 2} (${nextStep.trackerName}) will follow once they confirm. Do NOT ask for Step ${currentStepIndex + 2} data yet — wait for them to confirm the card above first.` : `🔴 EX16 FIX — FINAL STEP MANDATORY COMPLETION MESSAGE: After the user confirms this action card, you MUST explicitly say "${routine.name} complete! All done for today." Use those exact words or equivalent. NEVER silently end the routine. NEVER ask for more data after this step. The routine is FINISHED.`}
+   - ${nextStep ? `Tell ${name} the card is ready — one sentence only (e.g. "Got it — confirm the card above and we'll move on to Step ${currentStepIndex + 2}: ${nextStep.trackerName}."). 🔴 NEVER list, preview, or mention the specific fields for Step ${currentStepIndex + 2} here. NEVER write bullet points or field names for the next step. Only say the step name and that it comes next. Listing next-step fields here causes them to appear TWICE.` : `🔴 EX16 FIX — FINAL STEP MANDATORY COMPLETION MESSAGE: After the user confirms this action card, you MUST explicitly say "${routine.name} complete! All done for today." Use those exact words or equivalent. NEVER silently end the routine. NEVER ask for more data after this step. The routine is FINISHED.`}
 5. **Brief**: Keep conversational text under 2 sentences (excluding the next-step question).
 
 ## DATA FORMAT
@@ -1055,11 +1062,20 @@ ${MULTI_FIELD_PROMPT_RULE}
 **ALWAYS append a JSON block after your conversational response when collecting data. NEVER skip the JSON block.**
 
 **EX12 FIX — CRITICAL EXCEPTION: DATA REQUIRED BEFORE CARD:**
-If the user's message is "continue", "next", "ok", "ready", or any transition phrase WITHOUT actual data values, you MUST output an empty JSON array (just [ ]) and ASK for the data. NEVER output a pre-filled LOG_DATA card if the user has not yet provided the values for this step.
+If the user's message is "continue", "next", "ok", "ready", or any transition phrase WITHOUT actual data values AND WITHOUT images, you MUST output an empty JSON array (just [ ]) and ASK for the data. NEVER output a pre-filled LOG_DATA card if the user has not yet provided the values for this step.
 - WRONG: User says "continue" → You output LOG_DATA with guessed/default values
 - RIGHT: User says "continue" → You ask "What was your [metric]? Please provide [field names]" then output empty array
 - WRONG: Auto-advance fires with no user data → You generate a card with arbitrary values
 - RIGHT: Auto-advance fires → You greet the new step and ask for the specific data needed
+
+**🔴 IMAGE/SCREENSHOT EXCEPTION — CRITICAL:**
+If the user sends images or screenshots (even with no text message), this is NOT a transition phrase — the images ARE the data for this step. You MUST:
+1. Analyse every image provided
+2. Extract ALL visible values and map them to this step's field IDs
+3. Produce the action card immediately — do NOT re-ask for data that is visible in the images
+4. NEVER output an empty array when images are present — always extract and produce the card
+- WRONG: User sends sleep screenshot with no text → You say "Please provide your sleep score..." and output []
+- RIGHT: User sends sleep screenshot with no text → You extract all values from the screenshot and output the LOG_DATA card
 
 CRITICAL FORMATTING REQUIREMENTS (non-negotiable):
 1. Use triple backticks with 'json' language tag: \`\`\`json

@@ -3,7 +3,6 @@ import { getWidgets } from '@/lib/db/dashboard'
 import {
   computeWidgetValueOptimized,
   computeDailyScore,
-  computeDailyScores,
   computeDeltaPct,
   computeDailyPointsFromLogs,
   getSparklineDays,
@@ -151,7 +150,6 @@ export async function DashboardContent({
     )
     const corrRecords = correlationRecords as CorrelationRecord[]
     const dailyScore = computeDailyScore(todayActual, targets, corrRecords, trackers)
-    const dayScores = computeDailyScores(nDayLogs as TrackerLog[], targets, 30, corrRecords, trackers)
 
     const emailName = userEmail.split('@')[0] ?? 'there'
     const userName = userProfile?.alias ?? emailName
@@ -173,7 +171,6 @@ export async function DashboardContent({
         userName={userName}
         targets={targets}
         dailyScore={dailyScore}
-        dayScores={dayScores}
         correlations={correlationOptions}
       />
     )

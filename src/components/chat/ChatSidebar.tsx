@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, MessageSquare, Trash2, Check, X, Pencil, CheckSquare, Square, ArrowLeft } from 'lucide-react'
 import type { ChatSession } from '@/types/chat'
@@ -39,6 +39,7 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
   // Only render time strings after mount to prevent React hydration mismatch crash.
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -112,11 +113,13 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
   // When rendered as a mobile overlay, close the sidebar then navigate so the overlay
   // dismisses cleanly before the route transition begins.
   const handleNewChat = useCallback(() => {
-    if (onMobileClose) {
-      onMobileClose()
+    if (onMobileClose) onMobileClose()
+    if (pathname === '/chat/new') {
+      router.refresh()
+    } else {
+      router.push('/chat/new')
     }
-    router.push('/chat/new')
-  }, [onMobileClose, router])
+  }, [onMobileClose, router, pathname])
 
   const allSelected = sessions.length > 0 && selectedIds.size === sessions.length
 

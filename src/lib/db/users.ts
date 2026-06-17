@@ -25,8 +25,54 @@ export type UserTarget = {
 /** Stored as a JSONB array in users.targets */
 export type UserTargets = UserTarget[]
 
+export type OnboardingManualFlags = {
+  home_screen?: boolean       // step 1
+  profile_done?: boolean      // step 2
+  journal_visited?: boolean   // step 6
+  correlator_done?: boolean   // step 7
+  routines_done?: boolean     // step 8
+  food_bank_done?: boolean    // step 10
+  agents_done?: boolean       // step 11
+  tracker_page_done?: boolean // step 4
+  dismissed?: boolean         // user dismissed chip permanently
+}
+
+export type UserProfile = {
+  dob?: string              // YYYY-MM-DD
+  heightCm?: number
+  gender?: 'male' | 'female'
+}
+
+export type ShareFieldConfig = {
+  fieldId: string
+  enabled: boolean
+  aggregation: 'sum' | 'avg'
+}
+
+export type ShareTrackerItem = {
+  type: 'tracker'
+  id: string
+  enabled: boolean
+  fields: ShareFieldConfig[]
+}
+
+export type ShareCorrelationItem = {
+  type: 'correlation'
+  id: string
+  enabled: boolean
+}
+
+export type ShareCardItem = ShareTrackerItem | ShareCorrelationItem
+
+export type ShareCardConfig = {
+  items: ShareCardItem[]
+}
+
 export type UserStats = {
   confirmOnRefresh?: boolean
+  onboarding?: OnboardingManualFlags
+  profile?: UserProfile
+  shareCard?: ShareCardConfig
 }
 
 export type User = {

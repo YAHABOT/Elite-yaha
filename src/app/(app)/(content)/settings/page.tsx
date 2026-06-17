@@ -17,6 +17,8 @@ export default async function SettingsPage(): Promise<React.ReactElement> {
     // DB error — render form with empty defaults
   }
 
+  const initialShowGuide = profile?.stats?.onboarding?.dismissed !== true
+
   return (
     <div className="mx-auto max-w-2xl px-6 py-12 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-2">
@@ -28,7 +30,7 @@ export default async function SettingsPage(): Promise<React.ReactElement> {
         </div>
       </div>
 
-      <SettingsForm initialValues={profile} />
+      <SettingsForm initialShowGuide={initialShowGuide} />
     </div>
   )
 }

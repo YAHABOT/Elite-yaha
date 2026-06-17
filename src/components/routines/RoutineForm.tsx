@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X, Save, Shield, Terminal, Target, Check } from 'lucide-react'
+import { Plus, X, Save, Shield, Terminal, Target, Check, AlertTriangle } from 'lucide-react'
 import type { Routine, RoutineStep, RoutineType } from '@/types/routine'
 import type { Tracker } from '@/types/tracker'
 import { createRoutineAction, updateRoutineAction } from '@/app/actions/routines'
@@ -63,6 +63,23 @@ export function RoutineForm({ trackers, initialValues }: Props) {
   const [showTrackerPicker, setShowTrackerPicker] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<boolean>(false)
+  const [showDayStartWarning, setShowDayStartWarning] = useState<boolean>(false)
+  const [pendingType, setPendingType] = useState<RoutineType | null>(null)
+
+  function handleTypeChange(value: RoutineType): void {
+    if (value === 'day_start') {
+      setPendingType('day_start')
+      setShowDayStartWarning(true)
+    } else {
+      setType(value)
+    }
+  }
+
+  function handleWarningConfirm(): void {
+    if (pendingType) setType(pendingType)
+    setPendingType(null)
+    setShowDayStartWarning(false)
+  }
 
   function handleAddStep(trackerId: string): void {
     setStepDrafts((prev) => [...prev, { trackerId, selectedFieldIds: new Set() }])
@@ -119,6 +136,48 @@ export function RoutineForm({ trackers, initialValues }: Props) {
   }
 
   return (
+    <>
+      {/* Day Start warning modal */}
+      {showDayStartWarning && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-[32px] border border-amber-500/20 bg-[#0A0A0A] p-8 space-y-6 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="h-5 w-5 text-amber-400" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-base font-black text-textPrimary tracking-tight">Day Start needs a Day End</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-amber-400/70">Required pairing</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-sm text-textMuted leading-relaxed">
+              <p>
+                A <span className="font-bold text-textPrimary">Day Start</span> routine opens a daily session. While that session is open, every log you make goes to that day&apos;s date — even after midnight.
+              </p>
+              <p>
+                The session only closes when a <span className="font-bold text-textPrimary">Day End</span> routine completes. Without one, the session stays open forever and all your future logs keep piling into the same date.
+              </p>
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                <p className="text-xs">
+                  <span className="font-bold text-textPrimary">You don&apos;t need any steps in Day End.</span> Create it with zero trackers if you want — it just needs to exist. When it shows up in the chat, you can skip right through it.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleWarningConfirm}
+              className="w-full rounded-2xl bg-amber-500 px-6 py-4 text-sm font-black uppercase tracking-wide text-[#050505] transition-all hover:bg-amber-400 active:scale-95 shadow-lg shadow-amber-500/20"
+            >
+              I Understand — Continue
+            </button>
+
+          </div>
+        </div>
+      )}
+
     <form onSubmit={handleSubmit} className="space-y-10">
       {error && (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-100 italic">
@@ -147,7 +206,7 @@ export function RoutineForm({ trackers, initialValues }: Props) {
           <div className="relative">
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as RoutineType)}
+              onChange={(e) => handleTypeChange(e.target.value as RoutineType)}
               className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-sm font-bold text-textPrimary focus:border-nutrition/40 focus:outline-none appearance-none cursor-pointer transition-all duration-200"
             >
               {TYPE_OPTIONS.map((opt) => (
@@ -310,5 +369,6 @@ export function RoutineForm({ trackers, initialValues }: Props) {
         </button>
       </div>
     </form>
+    </>
   )
 }

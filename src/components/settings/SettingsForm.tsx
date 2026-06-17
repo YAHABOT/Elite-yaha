@@ -2,11 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import {
-  updateAliasAction,
-} from '@/app/actions/settings'
 import { signOut } from '@/app/actions/auth'
-import type { User } from '@/lib/db/users'
+import { dismissOnboarding, restoreOnboarding } from '@/app/actions/onboarding'
 import {
   Bot,
   Workflow,
@@ -15,10 +12,14 @@ import {
   LogOut,
   ChevronRight,
   Utensils,
+  BookOpen,
+  LayoutList,
+  UserCircle,
+  Share2,
 } from 'lucide-react'
 
 type Props = {
-  initialValues: User | null
+  initialShowGuide: boolean
 }
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
@@ -33,123 +34,78 @@ function Section({ title, description, children }: { title: string; description?
   )
 }
 
-function DeveloperButton({
-  icon: Icon,
-  label,
-  href,
-  colorClass,
+
+function NavRow({
+  href, icon: Icon, iconBg, iconColor, title, description, hoverBorder,
 }: {
-  icon: React.ElementType
-  label: string
-  href: string
-  colorClass: string
+  href: string; icon: React.ElementType; iconBg: string; iconColor: string
+  title: string; description: string; hoverBorder: string
 }) {
   return (
     <Link
       href={href}
-      className={`flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-4 py-3.5 transition-all hover:scale-[1.02] active:scale-98 shadow-lg group ${colorClass}`}
+      className={`flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-all duration-200 hover:bg-white/[0.04] group ${hoverBorder}`}
     >
-      <Icon className="h-4 w-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
-      <span className="text-[10px] font-black uppercase tracking-wide leading-tight text-center">{label}</span>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: iconBg, border: `1px solid ${iconColor}30` }}>
+          <Icon className="h-4 w-4" style={{ color: iconColor }} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-textPrimary">{title}</p>
+          <p className="text-xs text-textMuted opacity-60 mt-0.5">{description}</p>
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 ml-3 text-textMuted/40 group-hover:text-textMuted transition-colors" />
     </Link>
   )
 }
 
-export function SettingsForm({ initialValues }: Props): React.ReactElement {
-  const [aliasValue, setAliasValue] = useState(initialValues?.alias ?? '')
-  const [aliasSaveState, setAliasSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+function SystemSection() {
+  return (
+    <div className="rounded-[32px] border border-white/5 bg-white/[0.02] p-8 backdrop-blur-3xl shadow-2xl space-y-3">
+      <h2 className="font-ui text-xl text-textPrimary tracking-tight mb-6">System</h2>
+      <NavRow href="/settings/food-bank" icon={Utensils} iconBg="rgba(16,185,129,0.08)" iconColor="#10b981" title="Food Bank" description="Dishes, pantry staples, and shortcuts" hoverBorder="hover:border-[rgba(16,185,129,0.25)]" />
+      <NavRow href="/settings/targets" icon={Footprints} iconBg="rgba(0,212,255,0.08)" iconColor="#00d4ff" title="Daily Targets" description="Create, edit and delete daily goals" hoverBorder="hover:border-[rgba(0,212,255,0.25)]" />
+      <NavRow href="/settings/agent-forge" icon={Bot} iconBg="rgba(59,130,246,0.08)" iconColor="#3b82f6" title="Agent Management" description="Configure and manage AI agents" hoverBorder="hover:border-[rgba(59,130,246,0.25)]" />
+      <NavRow href="/settings/routines" icon={Workflow} iconBg="rgba(168,85,247,0.08)" iconColor="#a855f7" title="Routine Management" description="Set up daily routines and protocols" hoverBorder="hover:border-[rgba(168,85,247,0.25)]" />
+      <NavRow href="/settings/share-card" icon={Share2} iconBg="rgba(0,212,255,0.08)" iconColor="#00d4ff" title="Share Card" description="Choose what appears on your daily share image" hoverBorder="hover:border-[rgba(0,212,255,0.25)]" />
+    </div>
+  )
+}
 
-  async function handleAliasBlur() {
-    if (aliasValue.trim() === (initialValues?.alias ?? '').trim()) return
-    setAliasSaveState('saving')
-    const result = await updateAliasAction(aliasValue)
-    setAliasSaveState(result.error ? 'idle' : 'saved')
-    if (!result.error) setTimeout(() => setAliasSaveState('idle'), 2000)
+export function SettingsForm({ initialShowGuide }: Props): React.ReactElement {
+  const [showGuide, setShowGuide] = useState(initialShowGuide)
+  const [guideToggleSaving, setGuideToggleSaving] = useState(false)
+
+  async function handleGuideToggle() {
+    if (guideToggleSaving) return
+    setGuideToggleSaving(true)
+    const nextValue = !showGuide
+    setShowGuide(nextValue)
+    if (nextValue) {
+      await restoreOnboarding()
+    } else {
+      await dismissOnboarding()
+    }
+    setGuideToggleSaving(false)
   }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
 
-      {/* Identity & System */}
-      <Section title="Identity & System" description="Manage your persona and developer access.">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-40">Alias</label>
-              {aliasSaveState === 'saving' && (
-                <span className="text-[9px] font-black uppercase tracking-widest text-textMuted/40">Saving…</span>
-              )}
-              {aliasSaveState === 'saved' && (
-                <span className="text-[9px] font-black uppercase tracking-widest text-nutrition">✓ Saved</span>
-              )}
-            </div>
-            <input
-              value={aliasValue}
-              onChange={e => setAliasValue(e.target.value)}
-              onBlur={() => void handleAliasBlur()}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-bold text-textPrimary placeholder:text-textMuted/20 focus:border-nutrition/50 focus:outline-none focus:ring-1 focus:ring-nutrition/20 transition-all duration-300"
-              placeholder="Unknown"
-              maxLength={50}
-            />
-          </div>
+      {/* Profile */}
+      <NavRow
+        href="/settings/profile"
+        icon={UserCircle}
+        iconBg="rgba(6,182,212,0.08)"
+        iconColor="#06b6d4"
+        title="Profile"
+        description="Alias, date of birth, height, and gender"
+        hoverBorder="hover:border-[rgba(6,182,212,0.25)]"
+      />
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-textMuted opacity-40 mb-2 block">Developer Mode</label>
-            <div className="grid grid-cols-2 gap-3">
-              <DeveloperButton
-                icon={Bot}
-                label="Agent Management"
-                href="/settings/agent-forge"
-                colorClass="hover:border-sleep/30 hover:shadow-sleep/5 text-sleep/80 hover:text-sleep"
-              />
-              <DeveloperButton
-                icon={Workflow}
-                label="Routine Management"
-                href="/settings/routines"
-                colorClass="hover:border-purple-500/30 hover:shadow-purple-500/5 text-purple-400/80 hover:text-purple-400"
-              />
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      {/* Food Bank */}
-      <Section title="Food Bank" description="Save dishes and pantry staples for instant AI logging.">
-        <Link
-          href="/settings/food-bank"
-          className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-all duration-200 hover:border-[rgba(16,185,129,0.25)] hover:bg-white/[0.04] group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
-              <Utensils className="h-4 w-4" style={{ color: '#10b981' }} />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-textPrimary">Manage Food Bank</p>
-              <p className="text-xs text-textMuted opacity-60 mt-0.5">Dishes, pantry staples, and shortcuts</p>
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-textMuted/40 group-hover:text-textMuted transition-colors" />
-        </Link>
-      </Section>
-
-      {/* Daily Targets */}
-      <Section title="Daily Targets" description="Set goals tied to your actual tracker fields.">
-        <Link
-          href="/settings/targets"
-          className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-all duration-200 hover:border-[rgba(0,212,255,0.25)] hover:bg-white/[0.04] group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.18)' }}>
-              <Footprints className="h-4 w-4" style={{ color: '#00d4ff' }} />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-textPrimary">Manage Targets</p>
-              <p className="text-xs text-textMuted opacity-60 mt-0.5">Create, edit and delete daily goals</p>
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-textMuted/40 group-hover:text-textMuted transition-colors" />
-        </Link>
-      </Section>
+      {/* System */}
+      <SystemSection />
 
       {/* AI_SUMMARIES_DEFERRED — see docs/plans/ai-summaries-deferred.md
           Re-enable by restoring the Section here + the pill links in DashboardClient.tsx */}
@@ -175,6 +131,60 @@ export function SettingsForm({ initialValues }: Props): React.ReactElement {
             </div>
             <div className="text-[10px] font-bold text-textMuted opacity-40 px-1">COMING SOON</div>
           </div>
+        </div>
+      </Section>
+
+      {/* Help & Guide */}
+      <Section title="Help & Guide" description="Learn how to get the most out of YAHA.">
+        <Link
+          href="/settings/guide"
+          className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-all duration-200 hover:border-[rgba(168,85,247,0.25)] hover:bg-white/[0.04] group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.18)' }}>
+              <BookOpen className="h-4 w-4" style={{ color: '#a855f7' }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-textPrimary">How to Use YAHA</p>
+              <p className="text-xs text-textMuted opacity-60 mt-0.5">Step-by-step guide — trackers, logging, dashboard, routines</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-textMuted/40 group-hover:text-textMuted transition-colors" />
+        </Link>
+
+        {/* Setup Guide toggle */}
+        <div className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.18)' }}>
+              <LayoutList className="h-4 w-4" style={{ color: '#a855f7' }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-textPrimary">Show Setup Guide</p>
+              <p className="text-xs text-textMuted opacity-60 mt-0.5">Floating checklist to help you get started</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleGuideToggle()}
+            disabled={guideToggleSaving}
+            aria-label={showGuide ? 'Hide setup guide' : 'Show setup guide'}
+            className={[
+              'relative h-6 w-11 shrink-0 rounded-full border transition-all duration-200',
+              showGuide
+                ? 'bg-[#06b6d4]/20 border-[#06b6d4]/40'
+                : 'bg-[#1E1E1E] border-[#1E1E1E]',
+              guideToggleSaving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'absolute top-0.5 h-5 w-5 rounded-full transition-all duration-200',
+                showGuide
+                  ? 'left-[calc(100%-1.375rem)] bg-[#06b6d4]'
+                  : 'left-0.5 bg-[#A1A1AA]/40',
+              ].join(' ')}
+            />
+          </button>
         </div>
       </Section>
 

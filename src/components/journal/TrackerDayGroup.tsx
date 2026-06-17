@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { Settings, ChevronDown, GripVertical } from 'lucide-react'
@@ -42,7 +42,7 @@ function getSourceBadgeStyle(source: LogSource): React.CSSProperties {
   if (source === 'telegram') return { background: 'rgba(168,85,247,0.18)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.30)' }
   if (source === 'chat') return { background: 'rgba(0,212,255,0.18)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.30)' }
   if (source === 'web') return { background: 'rgba(0,212,255,0.18)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.30)' }
-  return { background: '#1c3858', color: '#94a3b8', border: '1px solid rgba(0,212,255,0.13)' }
+  return { background: '#234468', color: '#94a3b8', border: '1px solid rgba(0,212,255,0.13)' }
 }
 
 // ── Totals helpers ────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ export function TrackerDayGroup({ tracker, logs, showTotals, isOpen: controlledO
             {/* Chevron toggle */}
             <span
               className="flex h-[26px] w-[26px] items-center justify-center rounded-full transition-transform duration-200"
-              style={{ background: '#1c3858', color: '#94a3b8', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+              style={{ background: '#234468', color: '#94a3b8', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
             >
               <ChevronDown className="h-3.5 w-3.5" />
             </span>

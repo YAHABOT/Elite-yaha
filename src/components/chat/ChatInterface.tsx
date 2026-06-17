@@ -74,11 +74,12 @@ type Props = {
   /** Agent ID passed via URL when navigating from home — needed because
    *  active_agent_id may not be in DB yet (race) and library agents are never stored. */
   initialAgentId?: string | null
+  initialPrompt?: string
 }
 
-export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, sessions = [], initialAgentId }: Props): React.ReactElement {
+export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, sessions = [], initialAgentId, initialPrompt }: Props): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
-  const [input, setInput] = useState<string>('')
+  const [input, setInput] = useState<string>(initialPrompt ?? '')
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [error, setError] = useState<string | null>(null)

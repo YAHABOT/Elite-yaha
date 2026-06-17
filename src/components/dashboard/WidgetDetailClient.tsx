@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import {
-  ComposedChart, Bar, Line, Cell, XAxis, YAxis, Tooltip,
+  ComposedChart, Area, Line, XAxis, YAxis, Tooltip,
   ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import type { DailyPoint } from '@/app/(app)/(content)/dashboard/widget/[widgetId]/page'
@@ -89,6 +89,7 @@ type Props = {
   fieldType: string
   target: number | null
   targetDirection: 'above' | 'below'
+  pageTitle: string
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -118,8 +119,8 @@ function CustomTooltip({ active, payload, label, fieldType, unit, color }: Custo
         {val != null ? formatValue(val, fieldType, unit) : 'No data'}
       </p>
       {maEntry?.value != null && (
-        <p className="font-ui mt-0.5" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>
-          MA {formatValue(maEntry.value, fieldType, unit)}
+        <p className="font-ui mt-0.5" style={{ fontSize: '9px', color: 'rgba(168,85,247,0.7)' }}>
+          7D AVG {formatValue(maEntry.value, fieldType, unit)}
         </p>
       )}
     </div>
@@ -128,7 +129,7 @@ function CustomTooltip({ active, payload, label, fieldType, unit, color }: Custo
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerColor, unit, fieldType, target, targetDirection }: Props): React.ReactElement {
+export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerColor, unit, fieldType, target, targetDirection, pageTitle }: Props): React.ReactElement {
   const [preset, setPreset] = useState<Preset>('30D')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -220,8 +221,10 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
       }
       const weekEntries = Array.from(weekMap.entries()).sort(([a], [b]) => a.localeCompare(b))
       return weekEntries.map(([, { values, dateStr }]) => {
+        const shouldSumWeekly = widget.type === 'field_total' || widget.type === 'combined_field' ||
+          (widget.type === 'correlator' && widget.aggregation === 'sum')
         const value = values.length > 0
-          ? (isAggregate ? values.reduce((a, b) => a + b, 0) : values.reduce((a, b) => a + b, 0) / values.length)
+          ? (shouldSumWeekly ? values.reduce((a, b) => a + b, 0) : values.reduce((a, b) => a + b, 0) / values.length)
           : null
         return { date: dateStr, value: value != null ? Math.round(value * 10) / 10 : null, movingAvg: null }
       })
@@ -305,7 +308,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
           {trackerName}
         </p>
         <h1 className="font-display-heading text-lg text-textPrimary leading-tight mt-0.5">
-          {widget.label}
+          {pageTitle}
         </h1>
       </div>
 
@@ -416,7 +419,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
                   color: showMA ? '#a855f7' : 'rgba(168,85,247,0.45)',
                 }}
               >
-                MA
+                7D AVG
               </button>
               {preset !== '90D' && preset !== 'ALL' && (
                 <button
@@ -443,34 +446,42 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
           </div>
 
           <ResponsiveContainer width="100%" height={160}>
-            <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id={`area-gradient-${widget.id}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={trackerColor} stopOpacity={0.28} />
+                  <stop offset="95%" stopColor={trackerColor} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
               <XAxis dataKey="date" hide />
               <YAxis hide domain={[domainMin, domainMax]} />
               <Tooltip
                 content={<CustomTooltip fieldType={fieldType} unit={unit} color={trackerColor} />}
-                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                cursor={{ stroke: trackerColor, strokeWidth: 1, strokeOpacity: 0.25 }}
               />
               {target != null && (
                 <ReferenceLine
                   y={target}
-                  stroke="rgba(255,255,255,0.25)"
+                  stroke="rgba(0,212,255,0.4)"
                   strokeDasharray="4 3"
-                  label={{ value: 'Goal', position: 'insideTopRight', fill: 'rgba(255,255,255,0.3)', fontSize: 9 }}
+                  label={{ value: 'Goal', position: 'insideTopRight', fill: 'rgba(0,212,255,0.7)', fontSize: 9 }}
                 />
               )}
-              <Bar dataKey="value" radius={[2, 2, 0, 0]} maxBarSize={24}>
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.value != null ? trackerColor : 'rgba(255,255,255,0.04)'}
-                    opacity={entry.value != null ? 0.85 : 1}
-                  />
-                ))}
-              </Bar>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={trackerColor}
+                strokeWidth={2}
+                fill={`url(#area-gradient-${widget.id})`}
+                dot={{ r: 2.5, fill: trackerColor, strokeWidth: 1.5, stroke: 'rgba(0,0,0,0.4)' }}
+                activeDot={{ r: 4, fill: trackerColor, strokeWidth: 0 }}
+                connectNulls
+              />
               {showMA && (
                 <Line
+                  type="monotone"
                   dataKey="movingAvg"
-                  stroke="rgba(255,255,255,0.45)"
+                  stroke="rgba(168,85,247,0.75)"
                   strokeWidth={1.5}
                   strokeDasharray="4 2"
                   dot={false}
