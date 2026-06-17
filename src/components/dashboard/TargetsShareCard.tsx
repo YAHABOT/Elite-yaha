@@ -141,7 +141,7 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
               />
             )}
           </svg>
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '96px', height: '96px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontFamily: F_MONO, fontSize: '26px', fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
               {hasTargets ? score : '--'}
             </span>
@@ -155,7 +155,7 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {scoreLabel && (
             <div style={{
-              display: 'inline-block',
+              alignSelf: 'flex-start',
               padding: '4px 12px',
               borderRadius: '9999px',
               fontFamily: F_UI,
@@ -164,7 +164,6 @@ export const TargetsShareCard = forwardRef<HTMLDivElement, Props>(({ date, score
               background: `${scoreColor}22`,
               border: `1px solid ${scoreColor}44`,
               color: scoreColor,
-              width: 'fit-content',
             }}>
               {scoreLabel}
             </div>
