@@ -7,6 +7,8 @@ import { getOnboardingState } from '@/lib/db/onboarding'
 import { OnboardingRoot } from '@/components/onboarding/OnboardingRoot'
 import { ONBOARDING_STEPS } from '@/components/onboarding/steps'
 
+import { FloatingChat } from '@/components/chat/FloatingChat'
+
 export default async function AppLayout({
   children,
 }: {
@@ -52,6 +54,7 @@ export default async function AppLayout({
       <main className="md:pl-64 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0 h-full overflow-hidden">
         {children}
       </main>
+      <FloatingChat />
       <FeedbackModal />
       {onboardingState && (
         <OnboardingRoot initialState={onboardingState} steps={ONBOARDING_STEPS} />

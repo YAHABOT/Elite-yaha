@@ -1,80 +1,22 @@
-export const dynamic = 'force-dynamic'
+'use client'
 
-import { notFound } from 'next/navigation'
-import { getSessions, getSession, getMessages } from '@/lib/db/chat'
-import { getRoutine } from '@/lib/db/routines'
-import { ChatSidebar } from '@/components/chat/ChatSidebar'
-import { ChatInterface } from '@/components/chat/ChatInterface'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { chatEvents } from '@/lib/events/chatEvents'
+import { use } from 'react'
 
-type Props = {
+export default function ChatSessionRedirect({ params, searchParams }: { 
   params: Promise<{ sessionId: string }>
-  searchParams: Promise<{ routine?: string; agent?: string; prompt?: string }>
-}
+  searchParams: Promise<{ routine?: string }>
+}) {
+  const router = useRouter()
+  const { sessionId } = use(params)
+  const { routine } = use(searchParams)
 
-export default async function ChatSessionPage({ params, searchParams }: Props): Promise<React.ReactElement> {
-  const { sessionId } = await params
-  const { routine: routineParam, agent: agentParam, prompt: promptParam } = await searchParams
+  useEffect(() => {
+    chatEvents.openChat({ sessionId, initialRoutineId: routine || null })
+    router.replace('/dashboard')
+  }, [sessionId, routine, router])
 
-  if (sessionId === 'new') {
-    const [sessions, initialRoutine] = await Promise.all([
-      getSessions(),
-      routineParam ? getRoutine(routineParam).catch(() => null) : Promise.resolve(null),
-    ])
-
-    return (
-      <div className="flex h-full min-h-0 overflow-hidden">
-        <ChatSidebar sessions={sessions} />
-        <div className="flex flex-1 flex-col min-h-0 overflow-hidden bg-background">
-          <ChatInterface
-            initialMessages={[]}
-            sessionId="new"
-            session={null}
-            initialRoutine={initialRoutine}
-            sessions={sessions}
-            initialAgentId={agentParam ?? null}
-            initialPrompt={promptParam}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  // Two-phase parallel fetch:
-  // Phase 1: fire getSessions early (it doesn't need session data) while also
-  //   fetching session metadata + messages simultaneously.
-  // Phase 2: join getSessions with getRoutine (which needs active_routine_id from phase 1).
-  //   This eliminates any case where a slow getSessions delays the final render.
-  const sessionsPromise = getSessions()
-
-  const [session, messagesData] = await Promise.all([
-    getSession(sessionId).catch(() => null),
-    getMessages(sessionId).catch(() => ({ messages: [], nextCursor: undefined })),
-  ])
-
-  if (!session) notFound()
-
-  const [sessions, routine] = await Promise.all([
-    sessionsPromise,
-    session.active_routine_id
-      ? getRoutine(session.active_routine_id).catch(() => null)
-      : Promise.resolve(null),
-  ])
-
-  const sessionData = { session, messages: messagesData.messages, routine }
-
-  return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      <ChatSidebar sessions={sessions} currentSessionId={sessionId} />
-      <div className="flex flex-1 flex-col min-h-0 overflow-hidden bg-background">
-        <ChatInterface
-          initialMessages={sessionData.messages}
-          sessionId={sessionId}
-          session={sessionData.session}
-          initialRoutine={sessionData.routine}
-          sessions={sessions}
-          initialAgentId={agentParam ?? null}
-        />
-      </div>
-    </div>
-  )
+  return null
 }

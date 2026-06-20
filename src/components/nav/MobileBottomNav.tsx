@@ -21,9 +21,8 @@ type TabItem = {
 
 const TABS: TabItem[] = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/coaching', icon: Target, label: 'Coaching' },
   { href: '/journal', icon: BookOpen, label: 'Journal' },
-  { href: '/chat/new', activeMatch: '/chat', icon: MessageCircle, label: 'Chat', center: true },
+  { href: '/coaching', icon: Target, label: 'Coaching', center: true },
   { href: '/trackers', icon: Boxes, label: 'Trackers' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ]
@@ -115,7 +114,7 @@ export function MobileBottomNav(): React.ReactElement {
                 className="absolute font-ui leading-none transition-all duration-300"
                 style={{
                   bottom: 6,
-                  fontSize: '9px',
+                  fontSize: isCenter ? '10px' : '9px',
                   letterSpacing: '0.12em',
                   color: isActive ? '#a855f7' : '#94a3b8',
                 }}
