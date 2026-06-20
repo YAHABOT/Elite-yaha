@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { ChatInterface } from './ChatInterface'
 import { chatEvents } from '@/lib/events/chatEvents'
 import { MessageCircle, X, Loader2 } from 'lucide-react'
@@ -20,6 +21,30 @@ export function FloatingChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [routine, setRoutine] = useState<Routine | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const pathname = usePathname()
+
+  // Minimize chat on route navigation
+  useEffect(() => {
+    if (isOpen) {
+      setIsOpen(false)
+    }
+  }, [pathname])
+
+  // 5-minute inactivity timeout
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    if (!isOpen) {
+      inactivityTimerRef.current = setTimeout(() => {
+        setSessionId('new')
+        setSession(null)
+        setMessages([])
+        setRoutine(null)
+      }, 5 * 60 * 1000)
+    } else {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
+    }
+    return () => { if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current) }
+  }, [isOpen])
 
   useEffect(() => {
     const unsub = chatEvents.subscribe((payload) => {
@@ -40,6 +65,13 @@ export function FloatingChat() {
   // Load session data when sessionId changes and it's open
   useEffect(() => {
     if (isOpen) {
+      if (sessionId === 'new') {
+        setSession(null)
+        setMessages([])
+        setRoutine(null)
+        setIsLoading(false)
+        return
+      }
       setIsLoading(true)
       fetchChatSessionDataAction(sessionId).then(data => {
         setSession(data.session)
@@ -95,24 +127,22 @@ export function FloatingChat() {
     }
   }
 
-  if (!isOpen) {
-    if (pos.x === -1) return null
-    return (
+  if (pos.x === -1) return null
+
+  return (
+    <>
       <button 
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         style={{ left: pos.x, top: pos.y }}
-        className="fixed z-[60] p-3 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-transform touch-none"
+        className={`fixed z-[60] p-3 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-all touch-none ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}
       >
         <MessageCircle size={22} />
       </button>
-    )
-  }
 
-  return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(62px+env(safe-area-inset-bottom,0px))] z-[40] md:bottom-4 md:top-4 md:right-4 md:left-auto md:w-[450px] bg-background/95 backdrop-blur-xl md:rounded-3xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-right-full duration-300">
+      <div className={`fixed inset-x-0 top-0 bottom-[calc(62px+env(safe-area-inset-bottom,0px))] z-[40] md:bottom-4 md:top-4 md:right-4 md:left-auto md:w-[450px] bg-background/95 backdrop-blur-xl md:rounded-3xl shadow-2xl border border-white/10 flex flex-col overflow-hidden transition-all duration-300 origin-bottom-right ${isOpen ? 'opacity-100 scale-100 pointer-events-auto translate-y-0' : 'opacity-0 scale-95 pointer-events-none translate-y-8'}`}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/5">
         <div className="font-bold text-white flex items-center gap-2">
           <MessageCircle size={18} className="text-nutrition" />
@@ -132,6 +162,7 @@ export function FloatingChat() {
           </div>
         ) : (
           <ChatInterface
+            key={sessionId}
             sessionId={sessionId}
             session={session}
             sessions={sessions}
@@ -142,5 +173,6 @@ export function FloatingChat() {
         )}
       </div>
     </div>
+    </>
   )
 }
