@@ -5,9 +5,10 @@ import { ChatInterface } from './ChatInterface'
 import { chatEvents } from '@/lib/events/chatEvents'
 import { MessageCircle, X, Loader2 } from 'lucide-react'
 import { fetchChatSessionsAction, fetchChatSessionDataAction } from '@/app/actions/floatingChat'
-import { motion } from 'framer-motion'
 import type { ChatSession, ChatMessage } from '@/types/chat'
 import type { Routine } from '@/types/routine'
+
+const CHIP_SIZE = 46
 
 export function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false)
@@ -49,17 +50,64 @@ export function FloatingChat() {
     }
   }, [sessionId, isOpen])
 
+  const [pos, setPos] = useState({ x: -1, y: -1 })
+  const isDraggingRef = useRef(false)
+  const dragOffset = useRef({ ox: 0, oy: 0 })
+  const hasMoved = useRef(false)
+
+  function clamp(x: number, y: number) {
+    if (typeof window === 'undefined') return { x, y }
+    const maxX = window.innerWidth - CHIP_SIZE - 8
+    const maxY = window.innerHeight - CHIP_SIZE - 8
+    return {
+      x: Math.max(8, Math.min(x, maxX)),
+      y: Math.max(8, Math.min(y, maxY)),
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPos(clamp(window.innerWidth - CHIP_SIZE - 16, window.innerHeight - CHIP_SIZE - 80))
+      const onResize = () => setPos(prev => clamp(prev.x, prev.y))
+      window.addEventListener('resize', onResize)
+      return () => window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  function onPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragOffset.current = { ox: e.clientX - pos.x, oy: e.clientY - pos.y }
+    hasMoved.current = false
+    isDraggingRef.current = true
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!isDraggingRef.current) return
+    hasMoved.current = true
+    setPos(clamp(e.clientX - dragOffset.current.ox, e.clientY - dragOffset.current.oy))
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
+    if (!hasMoved.current) {
+      setIsOpen(true)
+    }
+  }
+
   if (!isOpen) {
+    if (pos.x === -1) return null
     return (
-      <motion.button 
-        drag
-        dragMomentum={false}
-        dragElastic={0.1}
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[60] p-3 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-transform"
+      <button 
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        style={{ left: pos.x, top: pos.y }}
+        className="fixed z-[60] p-3 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-transform touch-none"
       >
         <MessageCircle size={22} />
-      </motion.button>
+      </button>
     )
   }
 
