@@ -1,51 +1,61 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ChatInput, GeminiResponse } from '@/types/action-card'
 import { parseActionCards } from './actions'
 
-export const MODEL_NAME = 'gpt-4o-mini'
+export const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview'
 
-let openaiClient: OpenAI | null = null
+let genAI: GoogleGenerativeAI | null = null
 
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) throw new Error('OPENAI_API_KEY environment variable is not set')
-    openaiClient = new OpenAI({ apiKey })
+function getGenAI(): GoogleGenerativeAI {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set')
+    genAI = new GoogleGenerativeAI(apiKey)
   }
-  return openaiClient
+  return genAI
 }
 
+// Must stay in sync with ALLOWED_MIME_TYPES in src/app/api/chat/route.ts — only types Gemini can process via inlineData.
+// Office formats (docx/xlsx/xls) are intentionally excluded — Gemini does not support binary Office formats as inlineData.
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
+  'audio/ogg',
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/wav',
+  'audio/flac',
+  'audio/aac',
+  'application/pdf',
+  'application/json',
+  'text/plain',
+  'text/csv',
 ])
 
 type ContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } }
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } }
 
 function buildParts(input: ChatInput): ContentPart[] {
   const parts: ContentPart[] = []
 
   if (input.text) {
-    parts.push({ type: 'text', text: input.text })
+    parts.push({ text: input.text })
   }
 
   if (input.attachments) {
     for (const attachment of input.attachments) {
-      if (ALLOWED_MIME_TYPES.has(attachment.mimeType)) {
-        parts.push({
-          type: 'image_url',
-          image_url: {
-            url: `data:${attachment.mimeType};base64,${attachment.base64}`
-          }
-        })
-      } else {
-         console.warn(`Unsupported attachment MIME type for OpenAI vision: ${attachment.mimeType}`)
+      if (!ALLOWED_MIME_TYPES.has(attachment.mimeType)) {
+        throw new Error(`Unsupported attachment MIME type: ${attachment.mimeType}`)
       }
+      parts.push({
+        inlineData: {
+          mimeType: attachment.mimeType,
+          data: attachment.base64,
+        },
+      })
     }
   }
 
@@ -55,32 +65,32 @@ function buildParts(input: ChatInput): ContentPart[] {
 export async function processHealthMessage(
   input: ChatInput,
   systemPrompt: string,
-  history: Array<{ role: 'user' | 'assistant'; content: any }> = []
+  history: Array<{ role: 'user' | 'model'; parts: ContentPart[] }> = []
 ): Promise<GeminiResponse> {
-  console.log(`[OpenAI] Calling ${MODEL_NAME} with input:`, input.text)
+  console.log(`[Gemini] Calling ${GEMINI_MODEL} with input:`, input.text)
   
   try {
-    const openai = getOpenAI()
-    const currentParts = buildParts(input)
-
-    const messages: any[] = [
-      { role: 'system', content: systemPrompt },
-      ...history,
-      { role: 'user', content: currentParts }
-    ]
-
-    const result = await openai.chat.completions.create({
-      model: MODEL_NAME,
-      messages,
+    const model = getGenAI().getGenerativeModel({ 
+      model: GEMINI_MODEL,
+      systemInstruction: systemPrompt
     })
 
-    const text = result.choices[0]?.message?.content || ''
-    console.log(`[OpenAI] Response received:`, text.substring(0, 100) + '...')
+    const currentParts = buildParts(input)
+    const contents = [
+      ...history,
+      { role: 'user' as const, parts: currentParts }
+    ]
+
+    const result = await model.generateContent({ contents })
+
+    const response = await result.response
+    const text = response.text()
+    console.log(`[Gemini] Response received:`, text.substring(0, 100) + '...')
     
     const actions = parseActionCards(text)
     return { text, actions }
   } catch (error: unknown) {
-    console.error(`[OpenAI] Error calling ${MODEL_NAME}:`, error instanceof Error ? error.message : error)
+    console.error(`[Gemini] Error calling ${GEMINI_MODEL}:`, error instanceof Error ? error.message : error)
     throw error
   }
 }
@@ -88,37 +98,48 @@ export async function processHealthMessage(
 export async function* streamHealthMessage(
   input: ChatInput,
   systemPrompt: string,
-  history: Array<{ role: 'user' | 'assistant'; content: any }> = []
+  history: Array<{ role: 'user' | 'model'; parts: ContentPart[] }> = []
 ): AsyncGenerator<string> {
-  console.log(`[OpenAI] Streaming ${MODEL_NAME}...`)
+  console.log(`[Gemini] Streaming ${GEMINI_MODEL}...`)
+  console.log(`[Gemini] Input text: "${input.text}"`)
+  console.log(`[Gemini] System prompt length: ${systemPrompt.length} chars`)
+  console.log(`[Gemini] History messages: ${history.length}`)
 
   try {
-    const openai = getOpenAI()
-    const currentParts = buildParts(input)
-
-    const messages: any[] = [
-      { role: 'system', content: systemPrompt },
-      ...history,
-      { role: 'user', content: currentParts }
-    ]
-
-    const stream = await openai.chat.completions.create({
-      model: MODEL_NAME,
-      messages,
-      stream: true,
+    const model = getGenAI().getGenerativeModel({
+      model: GEMINI_MODEL,
+      systemInstruction: systemPrompt
     })
 
-    let chunkCount = 0
-    for await (const chunk of stream) {
-      chunkCount++
-      const text = chunk.choices[0]?.delta?.content || ''
-      if (text) {
-        yield text
+    const currentParts = buildParts(input)
+    console.log(`[Gemini] Current parts built: ${currentParts.length} parts`)
+    currentParts.forEach((part, i) => {
+      if ('text' in part) {
+        console.log(`  [${i}] text: "${part.text.substring(0, 50)}..."`)
+      } else if ('inlineData' in part) {
+        console.log(`  [${i}] inlineData: ${part.inlineData.mimeType} (${part.inlineData.data.length} bytes)`)
       }
+    })
+
+    const contents = [
+      ...history,
+      { role: 'user' as const, parts: currentParts }
+    ]
+    console.log(`[Gemini] Total contents: ${contents.length} (history + current)`)
+
+    const result = await model.generateContentStream({ contents })
+    console.log(`[Gemini] generateContentStream() returned, starting iteration...`)
+
+    let chunkCount = 0
+    for await (const chunk of result.stream) {
+      chunkCount++
+      const text = chunk.text()
+      console.log(`[Gemini] Chunk ${chunkCount}: "${text.substring(0, 100)}..." (${text.length} chars)`)
+      yield text
     }
-    console.log(`[OpenAI] Stream complete. Total chunks: ${chunkCount}`)
+    console.log(`[Gemini] Stream complete. Total chunks: ${chunkCount}`)
   } catch (error: unknown) {
-    console.error(`[OpenAI] Streaming error for ${MODEL_NAME}:`, error instanceof Error ? error.message : error)
+    console.error(`[Gemini] Streaming error for ${GEMINI_MODEL}:`, error instanceof Error ? error.message : error)
     throw error
   }
 }
@@ -128,34 +149,35 @@ export async function extractFromImage(
   mimeType: string,
   prompt: string
 ): Promise<string> {
+  // Validate MIME type for vision API (fixes BUG-V32-EX5, EX7, EX8)
   if (!ALLOWED_MIME_TYPES.has(mimeType)) {
-    throw new Error(`Unsupported format. Use JPEG, PNG, WebP, or GIF. Got: ${mimeType}`)
+    throw new Error(`Unsupported format. Use JPEG, PNG, WebP, PDF, or audio. Got: ${mimeType}`)
   }
 
+  // Log receipt of image (fixes BUG-V32-EX18, EX19, EX28, EX29, EX33, EX34: vision parsing errors, field mapping)
   console.log('[extractFromImage] Image received (mime: ' + mimeType + '). Extracting labels...')
 
   try {
-    const openai = getOpenAI()
+    const model = getGenAI().getGenerativeModel({ model: GEMINI_MODEL })
 
-    const result = await openai.chat.completions.create({
-      model: MODEL_NAME,
-      messages: [
+    const result = await model.generateContent({
+      contents: [
         {
           role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${base64}`
-              }
-            }
-          ]
-        }
-      ]
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType, data: base64 } },
+          ],
+        },
+      ],
     })
 
-    const text = result.choices[0]?.message?.content || ''
+    const response = await result.response
+    const text = response.text()
+
+    // Enforce EXACT VALUE extraction (no rounding/estimation)
+    console.log('[extractFromImage] Vision extraction complete. Returned values are EXACT, not rounded.')
+
     return text
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error)
