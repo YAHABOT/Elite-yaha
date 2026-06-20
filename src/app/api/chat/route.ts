@@ -452,27 +452,27 @@ export async function POST(req: Request): Promise<Response> {
             }
           }
 
-          // Map history for Gemini — include stored image attachments so follow-up
+          // Map history for OpenAI — include stored image attachments so follow-up
           // messages like "use the photos I just sent" have the images in context.
-          type ContentPart = { text: string } | { inlineData: { mimeType: string; data: string } }
+          type ContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
           // Include image attachments from the 10 most recent messages — needed so the AI
           // can reassess a food photo if the user challenges the estimates a few prompts later.
           const recentWithImages = new Set(historyMessages.slice(-10).map(m => m.id))
           const history = historyMessages.map(msg => {
             const parts: ContentPart[] = []
-            if (msg.content) parts.push({ text: msg.content })
+            if (msg.content) parts.push({ type: 'text', text: msg.content })
             if (msg.attachments && recentWithImages.has(msg.id)) {
               const attachArr = msg.attachments as Array<{ mimeType: string; base64: string }>
               for (const att of attachArr) {
-                // Skip food bank context sentinel — not a real Gemini inlineData attachment
+                // Skip food bank context sentinel
                 if (att.mimeType === 'application/x-food-bank-context') continue
-                parts.push({ inlineData: { mimeType: att.mimeType, data: att.base64 } })
+                parts.push({ type: 'image_url', image_url: { url: `data:${att.mimeType};base64,${att.base64}` } })
               }
             }
-            if (parts.length === 0) parts.push({ text: '' })
+            if (parts.length === 0) parts.push({ type: 'text', text: '' })
             return {
-              role: (msg.role === 'assistant' ? 'model' : 'user') as 'model' | 'user',
-              parts,
+              role: (msg.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+              content: parts,
             }
           })
 

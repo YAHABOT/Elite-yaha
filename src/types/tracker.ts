@@ -13,6 +13,7 @@ export type SchemaField = {
   unit?: string     // "kcal", "hrs"
   selectOptions?: string[]  // for type='select': array of option strings
   multiSelect?: boolean     // for type='select': whether to allow multiple selections
+  archived?: boolean        // hidden from logs/journal but data preserved in DB
 }
 
 export type TrackerType = 'nutrition' | 'sleep' | 'workout' | 'mood' | 'water' | 'custom'

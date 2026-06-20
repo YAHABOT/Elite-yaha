@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, GitBranch, Eye, EyeOff, Plus, Menu, X, Share2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, GitBranch, Menu, X, Share2, Settings } from 'lucide-react'
 import type { Tracker } from '@/types/tracker'
 import type { TrackerLog } from '@/types/log'
 import type { Correlation } from '@/types/correlator'
@@ -13,7 +13,7 @@ import { CorrelatorModal } from '@/components/journal/CorrelatorModal'
 import { JournalCalendar } from '@/components/journal/JournalCalendar'
 import { JournalShareCard, type ComputedTracker, type ComputedField, type ComputedCorrelation } from '@/components/journal/JournalShareCard'
 import { captureAndShare } from '@/lib/share/capture'
-import { buildFieldValueMapWithCorrelators, evaluateFormula, formatResult } from '@/lib/correlator/formula-engine'
+import { buildFieldValueMapWithCorrelators, buildCrossTrackerMap, evaluateFormula, formatResult } from '@/lib/correlator/formula-engine'
 import { formatFieldValue } from '@/lib/utils/format'
 
 type Props = {
@@ -72,8 +72,6 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
   const router = useRouter()
   const [correlatorOpen, setCorrelatorOpen] = useState(initialOpenCorrelator ?? false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  // showTotals: controls the daily totals row at the bottom of each tracker group
-  const [showTotals, setShowTotals] = useState(true)
   const [isSharing, setIsSharing] = useState(false)
   const [shareData, setShareData] = useState<ShareData | null>(null)
   const shareCardRef = useRef<HTMLDivElement>(null)
@@ -96,7 +94,9 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
     setIsSharing(true)
 
     const items = shareCardConfig?.items ?? []
-    const fvMap = buildFieldValueMapWithCorrelators(logs, correlations)
+    const lastKnownMap = lastKnownValues ? new Map(Object.entries(lastKnownValues)) : undefined
+    const crossTrackerMap = buildCrossTrackerMap(logs, trackers)
+    const fvMap = buildFieldValueMapWithCorrelators(logs, correlations, lastKnownMap, crossTrackerMap)
 
     const computedTrackers: ComputedTracker[] = items
       .filter(i => i.enabled && i.type === 'tracker')
@@ -140,8 +140,8 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
       .flatMap(i => {
         const corr = correlations.find(c => c.id === i.id)
         if (!corr) return []
-        const result = evaluateFormula(corr.formula, fvMap)
-        return [{ name: corr.name, value: result != null ? formatResult(result, corr.unit) : '—' }]
+        const result = evaluateFormula(corr.formula, fvMap, lastKnownMap, crossTrackerMap)
+        return [{ name: corr.name, value: result != null ? formatResult(result, corr.unit) : '---' }]
       })
 
     pendingCapture.current = true
@@ -188,36 +188,15 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
             className="absolute left-0 top-0 z-10 h-full w-56 flex flex-col bg-surface border-r border-white/5 animate-in slide-in-from-left-4 duration-300 relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Drawer header: action buttons + close */}
+            {/* Drawer header: Correlator + close */}
             <div className="flex items-center justify-between border-b border-white/[0.04] px-3 py-3 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setShowTotals((v) => !v); setMobileSidebarOpen(false) }}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all duration-300 ${
-                    showTotals
-                      ? 'border-white/10 bg-white/[0.06] text-textPrimary'
-                      : 'border-white/5 bg-white/[0.02] text-textMuted hover:bg-white/[0.05] hover:text-textPrimary'
-                  }`}
-                >
-                  {showTotals ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                  Totals
-                </button>
-                <button
-                  onClick={() => { setCorrelatorOpen(true); setMobileSidebarOpen(false) }}
-                  className="flex flex-col items-center gap-0.5 rounded-xl border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-300 hover:bg-primary/20"
-                >
-                  <GitBranch className="h-3 w-3" />
-                  <span>Correlator</span>
-                </button>
-                <button
-                  onClick={() => { setMobileSidebarOpen(false); handleShare() }}
-                  disabled={isSharing}
-                  className="flex flex-col items-center gap-0.5 rounded-xl border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-3 py-1.5 text-xs font-semibold text-[#00d4ff] transition-all duration-300 hover:bg-[#00d4ff]/20 disabled:opacity-40"
-                >
-                  <Share2 className="h-3 w-3" />
-                  <span>Share</span>
-                </button>
-              </div>
+              <button
+                onClick={() => { setCorrelatorOpen(true); setMobileSidebarOpen(false) }}
+                className="flex items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-300 hover:bg-primary/20"
+              >
+                <GitBranch className="h-3 w-3" />
+                Correlator
+              </button>
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(false)}
@@ -280,35 +259,24 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
             </button>
           </div>
 
-          {/* Desktop-only action buttons — hidden on mobile (moved to drawer) */}
-          <div className="hidden md:flex items-center gap-2">
-            <button
-              onClick={() => setShowTotals((v) => !v)}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium backdrop-blur-md transition-all duration-300 ${
-                showTotals
-                  ? 'border-white/10 bg-white/[0.06] text-textPrimary'
-                  : 'border-white/5 bg-white/[0.02] text-textMuted hover:bg-white/[0.05] hover:text-textPrimary'
-              }`}
-              title={showTotals ? 'Hide daily totals' : 'Show daily totals'}
-            >
-              {showTotals ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-              Totals
-            </button>
-            <button
-              onClick={() => setCorrelatorOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-300 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(163,230,53,0.15)]"
-            >
-              <GitBranch className="h-3 w-3" />
-              Correlator
-            </button>
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            {/* Share — visible on all screen sizes */}
             <button
               onClick={handleShare}
               disabled={isSharing}
               title="Share today's overview"
-              className="flex items-center gap-1.5 rounded-xl border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-3 py-1.5 text-xs font-semibold text-[#00d4ff] transition-all duration-300 hover:bg-[#00d4ff]/20 disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#00d4ff]/20 bg-[#00d4ff]/10 text-[#00d4ff] transition-all duration-300 hover:bg-[#00d4ff]/20 disabled:opacity-40"
             >
-              <Share2 className="h-3 w-3" />
-              Share
+              <Share2 className="h-4 w-4" />
+            </button>
+            {/* Correlator — desktop only (mobile uses drawer) */}
+            <button
+              onClick={() => setCorrelatorOpen(true)}
+              className="hidden md:flex items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-300 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(163,230,53,0.15)]"
+            >
+              <GitBranch className="h-3 w-3" />
+              Correlator
             </button>
           </div>
         </div>
@@ -325,9 +293,10 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
                 </div>
                 <button
                   onClick={() => setCorrelatorOpen(true)}
-                  className="flex items-center gap-1 text-[10px] font-medium text-primary transition-colors hover:text-primary/80"
+                  className="flex h-6 w-6 items-center justify-center rounded-lg text-textMuted transition-colors hover:bg-white/[0.06] hover:text-textPrimary"
+                  title="Manage correlations"
                 >
-                  <Plus className="h-3 w-3" /> New
+                  <Settings className="h-3.5 w-3.5" />
                 </button>
               </div>
               {(() => {
@@ -376,7 +345,7 @@ export function DayView({ date, trackers, logs, loggedDates, correlations, lastK
             <SortableJournalList
               trackers={trackersWithLogs}
               grouped={grouped}
-              showTotals={showTotals}
+              showTotals={true}
               crossTrackerGroups={crossTrackerGroups}
               allLogs={logs}
             />

@@ -105,6 +105,9 @@ export function LogEntryCard({ log, schema, trackerId }: Props): React.ReactElem
   const [isLoggingAgain, startLogAgainTransition] = useTransition()
   const [loggedAgainMsg, setLoggedAgainMsg] = useState<string | null>(null)
 
+  // activeSchema: used for new edits only (can't re-log an archived field)
+  const activeSchema = schema.filter((field) => !field.archived)
+  // filledFields: uses full schema so archived fields still show in past entries
   const filledFields = schema.filter(
     (field) => log.fields[field.fieldId] !== null && log.fields[field.fieldId] !== undefined
   )
@@ -138,7 +141,7 @@ export function LogEntryCard({ log, schema, trackerId }: Props): React.ReactElem
   function startEdit(): void {
     const raw: Record<string, string> = {}
     const original: Record<string, unknown> = {}
-    for (const field of schema) {
+    for (const field of activeSchema) {
       const val = log.fields[field.fieldId]
       original[field.fieldId] = val
       if (val !== null && val !== undefined) {
@@ -184,7 +187,7 @@ export function LogEntryCard({ log, schema, trackerId }: Props): React.ReactElem
     setEditError(null)
     startSaveTransition(async () => {
       const fields: LogFields = {}
-      for (const field of schema) {
+      for (const field of activeSchema) {
         const raw = editValues[field.fieldId]
         const original = originalValues[field.fieldId]
 
@@ -382,7 +385,7 @@ export function LogEntryCard({ log, schema, trackerId }: Props): React.ReactElem
       {/* Field display / edit */}
       {isEditing ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-          {schema.map((field) => (
+          {activeSchema.map((field) => (
             <EditFieldInput
               key={field.fieldId}
               field={field}

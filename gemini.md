@@ -1,6 +1,6 @@
 # YAHA — Health Tracker
 
-> **IMPORTANT: Every new session — READ `.claude/sessions/[YESTERDAY]/SESSION_LOG.md` first to catch up.**
+> **IMPORTANT: Every new session — READ `.gemini/sessions/[YESTERDAY]/SESSION_LOG.md` first to catch up.**
 
 > You are the **Orchestrator**. You assign work to specialists, verify outputs, and iterate.
 > You never write application code directly. You coordinate agents and track state.
@@ -46,16 +46,16 @@ custom metrics) via web chat or Telegram. AI processes inputs, user confirms, sa
 **CRITICAL: All agents must load ONCE at session start.**
 
 **Step 1: Main Agent Session Startup** (2 min max)
-1. Create `.claude/sessions/[DATE]/SESSION_LOG.md`
-2. Read `.claude/sessions/[YESTERDAY]/SESSION_LOG.md` for unfinished work
+1. Create `.gemini/sessions/[DATE]/SESSION_LOG.md`
+2. Read `.gemini/sessions/[YESTERDAY]/SESSION_LOG.md` for unfinished work
 3. **⚡ Pre-load all agent configs → save to MEMORY.md as "Agent Config Index"**
    ```
    Read and cache (ONE TIME):
-   - .claude/agents/coding-agent.md
-   - .claude/agents/code-reviewer.md
-   - .claude/agents/qa-agent.md
-   - .claude/agents/research-agent.md
-   - .claude/agents/security-reviewer.md
+   - .gemini/agents/coding-agent.md
+   - .gemini/agents/code-reviewer.md
+   - .gemini/agents/qa-agent.md
+   - .gemini/agents/research-agent.md
+   - .gemini/agents/security-reviewer.md
    ```
 4. Reference MEMORY.md for agent specs (agents reference the cache, never re-read)
 5. If previous issues exist → **create ONE task immediately** → skip to Agent Execution
@@ -73,7 +73,7 @@ custom metrics) via web chat or Telegram. AI processes inputs, user confirms, sa
 - ✅ Check MEMORY.md for cached agent configs (loaded at session start)
 - ✅ If configs not in memory yet → SAVE THEM NOW (one-time read)
 - ✅ Build task in SESSION_LOG (compact format)
-- ✅ Reference cached config from MEMORY.md, NOT `.claude/agents/[name].md`
+- ✅ Reference cached config from MEMORY.md, NOT `.gemini/agents/[name].md`
 
 **Agent dispatch format (COMPRESSED):**
 ```markdown
@@ -112,7 +112,7 @@ Mapping:
 ```
 [MAIN AGENT] Session Start — Load Agent Config Cache
   ↓
-  1. Create `.claude/sessions/[DATE]/SESSION_LOG.md`
+  1. Create `.gemini/sessions/[DATE]/SESSION_LOG.md`
   2. Check previous SESSION_LOG for unfinished work
   3. Read + cache agent configs → MEMORY.md § Agent Config Index
   4. All agents from now on reference MEMORY.md (NO re-reads)
@@ -164,12 +164,12 @@ ELSE:
 
 | Agent | Config File | Cached in MEMORY.md? | Notes |
 |-------|-------------|----------------------|-------|
-| Coding Agent | `.claude/agents/coding-agent.md` | ✓ § Coding Agent Config | Read once per session |
-| Code Reviewer | `.claude/agents/code-reviewer.md` | ✓ § Code Reviewer Config | Read once per session |
-| QA Agent | `.claude/agents/qa-agent.md` | ✓ § QA Agent Config | Read once per session |
-| Research Agent | `.claude/agents/research-agent.md` | ✓ § Research Agent Config | Read once per session |
-| Security Reviewer | `.claude/agents/security-reviewer.md` | ✓ § Security Reviewer Config | On-demand only |
-| **HR Agent** | `.claude/agents/hr-agent.md` | ✓ § HR Agent Config | On-demand only (performance audits) |
+| Coding Agent | `.gemini/agents/coding-agent.md` | ✓ § Coding Agent Config | Read once per session |
+| Code Reviewer | `.gemini/agents/code-reviewer.md` | ✓ § Code Reviewer Config | Read once per session |
+| QA Agent | `.gemini/agents/qa-agent.md` | ✓ § QA Agent Config | Read once per session |
+| Research Agent | `.gemini/agents/research-agent.md` | ✓ § Research Agent Config | Read once per session |
+| Security Reviewer | `.gemini/agents/security-reviewer.md` | ✓ § Security Reviewer Config | On-demand only |
+| **HR Agent** | `.gemini/agents/hr-agent.md` | ✓ § HR Agent Config | On-demand only (performance audits) |
 
 ### Critical: Model Preferences (OPTIMIZED)
 
@@ -177,11 +177,11 @@ ELSE:
 
 | Agent | Model | Why | Token Impact |
 |-------|-------|-----|--------------|
-| Coding Agent | `claude-sonnet-4-6` | Fast + excellent Next.js | Baseline |
-| Code Reviewer | `claude-sonnet-4-6` | ⭐ CHANGED: 85% cheaper, same code quality | -85% vs Opus |
-| QA Agent | `claude-sonnet-4-6` | Reliable test generation | Baseline |
-| Research Agent | `claude-sonnet-4-6` | Fast API research | Baseline |
-| **Security Reviewer** | **`claude-opus-4-6`** | Deep reasoning for OWASP audits | Expensive, use ON-DEMAND ONLY |
+| Coding Agent | `gemini-sonnet-4-6` | Fast + excellent Next.js | Baseline |
+| Code Reviewer | `gemini-sonnet-4-6` | ⭐ CHANGED: 85% cheaper, same code quality | -85% vs Opus |
+| QA Agent | `gemini-sonnet-4-6` | Reliable test generation | Baseline |
+| Research Agent | `gemini-sonnet-4-6` | Fast API research | Baseline |
+| **Security Reviewer** | **`gemini-opus-4-6`** | Deep reasoning for OWASP audits | Expensive, use ON-DEMAND ONLY |
 | **HR Agent** | Haiku → Sonnet → Haiku | Read phase (I/O), analyze phase (deep thinking), report phase (apply) | 20% budget cap |
 
 **⚠️ CHANGE: Code Reviewer now uses Sonnet by default (not Opus)**
@@ -192,7 +192,7 @@ ELSE:
 ## Key Workflow Rules (OPTIMIZED)
 
 1. **Agent configs load ONCE per session** — Save to MEMORY.md immediately
-2. **All agents reference MEMORY.md, never re-read `.claude/agents/*.md`** — Huge token savings
+2. **All agents reference MEMORY.md, never re-read `.gemini/agents/*.md`** — Huge token savings
 3. **Compressed signatures** — Use `[CA | HH:MM]` format, not full timestamp
 4. **SESSION_LOG stays minimal** — Only task definitions + agent verdicts, no verbose notes
 5. **Code Reviewer uses Sonnet** — Unless you request security audit (then Security Reviewer + Opus)
@@ -227,13 +227,13 @@ When to loop back (Main Agent decides):
 **What It Does:**
 - Phase 1 (Haiku): Read SESSION_LOG + TECHNICAL_LOG + agent configs → extract data
 - Phase 2 (Sonnet): Analyze agent compliance + token usage → identify inefficiencies → recommend fixes
-- Phase 3 (Haiku): Apply Priority 1 recommendations to CLAUDE.md → generate audit report
+- Phase 3 (Haiku): Apply Priority 1 recommendations to GEMINI.md → generate audit report
 
 **Token Budget:** Capped at 20% of session budget (strict limit)
 
-**Output:** Audit report + applied optimizations (available immediately in CLAUDE.md)
+**Output:** Audit report + applied optimizations (available immediately in GEMINI.md)
 
-See `.claude/agents/hr-agent.md` for full specification.
+See `.gemini/agents/hr-agent.md` for full specification.
 
 ---
 
@@ -261,7 +261,7 @@ See `.claude/agents/hr-agent.md` for full specification.
 - Research Agent: Sonnet (research) → Haiku (writing report)
 - Security Reviewer: Opus (audit) → Haiku (writing findings)
 
-See each agent's `.claude/agents/[name].md` for "Model Switching for Output Efficiency" section.
+See each agent's `.gemini/agents/[name].md` for "Model Switching for Output Efficiency" section.
 
 ---
 
@@ -270,7 +270,7 @@ See each agent's `.claude/agents/[name].md` for "Model Switching for Output Effi
 **Before each session:**
 1. ✅ Agent configs cached in MEMORY.md (prevents re-reads)
 2. ✅ SESSION_LOG uses compressed format (minimal rewrites)
-3. ✅ CLAUDE.md loaded once at session start
+3. ✅ GEMINI.md loaded once at session start
 4. ✅ No model switching unless explicitly needed (Sonnet default)
 
 **HR Agent context budget (when called):**
@@ -294,7 +294,7 @@ See each agent's `.claude/agents/[name].md` for "Model Switching for Output Effi
 These laws enforce architectural discipline and prevent context bloat.
 
 ### 1. The 60% Rule
-Monitor context usage via `/status line` (displays in Claude Code). If battery hits 60%, immediately:
+Monitor context usage via `/status line` (displays in Gemini Code). If battery hits 60%, immediately:
 - Warn user: *"Context at 60%. Recommend `/compact` or start new session."*
 - Do NOT continue adding context; do not load new files into memory
 - User must explicitly approve context cleanup or session continuation
@@ -320,7 +320,7 @@ When spawning ANY sub-agent (Research Agent, QA Agent, Code Reviewer), explicitl
 - Result: 15-20% better focus, fewer rabbit holes
 
 ### 5. Applied Learning (Self-Healing)
-After every recurring bug or context drop incident, append a **15-word maximum** bullet to CLAUDE.md:
+After every recurring bug or context drop incident, append a **15-word maximum** bullet to GEMINI.md:
 - Format: `- [INCIDENT] [Root cause] → [Fix applied] (date: YYYY-MM-DD)`
 - Example: `- [Context Drop] Agent configs not cached at session start → Pre-load to MEMORY.md on day 1 (date: 2026-03-28)`
 - Review quarterly — remove fixes that have not recurred in 3+ builds
@@ -331,7 +331,7 @@ After every recurring bug or context drop incident, append a **15-word maximum**
 ## Session Folder Structure & Screenshot Management
 
 ```
-.claude/sessions/[DATE]/
+.gemini/sessions/[DATE]/
 ├── SESSION_LOG.md          ← Compressed: tasks only, minimal signatures
 ├── technical_log_v1.md     ← Full work details, agent signatures
 ├── MEMORY.md               ← ⭐ Agent Config Index (read once, reused all session)
@@ -346,10 +346,10 @@ After every recurring bug or context drop incident, append a **15-word maximum**
 **Status:** Cached — all agents reference these, no re-reads
 
 ### Coding Agent Config
-[Summary of key requirements from .claude/agents/coding-agent.md]
+[Summary of key requirements from .gemini/agents/coding-agent.md]
 
 ### Code Reviewer Config
-[Summary of key requirements from .claude/agents/code-reviewer.md]
+[Summary of key requirements from .gemini/agents/code-reviewer.md]
 
 [... etc for all 5 agents ...]
 ```
@@ -372,16 +372,16 @@ After every recurring bug or context drop incident, append a **15-word maximum**
 
 ## Scoped Rules (Folder-Level Auto-Discovery)
 
-Rules are now distributed to their respective working directories. No centralized `.claude/rules/` directory — agents load rules naturally as they work:
+Rules are now distributed to their respective working directories. No centralized `.gemini/rules/` directory — agents load rules naturally as they work:
 
 | Concern | Location |
 |---------|----------|
-| TypeScript + component patterns | `src/components/claude.md` |
-| Auth, RLS, OWASP, secrets | `src/app/api/claude.md` |
-| Supabase, JSONB, migrations | `src/lib/db/claude.md` |
-| Next.js App Router, Tailwind OLED | `src/components/claude.md` |
+| TypeScript + component patterns | `src/components/gemini.md` |
+| Auth, RLS, OWASP, secrets | `src/app/api/gemini.md` |
+| Supabase, JSONB, migrations | `src/lib/db/gemini.md` |
+| Next.js App Router, Tailwind OLED | `src/components/gemini.md` |
 
-**Coding Agent behavior:** Agents auto-discover and load rules from folder-level `claude.md` as they work. No explicit reads required. See `.claude/agents/coding-agent.md` → "Rules auto-discovery" section.
+**Coding Agent behavior:** Agents auto-discover and load rules from folder-level `gemini.md` as they work. No explicit reads required. See `.gemini/agents/coding-agent.md` → "Rules auto-discovery" section.
 
 ---
 
@@ -399,7 +399,7 @@ Two new Haiku-based skills provide cost-effective discovery and validation **bef
 - **Cost savings:** 5x cheaper than Sonnet for same output quality on discovery tasks
 - **Token impact:** -40% per discovery cycle vs. old Sonnet-only approach
 
-See `.claude/skills/spec-developer/SKILL.md` and `.claude/skills/visual-auditor/SKILL.md`.
+See `.gemini/skills/spec-developer/SKILL.md` and `.gemini/skills/visual-auditor/SKILL.md`.
 
 ---
 
@@ -407,12 +407,12 @@ See `.claude/skills/spec-developer/SKILL.md` and `.claude/skills/visual-auditor/
 
 | Feature | Skill |
 |---------|-------|
-| Creating / modifying trackers | `.claude/skills/tracker-creation/SKILL.md` |
-| Logging health data (any modality) | `.claude/skills/health-logging/SKILL.md` |
-| Telegram webhook + message handling | `.claude/skills/telegram-bot/SKILL.md` |
-| Morning / evening routine flows | `.claude/skills/daily-routine/SKILL.md` |
-| Dashboard widget management | `.claude/skills/dashboard-builder/SKILL.md` |
-| Premium UI/UX Design System | `.claude/skills/ui-ux-pro-max/SKILL.md` |
+| Creating / modifying trackers | `.gemini/skills/tracker-creation/SKILL.md` |
+| Logging health data (any modality) | `.gemini/skills/health-logging/SKILL.md` |
+| Telegram webhook + message handling | `.gemini/skills/telegram-bot/SKILL.md` |
+| Morning / evening routine flows | `.gemini/skills/daily-routine/SKILL.md` |
+| Dashboard widget management | `.gemini/skills/dashboard-builder/SKILL.md` |
+| Premium UI/UX Design System | `.gemini/skills/ui-ux-pro-max/SKILL.md` |
 
 ---
 
@@ -430,7 +430,7 @@ daily_stats     (id, user_id, date date, results jsonb)
 telegram_events (id, user_id, telegram_id, raw jsonb, processed_at)
 ```
 
-All tables have `user_id` and Row Level Security enforced. See `.claude/rules/database.md`.
+All tables have `user_id` and Row Level Security enforced. See `.gemini/rules/database.md`.
 
 ---
 

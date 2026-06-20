@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, ChevronUp, ChevronDown, Plus, X } from 'lucide-react'
+import { Archive, ChevronUp, ChevronDown, Plus, X } from 'lucide-react'
 import type { SchemaField, FieldType } from '@/types/tracker'
 
 const FIELD_TYPE_OPTIONS: { value: FieldType; label: string }[] = [
@@ -107,18 +107,18 @@ function SelectOptionsEditor({ field, onChange }: SelectOptionsEditorProps): Rea
 type Props = {
   field: SchemaField
   onChange: (updated: SchemaField) => void
-  onRemove: () => void
+  onArchive: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
   canMoveUp?: boolean
   canMoveDown?: boolean
 }
 
-export function SchemaFieldRow({ 
-  field, 
-  onChange, 
-  onRemove, 
-  onMoveUp, 
+export function SchemaFieldRow({
+  field,
+  onChange,
+  onArchive,
+  onMoveUp,
   onMoveDown,
   canMoveUp = true,
   canMoveDown = true
@@ -210,11 +210,12 @@ export function SchemaFieldRow({
 
         <button
           type="button"
-          onClick={onRemove}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-textMuted transition-all hover:bg-red-500/10 hover:text-red-500 active:scale-90"
-          aria-label="Remove field"
+          onClick={onArchive}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-textMuted transition-all hover:bg-amber-500/10 hover:text-amber-400 active:scale-90"
+          aria-label="Archive field"
+          title="Archive field"
         >
-          <Trash2 className="h-4 w-4" />
+          <Archive className="h-4 w-4" />
         </button>
       </div>
 

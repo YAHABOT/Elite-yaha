@@ -94,8 +94,9 @@ function hasAnyValue(rawValues: Record<string, string>): boolean {
 }
 
 export function LogForm({ tracker }: Props): React.ReactElement {
+  const activeSchema = tracker.schema.filter((f) => !f.archived)
   const [values, setValues] = useState<Record<string, string>>(
-    () => buildInitialValues(tracker.schema)
+    () => buildInitialValues(activeSchema)
   )
   const [loggedAt, setLoggedAt] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
@@ -120,7 +121,7 @@ export function LogForm({ tracker }: Props): React.ReactElement {
       return
     }
 
-    const fields = parseFieldValues(tracker.schema, values)
+    const fields = parseFieldValues(activeSchema, values)
     const result = await createLogAction(
       tracker.id,
       fields,
@@ -132,14 +133,14 @@ export function LogForm({ tracker }: Props): React.ReactElement {
       setError(result.error)
       setSubmitting(false)
     } else {
-      setValues(buildInitialValues(tracker.schema))
+      setValues(buildInitialValues(activeSchema))
       setLoggedAt('')
       setSuccess(true)
       setSubmitting(false)
     }
   }
 
-  if (tracker.schema.length === 0) {
+  if (activeSchema.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-center">
         <p className="mb-3 text-sm text-textMuted">
@@ -169,7 +170,7 @@ export function LogForm({ tracker }: Props): React.ReactElement {
         </div>
       )}
 
-      {tracker.schema.map((field) => (
+      {activeSchema.map((field) => (
         <FieldInput
           key={field.fieldId}
           field={field}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronLeft, Target, Save, Archive } from 'lucide-react'
+import { Plus, ChevronLeft, Target, Save, Archive, RotateCcw, Trash2 } from 'lucide-react'
 import { updateTrackerAction, deleteTrackerAction, archiveTrackerAction } from '@/app/actions/trackers'
 import { SchemaFieldRow } from '@/components/trackers/SchemaFieldRow'
 import type { SchemaField, Tracker, TrackerType } from '@/types/tracker'
@@ -62,33 +62,54 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState<boolean>(false)
   const [deleteInput, setDeleteInput] = useState<string>('')
 
+  const activeFields = schema.filter((f) => !f.archived)
+  const archivedFields = schema.filter((f) => f.archived)
+
   function handleAddField(): void {
-    if (schema.length >= MAX_SCHEMA_FIELDS) return
+    if (activeFields.length >= MAX_SCHEMA_FIELDS) return
     setSchema((prev) => [...prev, createEmptyField()])
   }
 
-  function handleFieldChange(index: number, updated: SchemaField): void {
-    setSchema((prev) => prev.map((f, i) => (i === index ? updated : f)))
+  function handleFieldChange(fieldId: string, updated: SchemaField): void {
+    setSchema((prev) => prev.map((f) => (f.fieldId === fieldId ? updated : f)))
   }
 
-  function handleFieldRemove(index: number): void {
-    setSchema((prev) => prev.filter((_, i) => i !== index))
+  function handleArchiveField(fieldId: string): void {
+    setSchema((prev) => prev.map((f) => f.fieldId === fieldId ? { ...f, archived: true } : f))
   }
 
-  function handleMoveUp(index: number): void {
-    if (index === 0) return
+  function handleRestoreField(fieldId: string): void {
+    setSchema((prev) => prev.map((f) => f.fieldId === fieldId ? { ...f, archived: false } : f))
+  }
+
+  function handleDeleteFieldForever(fieldId: string): void {
+    setSchema((prev) => prev.filter((f) => f.fieldId !== fieldId))
+  }
+
+  function handleMoveUp(fieldId: string): void {
     setSchema(prev => {
       const next = [...prev]
-      ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+      const idx = next.findIndex((f) => f.fieldId === fieldId)
+      if (idx <= 0) return prev
+      // find the previous non-archived field
+      let prevIdx = idx - 1
+      while (prevIdx >= 0 && next[prevIdx].archived) prevIdx--
+      if (prevIdx < 0) return prev
+      ;[next[prevIdx], next[idx]] = [next[idx], next[prevIdx]]
       return next
     })
   }
 
-  function handleMoveDown(index: number): void {
-    if (index === schema.length - 1) return
+  function handleMoveDown(fieldId: string): void {
     setSchema(prev => {
       const next = [...prev]
-      ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+      const idx = next.findIndex((f) => f.fieldId === fieldId)
+      if (idx < 0) return prev
+      // find the next non-archived field
+      let nextIdx = idx + 1
+      while (nextIdx < next.length && next[nextIdx].archived) nextIdx++
+      if (nextIdx >= next.length) return prev
+      ;[next[idx], next[nextIdx]] = [next[nextIdx], next[idx]]
       return next
     })
   }
@@ -98,7 +119,8 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
     setError(null)
     setSaving(true)
 
-    const filteredSchema = schema.filter((f) => f.label.trim() !== '')
+    // Keep archived fields intact; filter out only unlabeled active fields
+    const filteredSchema = schema.filter((f) => f.archived || f.label.trim() !== '')
     const result = await updateTrackerAction(tracker.id, { type: trackerType, color: trackerColor, schema: filteredSchema })
 
     if (result.error) {
@@ -352,35 +374,77 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
             </div>
           </div>
 
-          {/* Fields List */}
+          {/* Active Fields List */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-textMuted opacity-30">
-                Data Schema Map ({schema.length}/{MAX_SCHEMA_FIELDS})
+                Data Schema Map ({activeFields.length}/{MAX_SCHEMA_FIELDS})
               </h3>
             </div>
 
-            {schema.length === 0 ? (
+            {activeFields.length === 0 ? (
               <div className="rounded-[32px] border border-dashed border-white/10 p-12 text-center text-sm font-bold text-textMuted bg-white/[0.01]">
                 No active fields.
               </div>
             ) : (
               <div className="space-y-3">
-                {schema.map((field, index) => (
+                {activeFields.map((field, i) => (
                   <SchemaFieldRow
                     key={field.fieldId}
                     field={field}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < schema.length - 1}
-                    onChange={(updated) => handleFieldChange(index, updated)}
-                    onRemove={() => handleFieldRemove(index)}
-                    onMoveUp={() => handleMoveUp(index)}
-                    onMoveDown={() => handleMoveDown(index)}
+                    canMoveUp={i > 0}
+                    canMoveDown={i < activeFields.length - 1}
+                    onChange={(updated) => handleFieldChange(field.fieldId, updated)}
+                    onArchive={() => handleArchiveField(field.fieldId)}
+                    onMoveUp={() => handleMoveUp(field.fieldId)}
+                    onMoveDown={() => handleMoveDown(field.fieldId)}
                   />
                 ))}
               </div>
             )}
           </div>
+
+          {/* Archived Fields Section */}
+          {archivedFields.length > 0 && (
+            <div className="space-y-3 border-t border-white/5 pt-6">
+              <h3 className="px-2 text-[10px] font-black uppercase tracking-[0.4em] text-amber-400/50">
+                Archived Fields ({archivedFields.length})
+              </h3>
+              <div className="space-y-2">
+                {archivedFields.map((field) => (
+                  <div
+                    key={field.fieldId}
+                    className="flex items-center justify-between rounded-xl border border-amber-500/10 bg-amber-500/[0.03] px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-textMuted/60 line-through">{field.label || 'Unnamed field'}</p>
+                      <p className="text-[10px] text-textMuted/30 uppercase tracking-widest">{field.type}{field.unit ? ` · ${field.unit}` : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreField(field.fieldId)}
+                        className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-textMuted transition-all hover:border-white/20 hover:text-textPrimary active:scale-95"
+                        title="Restore field"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFieldForever(field.fieldId)}
+                        className="flex items-center gap-1 rounded-lg border border-red-500/10 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-500/40 transition-all hover:border-red-500/30 hover:text-red-400 active:scale-95"
+                        title="Delete field forever"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Footer Actions */}
           <div className="flex flex-col gap-4 border-t border-white/5 pt-8 sm:flex-row sm:items-center sm:justify-between">

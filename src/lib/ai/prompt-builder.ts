@@ -52,7 +52,10 @@ function formatTrackerSchema(tracker: Tracker): string {
     return '  (no fields defined)'
   }
 
-  return tracker.schema
+  const activeFields = tracker.schema.filter((f) => !f.archived)
+  if (activeFields.length === 0) return '  (no fields defined)'
+
+  return activeFields
     .map((field) => {
       const unitPart = field.unit ? `, ${field.unit}` : ''
       return `  - ${field.fieldId}: ${field.label} (${field.type}${unitPart})`

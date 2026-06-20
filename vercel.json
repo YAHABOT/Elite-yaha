@@ -1,4 +1,5 @@
 {
+  "name": "elite-yaha",
   "crons": [
     {
       "path": "/api/summaries/generate?type=weekly",

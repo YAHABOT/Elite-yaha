@@ -242,7 +242,7 @@ export function CreateTrackerForm(): React.ReactElement {
                 key={field.fieldId}
                 field={field}
                 onChange={(updated) => handleFieldChange(index, updated)}
-                onRemove={() => handleFieldRemove(index)}
+                onArchive={() => handleFieldRemove(index)}
               />
             ))}
           </div>

@@ -10,6 +10,7 @@ import {
   LogOut,
   Flame,
   Zap,
+  Target,
 } from 'lucide-react'
 import { NavLink } from './NavLink'
 import { signOut } from '@/app/actions/auth'
@@ -20,6 +21,7 @@ type Props = {
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/coaching', icon: Target, label: 'Coaching' },
   { href: '/journal', icon: BookOpen, label: 'Journals' },
   { href: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { href: '/trackers', icon: Boxes, label: 'Trackers' },

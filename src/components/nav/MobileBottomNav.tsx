@@ -8,6 +8,7 @@ import {
   MessageCircle,
   Boxes,
   Settings,
+  Target,
 } from 'lucide-react'
 
 type TabItem = {
@@ -20,6 +21,7 @@ type TabItem = {
 
 const TABS: TabItem[] = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/coaching', icon: Target, label: 'Coaching' },
   { href: '/journal', icon: BookOpen, label: 'Journal' },
   { href: '/chat/new', activeMatch: '/chat', icon: MessageCircle, label: 'Chat', center: true },
   { href: '/trackers', icon: Boxes, label: 'Trackers' },
