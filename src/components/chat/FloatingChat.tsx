@@ -5,6 +5,7 @@ import { ChatInterface } from './ChatInterface'
 import { chatEvents } from '@/lib/events/chatEvents'
 import { MessageCircle, X, Loader2 } from 'lucide-react'
 import { fetchChatSessionsAction, fetchChatSessionDataAction } from '@/app/actions/floatingChat'
+import { motion } from 'framer-motion'
 import type { ChatSession, ChatMessage } from '@/types/chat'
 import type { Routine } from '@/types/routine'
 
@@ -50,17 +51,20 @@ export function FloatingChat() {
 
   if (!isOpen) {
     return (
-      <button 
+      <motion.button 
+        drag
+        dragMomentum={false}
+        dragElastic={0.1}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-50 p-4 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-transform"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[60] p-3 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-transform"
       >
-        <MessageCircle size={28} />
-      </button>
+        <MessageCircle size={22} />
+      </motion.button>
     )
   }
 
   return (
-    <div className="fixed inset-0 z-[60] md:inset-y-4 md:right-4 md:left-auto md:w-[450px] bg-background/95 backdrop-blur-xl md:rounded-3xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-right-full duration-300">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(62px+env(safe-area-inset-bottom,0px))] z-[40] md:bottom-4 md:top-4 md:right-4 md:left-auto md:w-[450px] bg-background/95 backdrop-blur-xl md:rounded-3xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-right-full duration-300">
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/5">
         <div className="font-bold text-white flex items-center gap-2">
           <MessageCircle size={18} className="text-nutrition" />
