@@ -15,10 +15,12 @@ export function NavLink({ href, icon: Icon, label }: Props): React.ReactElement 
   const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
 
   const handleClick = (e: React.MouseEvent) => {
+    console.log('[NavLink] Clicked href:', href, 'current pathname:', pathname)
     if (href === '/chat') {
       e.preventDefault()
       chatEvents.openChat()
     } else {
+      console.log('[NavLink] Dispatching minimize event')
       chatEvents.openChat({ action: 'minimize' })
     }
   }

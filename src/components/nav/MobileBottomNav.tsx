@@ -81,7 +81,10 @@ export function MobileBottomNav(): React.ReactElement {
               key={tab.href}
               href={tab.href}
               prefetch={true}
-              onClick={() => chatEvents.openChat({ action: 'minimize' })}
+              onClick={() => {
+                console.log('[MobileBottomNav] Clicked tab:', tab.href)
+                chatEvents.openChat({ action: 'minimize' })
+              }}
               className="relative flex-1 flex flex-col items-center justify-start transition-all duration-300"
               style={{ paddingTop: isCenter ? 4 : 10 }}
             >

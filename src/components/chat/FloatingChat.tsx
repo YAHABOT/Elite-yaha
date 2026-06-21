@@ -48,10 +48,14 @@ export function FloatingChat() {
   }, [isOpen])
 
   useEffect(() => {
+    console.log('[FloatingChat] Subscribing to chatEvents')
     const unsub = chatEvents.subscribe((payload) => {
+      console.log('[FloatingChat] Event received payload:', payload, 'current isOpen:', isOpen)
       if (payload.action === 'minimize') {
+        console.log('[FloatingChat] Minimizing chat: setting isOpen to false')
         setIsOpen(false)
       } else {
+        console.log('[FloatingChat] Opening chat: setting isOpen to true')
         setIsOpen(true)
         if (payload.sessionId) setSessionId(payload.sessionId)
         if (payload.initialRoutineId) setInitialRoutineId(payload.initialRoutineId)
