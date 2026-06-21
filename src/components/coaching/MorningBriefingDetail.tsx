@@ -40,15 +40,20 @@ function parseBulletPoints(markdown: string) {
   const bullets: { title: string; content: string }[] = []
   
   for (const line of lines) {
-    const trimmed = line.trim()
+    let trimmed = line.trim()
     if (!trimmed) continue
     
-    // Check if it's a bullet point (starts with * or -)
+    let isBullet = false
     if (trimmed.startsWith('*') || trimmed.startsWith('-')) {
-      const content = trimmed.substring(1).trim()
-      
-      // Match **Title:** Content
-      const match = content.match(/^\*\*(.*?)\*\*:(.*)$/)
+      trimmed = trimmed.substring(1).trim()
+      isBullet = true
+    } else if (trimmed.startsWith('**')) {
+      isBullet = true
+    }
+    
+    if (isBullet) {
+      // Match **Title:** Content or **Title**: Content or **Title** Content
+      const match = trimmed.match(/^\*\*(.*?)(?::)?\*\*(?::)?(.*)$/)
       if (match) {
         bullets.push({
           title: match[1].trim(),
@@ -57,7 +62,7 @@ function parseBulletPoints(markdown: string) {
       } else {
         bullets.push({
           title: '',
-          content: content,
+          content: trimmed,
         })
       }
     } else {
@@ -331,6 +336,27 @@ export function MorningBriefingDetail({ brief }: { brief: MorningBriefingDetail 
           let title = b.title
           if (title.toLowerCase() === 'cns reasoning') {
             title = 'Readiness Reasoning'
+          }
+          
+          const titleLower = title.toLowerCase()
+          const isCollapsible = titleLower.includes('readiness reasoning') || titleLower.includes('cns reasoning')
+          
+          if (isCollapsible) {
+            return (
+              <details key={idx} className="group border border-white/5 bg-white/2 rounded-xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex items-center justify-between px-3 py-2 cursor-pointer transition-colors bg-white/2 select-none hover:bg-white/5">
+                  <strong className="font-extrabold text-white text-xs uppercase tracking-wider">
+                    {title}
+                  </strong>
+                  <span className="transition-transform duration-200 group-open:rotate-180 text-white/40">
+                    <ChevronDown size={14} />
+                  </span>
+                </summary>
+                <div className="px-3 py-3 border-t border-white/5 text-sm text-white/70 leading-relaxed whitespace-pre-wrap">
+                  <MarkdownBlock content={replaceColorEmojis(b.content)} />
+                </div>
+              </details>
+            )
           }
           
           return (

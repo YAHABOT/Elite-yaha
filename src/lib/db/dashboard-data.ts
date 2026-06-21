@@ -167,22 +167,48 @@ export async function computeWidgetValue(
         return { value: null, label: widget.label }
       }
 
+      // Fetch the tracker so we know its type and schema field info
+      const { data: trackerData } = await supabase
+        .from('trackers')
+        .select('type, schema')
+        .eq('id', widget.tracker_id)
+        .maybeSingle()
+
+      const trackerType = trackerData?.type as string | undefined
+      const schemaField = (trackerData?.schema as { fieldId: string; label?: string; unit?: string }[])?.find(s => s.fieldId === widget.field_id)
+      const fieldUnit = schemaField?.unit as string | undefined
+      const fieldLabel = schemaField?.label ?? widget.label
+
       const { data } = await supabase
         .from('tracker_logs')
-        .select('fields')
+        .select('fields, logged_at')
         .eq('user_id', userId)
         .eq('tracker_id', widget.tracker_id)
         .gte('logged_at', since)
 
-      const values = (data ?? [])
-        .map(row => {
-          const raw = (row.fields as Record<string, unknown>)?.[widget.field_id!]
-          return typeof raw === 'number' ? raw : null
-        })
-        .filter((v): v is number => v !== null && Number.isFinite(v))
+      // Group logs by local day string (YYYY-MM-DD)
+      const logsByDay: Record<string, number[]> = {}
+      for (const row of (data ?? [])) {
+        const raw = (row.fields as Record<string, unknown>)?.[widget.field_id!]
+        if (typeof raw === 'number' && Number.isFinite(raw) && row.logged_at) {
+          const dayStr = row.logged_at.substring(0, 10)
+          if (!logsByDay[dayStr]) logsByDay[dayStr] = []
+          logsByDay[dayStr].push(raw)
+        }
+      }
 
-      const avg = values.length > 0
-        ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10
+      const sumDaily = shouldSumDaily(fieldLabel, fieldUnit, trackerType)
+
+      const dailyValues = Object.values(logsByDay).map(dayVals => {
+        if (sumDaily) {
+          return dayVals.reduce((a, b) => a + b, 0)
+        } else {
+          return dayVals.reduce((a, b) => a + b, 0) / dayVals.length
+        }
+      })
+
+      const avg = dailyValues.length > 0
+        ? Math.round((dailyValues.reduce((a, b) => a + b, 0) / dailyValues.length) * 10) / 10
         : null
 
       return { value: avg, label: widget.label }
@@ -251,6 +277,52 @@ export async function computeWidgetValue(
 }
 
 
+export function shouldSumDaily(fieldLabel: string, unit?: string, trackerType?: string): boolean {
+  if (trackerType === 'nutrition' || trackerType === 'water') {
+    return true
+  }
+
+  const labelLower = fieldLabel.toLowerCase()
+  const unitLower = unit?.toLowerCase()
+
+  // Explicit average-based fields
+  if (
+    labelLower.includes('weight') ||
+    labelLower.includes('hrv') ||
+    labelLower.includes('rhr') ||
+    labelLower.includes('heart rate') ||
+    labelLower.includes('sleep quality') ||
+    labelLower.includes('sleep efficiency') ||
+    labelLower.includes('mood') ||
+    labelLower.includes('rating') ||
+    labelLower.includes('score') ||
+    labelLower.includes('temperature') ||
+    labelLower.includes('blood pressure')
+  ) {
+    return false
+  }
+
+  // Explicit sum-based units/labels
+  if (
+    unitLower === 'g' ||
+    unitLower === 'mg' ||
+    unitLower === 'kcal' ||
+    unitLower === 'ml' ||
+    unitLower === 'oz' ||
+    unitLower === 'steps' ||
+    labelLower === 'calories' ||
+    labelLower === 'protein' ||
+    labelLower === 'carbs' ||
+    labelLower === 'fat' ||
+    labelLower === 'water' ||
+    labelLower.includes('active calories')
+  ) {
+    return true
+  }
+
+  return false
+}
+
 /**
  * Compute a single field's value from pre-filtered tracker logs using the widget's aggregation type.
  * trackerLogs must already be filtered to the relevant tracker_id.
@@ -259,7 +331,8 @@ function computeFieldValue(
   fieldId: string,
   trackerLogs: TrackerLog[],
   widgetType: string,
-  widgetDays: number
+  widgetDays: number,
+  tracker?: Tracker
 ): number | string | null {
   if (widgetType === 'field_latest') {
     const raw = (trackerLogs[0]?.fields as Record<string, unknown>)?.[fieldId] ?? null
@@ -272,16 +345,43 @@ function computeFieldValue(
   const cutoffStr = cutoff.toISOString()
   const inWindow = trackerLogs.filter(l => l.logged_at >= cutoffStr)
 
+  if (widgetType === 'field_average') {
+    const schemaField = tracker?.schema.find(s => s.fieldId === fieldId)
+    const fieldUnit = schemaField?.unit
+    const fieldLabel = schemaField?.label ?? ''
+    const trackerType = tracker?.type
+
+    const logsByDay: Record<string, number[]> = {}
+    for (const log of inWindow) {
+      const raw = (log.fields as Record<string, unknown>)?.[fieldId]
+      if (typeof raw === 'number' && Number.isFinite(raw) && log.logged_at) {
+        const dayStr = log.logged_at.substring(0, 10)
+        if (!logsByDay[dayStr]) logsByDay[dayStr] = []
+        logsByDay[dayStr].push(raw)
+      }
+    }
+
+    const sumDaily = shouldSumDaily(fieldLabel, fieldUnit, trackerType)
+
+    const dailyValues = Object.values(logsByDay).map(dayVals => {
+      if (sumDaily) {
+        return dayVals.reduce((a, b) => a + b, 0)
+      } else {
+        return dayVals.reduce((a, b) => a + b, 0) / dayVals.length
+      }
+    })
+
+    return dailyValues.length > 0
+      ? Math.round((dailyValues.reduce((a, b) => a + b, 0) / dailyValues.length) * 10) / 10
+      : null
+  }
+
+  // field_total
   const values = inWindow
     .map(l => (l.fields as Record<string, unknown>)?.[fieldId])
     .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
 
-  if (values.length === 0) return widgetType === 'field_total' ? 0 : null
-
-  if (widgetType === 'field_average') {
-    return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10
-  }
-  // field_total
+  if (values.length === 0) return 0
   return values.reduce((a, b) => a + b, 0)
 }
 
@@ -335,7 +435,7 @@ export function computeWidgetValueOptimized(
           label: ef.label,
           unit,
           fieldType: schemaField?.type,
-          value: computeFieldValue(ef.field_id, todayWidgetLogs, widget.type, widget.days ?? 7),
+          value: computeFieldValue(ef.field_id, todayWidgetLogs, widget.type, widget.days ?? 7, widgetTracker),
         }
       })
 
@@ -350,17 +450,37 @@ export function computeWidgetValueOptimized(
         ? todayLogs.filter(l => l.tracker_id === widget.tracker_id)
         : filterByPeriod(allAvgLogs, widget)
 
-      const values = widgetLogs
-        .map(l => (l.fields as Record<string, unknown>)?.[widget.field_id!])
-        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
-
-      const avg = values.length > 0
-        ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10
-        : null
       const avgTracker = trackers.find(t => t.id === widget.tracker_id)
       const avgSchemaField = avgTracker?.schema.find(s => s.fieldId === widget.field_id)
       const avgUnit = typeof avgSchemaField?.unit === 'string' ? avgSchemaField.unit : undefined
       const avgFieldType = avgSchemaField?.type
+      const fieldLabel = avgSchemaField?.label ?? widget.label
+      const trackerType = avgTracker?.type
+
+      // Group logs by local day string (YYYY-MM-DD)
+      const logsByDay: Record<string, number[]> = {}
+      for (const log of widgetLogs) {
+        const raw = (log.fields as Record<string, unknown>)?.[widget.field_id!]
+        if (typeof raw === 'number' && Number.isFinite(raw) && log.logged_at) {
+          const dayStr = log.logged_at.substring(0, 10)
+          if (!logsByDay[dayStr]) logsByDay[dayStr] = []
+          logsByDay[dayStr].push(raw)
+        }
+      }
+
+      const sumDaily = shouldSumDaily(fieldLabel, avgUnit, trackerType)
+
+      const dailyValues = Object.values(logsByDay).map(dayVals => {
+        if (sumDaily) {
+          return dayVals.reduce((a, b) => a + b, 0)
+        } else {
+          return dayVals.reduce((a, b) => a + b, 0) / dayVals.length
+        }
+      })
+
+      const avg = dailyValues.length > 0
+        ? Math.round((dailyValues.reduce((a, b) => a + b, 0) / dailyValues.length) * 10) / 10
+        : null
 
       const extraValues: ExtraFieldValue[] = (widget.extra_fields ?? []).map(ef => {
         const schemaField = avgTracker?.schema.find(s => s.fieldId === ef.field_id)
@@ -372,7 +492,7 @@ export function computeWidgetValueOptimized(
           label: ef.label,
           unit,
           fieldType: schemaField?.type,
-          value: computeFieldValue(ef.field_id, widgetLogs, widget.type, 36500),
+          value: computeFieldValue(ef.field_id, widgetLogs, widget.type, 36500, avgTracker),
         }
       })
 
@@ -409,7 +529,7 @@ export function computeWidgetValueOptimized(
           label: ef.label,
           unit,
           fieldType: schemaField?.type,
-          value: computeFieldValue(ef.field_id, widgetLogs, widget.type, 36500),
+          value: computeFieldValue(ef.field_id, widgetLogs, widget.type, 36500, totalTracker),
         }
       })
 
@@ -593,9 +713,16 @@ export function computeDailyPointsFromLogs(
   fieldId: string,
   aggregation: 'average' | 'total',
   nDays: number,
-  startDate?: Date
+  startDate?: Date,
+  trackers: Tracker[] = []
 ): number[] {
   const result: number[] = []
+  const tracker = trackers.find(t => t.id === trackerId)
+  const schemaField = tracker?.schema.find(s => s.fieldId === fieldId)
+  const fieldUnit = schemaField?.unit
+  const fieldLabel = schemaField?.label ?? ''
+  const trackerType = tracker?.type
+
   for (let i = 0; i < nDays; i++) {
     let d: Date
     if (startDate) {
@@ -615,7 +742,12 @@ export function computeDailyPointsFromLogs(
     if (values.length === 0) {
       result.push(0)
     } else if (aggregation === 'average') {
-      result.push(Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10)
+      const sumDaily = shouldSumDaily(fieldLabel, fieldUnit, trackerType)
+      if (sumDaily) {
+        result.push(values.reduce((a, b) => a + b, 0))
+      } else {
+        result.push(Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10)
+      }
     } else {
       result.push(values.reduce((a, b) => a + b, 0))
     }
@@ -632,7 +764,8 @@ export function computeDeltaPct(
   trackerId: string,
   fieldId: string,
   aggregation: 'average' | 'total',
-  days: number
+  days: number,
+  trackers: Tracker[] = []
 ): number | null {
   const now = new Date()
   const periodStart = new Date(now); periodStart.setDate(now.getDate() - days)
@@ -647,12 +780,48 @@ export function computeDeltaPct(
     l.logged_at < periodStart.toISOString()
   )
 
+  const tracker = trackers.find(t => t.id === trackerId)
+  const schemaField = tracker?.schema.find(s => s.fieldId === fieldId)
+  const fieldUnit = schemaField?.unit
+  const fieldLabel = schemaField?.label ?? ''
+  const trackerType = tracker?.type
+
   function computeVal(logs: TrackerLog[]): number | null {
+    if (logs.length === 0) return null
+
+    if (aggregation === 'average') {
+      // Group by day
+      const logsByDay: Record<string, number[]> = {}
+      for (const log of logs) {
+        const raw = (log.fields as Record<string, unknown>)?.[fieldId]
+        if (typeof raw === 'number' && Number.isFinite(raw) && log.logged_at) {
+          const dayStr = log.logged_at.substring(0, 10)
+          if (!logsByDay[dayStr]) logsByDay[dayStr] = []
+          logsByDay[dayStr].push(raw)
+        }
+      }
+
+      const sumDaily = shouldSumDaily(fieldLabel, fieldUnit, trackerType)
+
+      const dailyValues = Object.values(logsByDay).map(dayVals => {
+        if (sumDaily) {
+          return dayVals.reduce((a, b) => a + b, 0)
+        } else {
+          return dayVals.reduce((a, b) => a + b, 0) / dayVals.length
+        }
+      })
+
+      return dailyValues.length > 0
+        ? dailyValues.reduce((a, b) => a + b, 0) / dailyValues.length
+        : null
+    }
+
+    // total
     const values = logs
       .map(l => (l.fields as Record<string, unknown>)?.[fieldId])
       .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+
     if (values.length === 0) return null
-    if (aggregation === 'average') return values.reduce((a, b) => a + b, 0) / values.length
     return values.reduce((a, b) => a + b, 0)
   }
 

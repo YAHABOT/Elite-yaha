@@ -14,6 +14,7 @@ const CHIP_SIZE = 46
 export function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false)
   const [sessionId, setSessionId] = useState<string>('new')
+  const [newChatCounter, setNewChatCounter] = useState<number>(0)
   const [initialRoutineId, setInitialRoutineId] = useState<string | null>(null)
   
   const [sessions, setSessions] = useState<ChatSession[]>([])
@@ -40,6 +41,7 @@ export function FloatingChat() {
         setMessages([])
         setRoutine(null)
         setInitialRoutineId(null)
+        setNewChatCounter(prev => prev + 1)
       }, 5 * 60 * 1000)
     } else {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
@@ -57,7 +59,18 @@ export function FloatingChat() {
       } else {
         console.log('[FloatingChat] Opening chat: setting isOpen to true')
         setIsOpen(true)
-        if (payload.sessionId) setSessionId(payload.sessionId)
+        if (payload.sessionId) {
+          if (payload.sessionId === 'new') {
+            setSessionId('new')
+            setSession(null)
+            setMessages([])
+            setRoutine(null)
+            setInitialRoutineId(null)
+            setNewChatCounter(prev => prev + 1)
+          } else {
+            setSessionId(payload.sessionId)
+          }
+        }
         if (payload.initialRoutineId) setInitialRoutineId(payload.initialRoutineId)
       }
     })
@@ -183,7 +196,7 @@ export function FloatingChat() {
           </div>
         ) : (
           <ChatInterface
-            key={sessionId}
+            key={sessionId === 'new' ? `new-${newChatCounter}` : sessionId}
             sessionId={sessionId}
             session={session}
             sessions={sessions}
@@ -191,7 +204,14 @@ export function FloatingChat() {
             initialRoutine={routine}
             initialRoutineId={initialRoutineId}
             onSessionSelect={(id) => setSessionId(id)}
-            onNewChat={() => setSessionId('new')}
+            onNewChat={() => {
+              setSessionId('new')
+              setSession(null)
+              setMessages([])
+              setRoutine(null)
+              setInitialRoutineId(null)
+              setNewChatCounter(prev => prev + 1)
+            }}
             initialAgentId={null}
           />
         )}

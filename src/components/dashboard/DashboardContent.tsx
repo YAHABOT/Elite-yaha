@@ -123,7 +123,8 @@ export async function DashboardContent({
             w.field_id,
             agg,
             adjSparkDays,
-            adjSparkStart
+            adjSparkStart,
+            trackers
           )
           if (trendDayOffset) val.trendDayOffset = trendDayOffset
           const delta = computeDeltaPct(
@@ -131,7 +132,8 @@ export async function DashboardContent({
             w.tracker_id,
             w.field_id,
             agg,
-            w.days ?? 7
+            w.days ?? 7,
+            trackers
           )
           if (delta !== null) val.delta = delta
         }

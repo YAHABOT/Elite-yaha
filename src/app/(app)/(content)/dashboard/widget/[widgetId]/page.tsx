@@ -6,6 +6,7 @@ import { getLogs } from '@/lib/db/logs'
 import { getUser } from '@/lib/db/users'
 import { getCorrelation, getCorrelations } from '@/lib/db/correlations'
 import { evaluateFormula, buildCrossTrackerMap, buildFieldValueMapWithCorrelators } from '@/lib/correlator/formula-engine'
+import { shouldSumDaily } from '@/lib/db/dashboard-data'
 import { WidgetDetailClient } from '@/components/dashboard/WidgetDetailClient'
 import type { Widget } from '@/types/widget'
 import type { TrackerLog } from '@/types/log'
@@ -190,6 +191,8 @@ export default async function WidgetDetailPage({ params }: Props) {
     })
     const byDate = groupByDate(logs)
 
+    const sumDaily = shouldSumDaily(fieldDef?.label ?? widget.label, unit, tracker?.type)
+
     dailyPoints = allDates.map(date => {
       const dayLogs = byDate.get(date)
       if (!dayLogs || dayLogs.length === 0) return { date, value: null }
@@ -202,7 +205,7 @@ export default async function WidgetDetailPage({ params }: Props) {
 
       const sum = nums.reduce((a, b) => a + b, 0)
       const value = widget.type === 'field_average'
-        ? Math.round((sum / nums.length) * 10) / 10
+        ? (sumDaily ? Math.round(sum * 10) / 10 : Math.round((sum / nums.length) * 10) / 10)
         : Math.round(sum * 10) / 10
 
       return { date, value, count: dayLogs.length }
