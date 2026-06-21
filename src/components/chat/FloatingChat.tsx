@@ -169,7 +169,7 @@ export function FloatingChat() {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         style={{ left: pos.x, top: pos.y }}
-        className="fixed z-[60] p-3 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-all touch-none opacity-100 pointer-events-auto"
+        className="fixed z-[60] p-3 rounded-full bg-nutrition text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-[transform,background-color,box-shadow] duration-200 touch-none opacity-100 pointer-events-auto"
       >
         {isOpen ? <X size={22} /> : <MessageCircle size={22} />}
       </button>

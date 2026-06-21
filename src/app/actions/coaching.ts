@@ -306,13 +306,13 @@ export async function fetchMorningBriefingDetailAction(id: string): Promise<Morn
       energyScore = f.fld_1774521533816_0boq != null ? Number(f.fld_1774521533816_0boq) : null
       hrv = f.fld_1778945903377_mmz2 != null ? Number(f.fld_1778945903377_mmz2) : null
       rhr = f.fld_1774521588336_xlkb != null ? Number(f.fld_1774521588336_xlkb) : null
-      sleepDurationMin = f.fld_1774522628410_1mno != null ? Number(f.fld_1774522628410_1mno) : null
+      sleepDurationMin = f.fld_1774522628410_1mno != null ? Math.round(Number(f.fld_1774522628410_1mno) / 60) : null
     } else {
       sleepScore = f.fld_001 != null ? Number(f.fld_001) : null
       energyScore = null
       hrv = f.fld_1779654669234_snzx != null ? Number(f.fld_1779654669234_snzx) : null
       rhr = f.fld_003 != null ? Number(f.fld_003) : null
-      sleepDurationMin = f.fld_002 != null ? Number(f.fld_002) : null
+      sleepDurationMin = f.fld_002 != null ? Math.round(Number(f.fld_002) / 60) : null
     }
   }
 
