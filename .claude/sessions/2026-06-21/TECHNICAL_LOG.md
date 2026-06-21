@@ -25,3 +25,15 @@ The minimization hook in `FloatingChat.tsx` was bound strictly to `[pathname]`. 
 5. Deployed the latest build via Vercel CLI (`npx vercel --prod --yes`) to ensure the changes were compiled and active on the production domain.
 6. Verified through the browser console that clicking the active "Dashboard" tab correctly emits `[MobileBottomNav] Clicked tab: /dashboard` and prompts `[FloatingChat] Minimizing chat: setting isOpen to false`, successfully closing the floating chat.
 
+## Enhancement 3: Persistent Draggable Floating Button & UI Cleanup
+**Goal:**
+Remove the redundant "YAHA AI" header bar at the top of the chat panel, keep the floating chat button (chip) visible even when the chat is maximized, and use it as an interactive open/close toggle that preserves its smooth draggable movement.
+
+**Implementation Details:**
+1. **Header Bar Removal:** Deleted the `div` containing the `Yaha AI` title and `X` close button from `FloatingChat.tsx`.
+2. **Toggle Event Logic:** Modified `onPointerUp` inside `FloatingChat.tsx` to call `setIsOpen(prev => !prev)` on touch release (only when the button hasn't been dragged beyond 5px).
+3. **Persistent Button visibility:** Removed the `isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'` conditional class styling from the floating button, forcing it to remain fully visible (`opacity-100 pointer-events-auto`) and interactable at all times.
+4. **Dynamic Icon Transition:** Conditionally rendered the icon inside the floating button: `<X size={22} />` when `isOpen === true` (representing a close action), and `<MessageCircle size={22} />` when `isOpen === false` (representing a chat action).
+5. **Compilation Security:** Fixed type and lint errors in the untracked file `src/app/actions/coaching.ts` to ensure that ESLint check stages pass during compilation.
+
+

@@ -254,11 +254,12 @@ export async function fetchMorningBriefingDetailAction(id: string): Promise<Morn
   if (!r) return null
 
   const [year, month, day] = r.date.split('-').map(Number)
-  const date = new Date(year, month - 1, day, 8, 0, 0)
+  const date = new Date(Date.UTC(year, month - 1, day, 8, 0, 0))
 
-  // Secondary: Fetch all tracker logs for yesterday and today
-  const prevDate = new Date(year, month - 1, day - 1)
-  const prevDateStr = prevDate.toISOString().split('T')[0]
+  // Safe timezone-independent calculation for yesterday's date string
+  const currentDate = new Date(Date.UTC(year, month - 1, day))
+  currentDate.setUTCDate(currentDate.getUTCDate() - 1)
+  const prevDateStr = currentDate.toISOString().split('T')[0]
 
   const startDate = `${prevDateStr}T00:00:00.000Z`
   const endDate = `${r.date}T23:59:59.999Z`
