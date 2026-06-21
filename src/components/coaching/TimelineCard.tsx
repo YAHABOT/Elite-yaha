@@ -38,6 +38,7 @@ export function TimelineCard({ item }: { item: TimelineItem }) {
   }
 
   const isMorning = item.type === 'morning_briefing'
+  const isEvening = item.type === 'evening_briefing'
 
   return (
     <Link href={`/coaching/report/${item.type}/${item.id}`}>
@@ -65,7 +66,7 @@ export function TimelineCard({ item }: { item: TimelineItem }) {
                 <ReadinessDot color={item.readinessColor} />
               )}
 
-              {!isMorning && (
+              {!isMorning && !isEvening && (
                 <div className="flex gap-2 ml-auto">
                   {item.tags.slice(0, 2).map(tag => (
                     <span
@@ -100,6 +101,19 @@ export function TimelineCard({ item }: { item: TimelineItem }) {
                   </p>
                   <p className="text-xs text-white/50">
                     Today: {item.sessionType ?? 'Training Day'}
+                  </p>
+                </div>
+              ) : isEvening && item.strainScore != null ? (
+                // Structured 2-line preview for evening briefings
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold text-white/80">
+                    Strain Score:{' '}
+                    <span className="text-primary font-bold">
+                      {item.strainScore.toFixed(1)} / 21
+                    </span>
+                  </p>
+                  <p className="text-xs text-white/50">
+                    Fueling: Pre ({item.preCarbsCompliant ? 'Carbs: ✅' : 'Carbs: ❌'} | {item.preProteinCompliant ? 'Protein: ✅' : 'Protein: ❌'}) • Post ({item.postCarbsCompliant ? 'Carbs: ✅' : 'Carbs: ❌'} | {item.postProteinCompliant ? 'Protein: ✅' : 'Protein: ❌'})
                   </p>
                 </div>
               ) : (

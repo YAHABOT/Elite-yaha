@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
@@ -6,10 +5,12 @@ import { getSafeUser } from '@/lib/supabase/auth'
 import {
   fetchTimelineReportAction,
   fetchMorningBriefingDetailAction,
+  fetchEveningBriefingDetailAction,
   TimelineType,
 } from '@/app/actions/coaching'
 import { MarkdownBlock } from '@/components/chat/MarkdownBlock'
 import { MorningBriefingDetail } from '@/components/coaching/MorningBriefingDetail'
+import { EveningBriefingDetail } from '@/components/coaching/EveningBriefingDetail'
 
 export default async function CoachingReportPage({
   params,
@@ -54,6 +55,37 @@ export default async function CoachingReportPage({
         <main className="flex-1 px-4 pt-4 pb-32">
           <div className="max-w-2xl mx-auto">
             <MorningBriefingDetail brief={brief} />
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // ── Evening Briefing: use structured detail ──────────────────────────────
+  if (type === 'evening_briefing') {
+    const brief = await fetchEveningBriefingDetailAction(id)
+    if (!brief) notFound()
+
+    return (
+      <div className="flex flex-col min-h-[100dvh] bg-background">
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-white/5 safe-top">
+          <div className="flex items-center justify-between px-4 h-14">
+            <Link
+              href="/coaching"
+              className="p-2 -ml-2 text-textMuted hover:text-white rounded-full transition-colors"
+            >
+              <ChevronLeft size={24} />
+            </Link>
+            <div className="font-bold text-base tracking-widest text-white/90 uppercase truncate max-w-[200px]">
+              Evening Briefing
+            </div>
+            <div className="w-10" />
+          </div>
+        </header>
+
+        <main className="flex-1 px-4 pt-4 pb-32">
+          <div className="max-w-2xl mx-auto">
+            <EveningBriefingDetail brief={brief} />
           </div>
         </main>
       </div>

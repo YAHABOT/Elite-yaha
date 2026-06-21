@@ -19,6 +19,12 @@ export type TimelineItem = {
   readinessScore?: number | null
   readinessColor?: ReadinessColor | null
   sessionType?: string | null
+  // Evening briefing enriched fields for card preview
+  strainScore?: number | null
+  preCarbsCompliant?: boolean | null
+  preProteinCompliant?: boolean | null
+  postCarbsCompliant?: boolean | null
+  postProteinCompliant?: boolean | null
 }
 
 /** Derives a human-readable session type label from the pre_workout_fueling text. */
@@ -47,6 +53,39 @@ function getAthleteName(uuid: string): string {
   if (uuid === '44ef9aae-79d7-4bc9-8eea-7d8a55964813') return 'Armaan'
   if (uuid === '4c74333b-18e6-465a-a62a-523a4ad2999b') return 'Violet'
   return uuid
+}
+
+function parseTimeToMin(val: string | number | null | undefined): number {
+  if (val === null || val === undefined) return 0
+  if (typeof val === 'number') {
+    if (val > 300) {
+      return Math.round(val / 60)
+    }
+    return Math.round(val)
+  }
+  const str = String(val).trim().toLowerCase()
+  if (!str) return 0
+  
+  if (str.includes(':')) {
+    const parts = str.split(':').map(Number)
+    if (parts.length === 2) {
+      const [m, s] = parts
+      return m + (s >= 30 ? 1 : 0)
+    } else if (parts.length === 3) {
+      const [h, m, s] = parts
+      return h * 60 + m + (s >= 30 ? 1 : 0)
+    }
+  }
+  
+  const parsed = Number(str)
+  if (!isNaN(parsed)) {
+    if (parsed > 300) {
+      return Math.round(parsed / 60)
+    }
+    return Math.round(parsed)
+  }
+  
+  return 0
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +203,7 @@ export async function fetchTimelineFeedAction(): Promise<TimelineItem[]> {
   // 2. Evening Briefings — from coaching_daily_readiness (athlete-scoped)
   const { data: readiness } = await supabase
     .from('coaching_daily_readiness')
-    .select('id, date, post_workout_verdict, strain_score')
+    .select('id, date, post_workout_verdict, strain_score, pre_carbs_compliant, pre_protein_compliant, post_carbs_compliant, post_protein_compliant')
     .eq('user_id', athleteName)
     .not('post_workout_verdict', 'is', null)
     .neq('post_workout_verdict', '')
@@ -184,6 +223,11 @@ export async function fetchTimelineFeedAction(): Promise<TimelineItem[]> {
         tags: ['Workout Verdict', 'Recovery', `Strain: ${r.strain_score || 'N/A'}`],
         preview: extractPreview(r.post_workout_verdict),
         content: r.post_workout_verdict || '',
+        strainScore: r.strain_score != null ? Number(r.strain_score) : null,
+        preCarbsCompliant: r.pre_carbs_compliant ?? null,
+        preProteinCompliant: r.pre_protein_compliant ?? null,
+        postCarbsCompliant: r.post_carbs_compliant ?? null,
+        postProteinCompliant: r.post_protein_compliant ?? null,
       })
     })
   }
@@ -489,10 +533,10 @@ export async function fetchMorningBriefingDetailAction(id: string): Promise<Morn
     nutritionFat,
     nutritionCarbs,
 
-    targetCarbsPre: r.target_carbs_pre != null ? Number(r.target_carbs_pre) : null,
+    targetCarbsPre: r.target_carbs_pre != null ? Number(r.target_carbs_pre) : (athleteName === 'Armaan' ? 62 : 41),
     actualCarbsPre: r.actual_carbs_pre != null ? Number(r.actual_carbs_pre) : null,
     preCarbsCompliant: r.pre_carbs_compliant ?? null,
-    targetCarbsPost: r.target_carbs_post != null ? Number(r.target_carbs_post) : null,
+    targetCarbsPost: r.target_carbs_post != null ? Number(r.target_carbs_post) : (athleteName === 'Armaan' ? 150 : 100),
     actualCarbsPost: r.actual_carbs_post != null ? Number(r.actual_carbs_post) : null,
     postCarbsCompliant: r.post_carbs_compliant ?? null,
 
@@ -595,3 +639,267 @@ export async function fetchTimelineReportAction(type: TimelineType, id: string) 
 
   return null
 }
+
+// ---------------------------------------------------------------------------
+// EVENING BRIEFING DETAIL — rich structured fetch
+// ---------------------------------------------------------------------------
+export type EveningBriefingDetail = {
+  id: string
+  date: Date
+  athleteName: string
+
+  // ── Top stats ──────────────────────────────────────────────────────────────
+  strainScore: number | null
+  recoveryScore: number | null
+  recoveryColor: ReadinessColor | null
+
+  // ── Macro Targets & Compliance ─────────────────────────────────────────────
+  targetCarbsPre: number | null
+  actualCarbsPre: number | null
+  preCarbsCompliant: boolean | null
+  targetProteinPre: number | null
+  actualProteinPre: number | null
+  preProteinCompliant: boolean | null
+
+  targetCarbsPost: number | null
+  actualCarbsPost: number | null
+  postCarbsCompliant: boolean | null
+  targetProteinPost: number | null
+  actualProteinPost: number | null
+  postProteinCompliant: boolean | null
+
+  // ── Written briefing sections ──────────────────────────────────────────────
+  workoutSummary: string | null
+  postWorkoutVerdict: string | null
+
+  // ── Lists for today's logs ──────────────────────────────────────────────────
+  foodLogs: {
+    logged_at: string
+    meal_type: string
+    notes: string
+    calories: number
+    protein_g: number
+    carbs_g: number
+    fat_g: number
+  }[]
+  workoutLogs: {
+    logged_at: string
+    session_name: string
+    duration_min: number
+    avg_hr: number
+    zone2_min: number
+    zone4_min: number
+    notes: string
+  }[]
+  runningLogs: {
+    logged_at: string
+    session_name: string
+    distance_km: number
+    duration_min: number
+    avg_hr: number
+    avg_pace_min_km: string
+    avg_cadence: number
+    notes: string
+  }[]
+  benchmarkLogs: {
+    logged_at: string
+    station_name: string
+    time_seconds: number
+    weight_kg: number
+    rpe: number
+    notes: string
+  }[]
+}
+
+export async function fetchEveningBriefingDetailAction(id: string): Promise<EveningBriefingDetail | null> {
+  const user = await getSafeUser()
+  if (!user) return null
+
+  const supabase = await createServerClient()
+  const athleteName = getAthleteName(user.id)
+
+  const { data: r } = await supabase
+    .from('coaching_daily_readiness')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', athleteName)
+    .single()
+
+  if (!r) return null
+
+  const [year, month, day] = r.date.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day, 20, 0, 0))
+
+  const startDate = `${r.date}T00:00:00.000Z`
+  const endDate = `${r.date}T23:59:59.999Z`
+
+  const { data: rawLogs } = await supabase
+    .from('tracker_logs')
+    .select('tracker_id, fields, logged_at')
+    .eq('user_id', user.id)
+    .gte('logged_at', startDate)
+    .lte('logged_at', endDate)
+
+  const logs = rawLogs || []
+
+  // Determine tracker IDs based on athlete
+  const foodTrackerId = athleteName === 'Armaan' 
+    ? 'af889eb3-0761-4f97-8fbb-d62278ec2d76' 
+    : '009625d3-ecc8-48ed-a64a-0c25e2493dac'
+    
+  const trainingTrackerId = athleteName === 'Armaan' 
+    ? 'a8424250-333c-4c7f-9f81-164afe01ed76' 
+    : 'd56f0546-9b38-4d00-84e4-8afd1474a394'
+
+  const runningTrackerId = athleteName === 'Armaan'
+    ? '88c9ddde-0f8c-4cf1-b827-180f1de41512'
+    : '0ce9a8c0-de10-4ed1-9a33-a5a7b0c3ad85'
+
+  const benchmarksTrackerId = athleteName === 'Armaan'
+    ? 'd3b22449-ecf1-4325-b5ed-0e26abc93c78'
+    : '8059508d-431e-48ed-90b2-b1bcdc5cffdc'
+
+  const foodLogs: EveningBriefingDetail['foodLogs'] = []
+  const workoutLogs: EveningBriefingDetail['workoutLogs'] = []
+  const runningLogs: EveningBriefingDetail['runningLogs'] = []
+  const benchmarkLogs: EveningBriefingDetail['benchmarkLogs'] = []
+
+  logs.forEach(log => {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const f = log.fields as Record<string, any> || {}
+    if (log.tracker_id === foodTrackerId) {
+      if (athleteName === 'Armaan') {
+        foodLogs.push({
+          logged_at: log.logged_at,
+          meal_type: f.fld_1774452609139_yxub || '',
+          notes: f.fld_1776932076369_9p5v || '',
+          calories: Number(f.fld_1774452630176_lryh || 0),
+          protein_g: Number(f.fld_1774452699543_7vxs || 0),
+          carbs_g: Number(f.fld_1774452735170_c698 || 0),
+          fat_g: Number(f.fld_1774452741950_h2p7 || 0),
+        })
+      } else {
+        foodLogs.push({
+          logged_at: log.logged_at,
+          meal_type: f.fld_1776321412781_bfi3 || '',
+          notes: f.fld_001 || '',
+          calories: Number(f.fld_002 || 0),
+          protein_g: Number(f.fld_003 || 0),
+          carbs_g: Number(f.fld_004 || 0),
+          fat_g: Number(f.fld_005 || 0),
+        })
+      }
+    } else if (log.tracker_id === trainingTrackerId) {
+      if (athleteName === 'Armaan') {
+        workoutLogs.push({
+          logged_at: log.logged_at,
+          session_name: f.fld_1774521747208_armn || '',
+          duration_min: parseTimeToMin(f.fld_1774521760614_d25w),
+          avg_hr: Number(f.fld_1774521791876_apq1 || 0),
+          zone2_min: parseTimeToMin(f.fld_1779037596598_vw40),
+          zone4_min: parseTimeToMin(f.fld_1779037617910_plzw),
+          notes: f.fld_1774854969310_koxs || '',
+        })
+      } else {
+        workoutLogs.push({
+          logged_at: log.logged_at,
+          session_name: f.fld_1775777119619_9tpn || '',
+          duration_min: parseTimeToMin(f.fld_1775790320469_fc75),
+          avg_hr: Number(f.fld_1775790151686_xvvx || 0),
+          zone2_min: parseTimeToMin(f.fld_1779037519979_ld1l),
+          zone4_min: parseTimeToMin(f.fld_1779037525633_n7rf),
+          notes: f.fld_1779267874418_bkzq || '',
+        })
+      }
+    } else if (log.tracker_id === runningTrackerId) {
+      if (athleteName === 'Armaan') {
+        runningLogs.push({
+          logged_at: log.logged_at,
+          session_name: 'Running Session',
+          distance_km: Number(f.fld_1774521926453_si1f || 0),
+          duration_min: parseTimeToMin(f.fld_1774521933454_xxw7),
+          avg_hr: Number(f.fld_1774521982409_bkai || 0),
+          avg_pace_min_km: f.fld_1774521948335_k0wd || '',
+          avg_cadence: Number(f.fld_1774522013740_epsg || 0),
+          notes: f.fld_1774854937291_7zar || '',
+        })
+      } else {
+        runningLogs.push({
+          logged_at: log.logged_at,
+          session_name: f.fld_1782039997627_8wis || 'Running Session',
+          distance_km: 0.0,
+          duration_min: parseTimeToMin(f.fld_1782040005092_isb5),
+          avg_hr: Number(f.fld_1782040033484_aaw1 || 0),
+          avg_pace_min_km: f.fld_1782040018514_uccz || '',
+          avg_cadence: Number(f.fld_1782040044662_hcck || 0),
+          notes: f.fld_1782040070104_xk69 || '',
+        })
+      }
+    } else if (log.tracker_id === benchmarksTrackerId) {
+      benchmarkLogs.push({
+        logged_at: log.logged_at,
+        station_name: f.fld_1779037796817_pwix || f.fld_1779037634494_dugg || '',
+        time_seconds: Number(f.fld_1779038150381_3e15 || f.fld_1779038197793_vtws || 0),
+        weight_kg: Number(f.fld_1779038165086_lfrt || 0),
+        rpe: Number(f.fld_1779038193572_hlu1 || f.fld_1779038212882_u2xb || 0),
+        notes: f.fld_1779038223948_pnkx || f.fld_1779038228817_x98c || '',
+      })
+    }
+  })
+
+  // Calculate distance for Violetta's run if pace is available
+  runningLogs.forEach(rl => {
+    if (athleteName === 'Violet' && rl.avg_pace_min_km && rl.duration_min > 0) {
+      const paceStr = String(rl.avg_pace_min_km).trim()
+      let paceDec = 0
+      if (paceStr.includes(':')) {
+        const parts = paceStr.split(':').map(Number)
+        if (parts.length === 2) {
+          const [m, s] = parts
+          paceDec = m + s / 60
+        }
+      } else {
+        const parsed = Number(paceStr)
+        if (!isNaN(parsed)) {
+          paceDec = parsed
+        }
+      }
+      if (paceDec > 0) {
+        rl.distance_km = parseFloat((rl.duration_min / paceDec).toFixed(2))
+      }
+    }
+  })
+
+  return {
+    id: r.id,
+    date,
+    athleteName,
+
+    strainScore: r.strain_score != null ? Number(r.strain_score) : null,
+    recoveryScore: r.recovery_score ?? null,
+    recoveryColor: (r.recovery_color as ReadinessColor) ?? null,
+
+    targetCarbsPre: r.target_carbs_pre != null ? Number(r.target_carbs_pre) : (athleteName === 'Armaan' ? 62 : 41),
+    actualCarbsPre: r.actual_carbs_pre != null ? Number(r.actual_carbs_pre) : null,
+    preCarbsCompliant: r.pre_carbs_compliant ?? null,
+    targetProteinPre: r.target_protein_pre != null ? Number(r.target_protein_pre) : (athleteName === 'Armaan' ? 30 : 20),
+    actualProteinPre: r.actual_protein_pre != null ? Number(r.actual_protein_pre) : null,
+    preProteinCompliant: r.pre_protein_compliant ?? null,
+
+    targetCarbsPost: r.target_carbs_post != null ? Number(r.target_carbs_post) : (athleteName === 'Armaan' ? 150 : 100),
+    actualCarbsPost: r.actual_carbs_post != null ? Number(r.actual_carbs_post) : null,
+    postCarbsCompliant: r.post_carbs_compliant ?? null,
+    targetProteinPost: r.target_protein_post != null ? Number(r.target_protein_post) : (athleteName === 'Armaan' ? 50 : 40),
+    actualProteinPost: r.actual_protein_post != null ? Number(r.actual_protein_post) : null,
+    postProteinCompliant: r.post_protein_compliant ?? null,
+
+    workoutSummary: r.workout_summary ?? null,
+    postWorkoutVerdict: r.post_workout_verdict ?? null,
+
+    foodLogs,
+    workoutLogs,
+    runningLogs,
+    benchmarkLogs,
+  }
+}
+
