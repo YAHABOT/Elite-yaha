@@ -4,10 +4,10 @@
 
 ## Session Context
 
-- **Date:** 2026-03-28
+- **Date:** 2026-06-21
 - **Status:** Active
 - **Configs Cached:** ✅ YES (loaded at session start)
-- **Last Updated:** 2026-03-28 09:00
+- **Last Updated:** 2026-06-21 07:15
 
 ---
 
@@ -220,15 +220,19 @@ Tasks in SESSION_LOG should be minimal but complete:
 
 | Build | Status | Code Reviewer | QA | Notes |
 |-------|--------|---------------|----|-------|
-| v1 | - | - | - | [Add rows as builds progress] |
+| v1    | -      | -             | -  | Initial release. |
+| v2    | Released| PASS          | PASS| Deployed to production (Build ID: `dpl_BxPyR41px2QSFKJerhxHH3MjvuBQ`). Maps split briefing columns to Next.js UI, provides strict athlete data isolation, and handles Telegram notification triggers. |
+| v3    | Released| PASS          | PASS| Direct inline routine triggers, click-intercept minimization on nav links, and removed unused imports. Deployed to production. |
 
 ### Known Issues
 
-[List any blocking issues found during session]
+- None. (Data segregation, raw markdown markers, and 409 database conflicts resolved in current release).
 
 ### Decisions Made
 
-[Document key architectural or workflow decisions]
+- Migrated morning briefings to load dynamically from `coaching_daily_readiness` using granular fields, completely deprecating `coaching_daily_briefs` for UI consumption to ensure 100% athlete data isolation.
+- Integrated a live Telegram bot alerting mechanism into `data/save_coaching_data.py` utilizing HTML Parse Mode for robust parsing, and configured athlete Chat IDs.
+- Mandated pre-workout carbohydrate comparison in `templates/morning_briefing.md` to subtract today's logged food from the prescribed fueling target.
 
 ---
 
