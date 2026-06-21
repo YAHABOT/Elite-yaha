@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -67,14 +67,17 @@ type Props = {
   sessionId: string
   session: ChatSession | null
   initialRoutine?: Routine | null
+  initialRoutineId?: string | null
   sessions?: ChatSession[]
   /** Agent ID passed via URL when navigating from home — needed because
    *  active_agent_id may not be in DB yet (race) and library agents are never stored. */
   initialAgentId?: string | null
   initialPrompt?: string
+  onSessionSelect?: (sessionId: string) => void
+  onNewChat?: () => void
 }
 
-export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, sessions = [], initialAgentId, initialPrompt }: Props): React.ReactElement {
+export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, initialRoutineId, sessions = [], initialAgentId, initialPrompt, onSessionSelect, onNewChat }: Props): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [input, setInput] = useState<string>(initialPrompt ?? '')
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -260,7 +263,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // full page reloads by redirecting to the real session URL).
   useEffect(() => {
     if (triggerSent.current) return
-    const routineId = searchParams.get('routine')
+    const routineId = searchParams.get('routine') || initialRoutineId
     if (!routineId || sessionId !== 'new' || messages.length > 0) return
 
     // If a routine is already active in the current session state, skip re-trigger.
@@ -276,7 +279,11 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     // is loaded on next mount — preventing a re-start from step 0.
     const savedSessionId = sessionStorage.getItem(sessionKey)
     if (lastTs && savedSessionId && Date.now() - Number(lastTs) < ROUTINE_TRIGGER_TTL_MS) {
-      router.replace(`/chat/${savedSessionId}`)
+      if (onSessionSelect) {
+        onSessionSelect(savedSessionId)
+      } else {
+        router.replace(`/chat/${savedSessionId}`)
+      }
       return
     }
 
@@ -291,7 +298,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
     const trigger = currentRoutine?.trigger_phrase || 'start ritual'
     handleSendInternal(trigger, routineId)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, sessionId, messages.length, currentRoutine, session?.active_routine_id, router])
+  }, [searchParams, sessionId, messages.length, currentRoutine, session?.active_routine_id, router, initialRoutineId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -1003,6 +1010,8 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               sessions={sessions}
               currentSessionId={currentSessionId}
               onMobileClose={() => setIsMobileSidebarOpen(false)}
+              onSessionSelect={onSessionSelect}
+              onNewChat={onNewChat}
             />
           </div>
         </div>

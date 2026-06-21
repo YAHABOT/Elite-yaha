@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { chatEvents } from '@/lib/events/chatEvents'
 
 type Props = {
   href: string
@@ -13,9 +14,19 @@ export function NavLink({ href, icon: Icon, label }: Props): React.ReactElement 
   const pathname = usePathname()
   const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (href === '/chat') {
+      e.preventDefault()
+      chatEvents.openChat()
+    } else {
+      chatEvents.openChat({ action: 'minimize' })
+    }
+  }
+
   return (
     <Link
       href={href}
+      onClick={handleClick}
       className={`relative flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group overflow-hidden ${
         isActive
           ? 'bg-nutrition/10 text-nutrition border border-nutrition/20 shadow-[0_0_20px_rgba(16,185,129,0.08),inset_0_0_20px_rgba(16,185,129,0.04)]'

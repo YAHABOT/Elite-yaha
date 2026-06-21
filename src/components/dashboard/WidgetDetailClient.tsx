@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
+import { chatEvents } from '@/lib/events/chatEvents'
 import {
   ComposedChart, Area, Line, XAxis, YAxis, Tooltip,
   ReferenceLine, ResponsiveContainer,
@@ -288,8 +289,8 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
             >
               {getTypeBadgeLabel(widget.type)}
             </div>
-            <Link
-              href={`/chat/new?preset=${encodeURIComponent(trackerName)}`}
+            <button
+              onClick={() => chatEvents.openChat({ sessionId: 'new' })}
               className="flex items-center gap-1 rounded-xl px-3 py-1.5 font-ui transition-all"
               style={{
                 fontSize: '9px',
@@ -300,7 +301,7 @@ export function WidgetDetailClient({ widget, dailyPoints, trackerName, trackerCo
               }}
             >
               + Log
-            </Link>
+            </button>
           </div>
         </div>
         {/* Row 2: tracker name + widget title (full width, no truncate) */}

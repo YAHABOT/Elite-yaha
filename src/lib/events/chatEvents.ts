@@ -1,4 +1,5 @@
 type ChatEventPayload = {
+  action?: 'open' | 'minimize'
   sessionId?: string | null
   initialRoutineId?: string | null
 }

@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { Sunrise, Moon, ArrowRight } from 'lucide-react'
 import type { Routine } from '@/types/routine'
+import { chatEvents } from '@/lib/events/chatEvents'
 
 type Props = {
   routine: Routine
@@ -29,8 +29,8 @@ export function RoutineBanner({ routine, type }: Props): React.ReactElement {
             </p>
           </div>
         </div>
-        <Link
-          href={`/chat/new?routine=${routine.id}`}
+        <button
+          onClick={() => chatEvents.openChat({ sessionId: 'new', initialRoutineId: routine.id })}
           className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-ui transition-all duration-300"
           style={{
             fontSize: '11px', letterSpacing: '0.14em',
@@ -39,13 +39,13 @@ export function RoutineBanner({ routine, type }: Props): React.ReactElement {
             color: '#f59e0b',
           }}
           onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLAnchorElement
+            const el = e.currentTarget as HTMLButtonElement
             el.style.background = 'rgba(245,158,11,0.22)'
             el.style.borderColor = 'rgba(245,158,11,0.50)'
             el.style.boxShadow = '0 0 24px rgba(245,158,11,0.18)'
           }}
           onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLAnchorElement
+            const el = e.currentTarget as HTMLButtonElement
             el.style.background = 'rgba(245,158,11,0.10)'
             el.style.borderColor = 'rgba(245,158,11,0.30)'
             el.style.boxShadow = ''
@@ -53,7 +53,7 @@ export function RoutineBanner({ routine, type }: Props): React.ReactElement {
         >
           Start Day
           <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+        </button>
       </div>
     )
   }
@@ -74,8 +74,8 @@ export function RoutineBanner({ routine, type }: Props): React.ReactElement {
           </p>
         </div>
       </div>
-      <Link
-        href={`/chat/new?routine=${routine.id}`}
+      <button
+        onClick={() => chatEvents.openChat({ sessionId: 'new', initialRoutineId: routine.id })}
         className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-ui transition-all duration-300"
         style={{
           fontSize: '11px', letterSpacing: '0.14em',
@@ -84,13 +84,13 @@ export function RoutineBanner({ routine, type }: Props): React.ReactElement {
           color: '#a855f7',
         }}
         onMouseEnter={(e) => {
-          const el = e.currentTarget as HTMLAnchorElement
+          const el = e.currentTarget as HTMLButtonElement
           el.style.background = 'rgba(168,85,247,0.20)'
           el.style.borderColor = 'rgba(168,85,247,0.48)'
           el.style.boxShadow = '0 0 24px rgba(168,85,247,0.18)'
         }}
         onMouseLeave={(e) => {
-          const el = e.currentTarget as HTMLAnchorElement
+          const el = e.currentTarget as HTMLButtonElement
           el.style.background = 'rgba(168,85,247,0.08)'
           el.style.borderColor = 'rgba(168,85,247,0.28)'
           el.style.boxShadow = ''
@@ -98,7 +98,7 @@ export function RoutineBanner({ routine, type }: Props): React.ReactElement {
       >
         End Day
         <ArrowRight className="h-3.5 w-3.5" />
-      </Link>
+      </button>
     </div>
   )
 }

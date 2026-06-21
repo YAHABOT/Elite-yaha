@@ -23,12 +23,12 @@ export function FloatingChat() {
   const [isLoading, setIsLoading] = useState(false)
   const pathname = usePathname()
 
-  // Minimize chat on route navigation
+  // Minimize chat on page navigation
   useEffect(() => {
-    if (isOpen) {
-      setIsOpen(false)
-    }
+    setIsOpen(false)
   }, [pathname])
+
+
 
   // 5-minute inactivity timeout
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -39,6 +39,7 @@ export function FloatingChat() {
         setSession(null)
         setMessages([])
         setRoutine(null)
+        setInitialRoutineId(null)
       }, 5 * 60 * 1000)
     } else {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
@@ -48,9 +49,13 @@ export function FloatingChat() {
 
   useEffect(() => {
     const unsub = chatEvents.subscribe((payload) => {
-      setIsOpen(true)
-      if (payload.sessionId) setSessionId(payload.sessionId)
-      if (payload.initialRoutineId) setInitialRoutineId(payload.initialRoutineId)
+      if (payload.action === 'minimize') {
+        setIsOpen(false)
+      } else {
+        setIsOpen(true)
+        if (payload.sessionId) setSessionId(payload.sessionId)
+        if (payload.initialRoutineId) setInitialRoutineId(payload.initialRoutineId)
+      }
     })
     return unsub
   }, [])
@@ -68,8 +73,25 @@ export function FloatingChat() {
       if (sessionId === 'new') {
         setSession(null)
         setMessages([])
-        setRoutine(null)
-        setIsLoading(false)
+        if (initialRoutineId) {
+          setIsLoading(true)
+          fetch(`/api/routines/${initialRoutineId}`)
+            .then(res => {
+              if (res.ok) return res.json()
+              throw new Error('Failed to fetch routine')
+            })
+            .then(rout => {
+              setRoutine(rout)
+              setIsLoading(false)
+            })
+            .catch(() => {
+              setRoutine(null)
+              setIsLoading(false)
+            })
+        } else {
+          setRoutine(null)
+          setIsLoading(false)
+        }
         return
       }
       setIsLoading(true)
@@ -80,13 +102,15 @@ export function FloatingChat() {
         setIsLoading(false)
       })
     }
-  }, [sessionId, isOpen])
+  }, [sessionId, isOpen, initialRoutineId])
 
   const [pos, setPos] = useState({ x: -1, y: -1 })
   const isDraggingRef = useRef(false)
   const dragOffset = useRef({ ox: 0, oy: 0 })
   const hasMoved = useRef(false)
 
+  const startPos = useRef({ x: 0, y: 0 })
+  
   function clamp(x: number, y: number) {
     if (typeof window === 'undefined') return { x, y }
     const maxX = window.innerWidth - CHIP_SIZE - 8
@@ -109,17 +133,21 @@ export function FloatingChat() {
   function onPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     e.currentTarget.setPointerCapture(e.pointerId)
     dragOffset.current = { ox: e.clientX - pos.x, oy: e.clientY - pos.y }
+    startPos.current = { x: e.clientX, y: e.clientY }
     hasMoved.current = false
     isDraggingRef.current = true
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
     if (!isDraggingRef.current) return
-    hasMoved.current = true
+    const dist = Math.hypot(e.clientX - startPos.current.x, e.clientY - startPos.current.y)
+    if (dist > 5) {
+      hasMoved.current = true
+    }
     setPos(clamp(e.clientX - dragOffset.current.ox, e.clientY - dragOffset.current.oy))
   }
 
-  function onPointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+  function onPointerUp() {
     if (!isDraggingRef.current) return
     isDraggingRef.current = false
     if (!hasMoved.current) {
@@ -149,7 +177,7 @@ export function FloatingChat() {
           Yaha AI
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-textMuted hover:text-white">
+          <button onClick={() => { setIsOpen(false); setInitialRoutineId(null); }} className="p-2 hover:bg-white/10 rounded-full transition-colors text-textMuted hover:text-white">
             <X size={20} />
           </button>
         </div>
@@ -168,6 +196,9 @@ export function FloatingChat() {
             sessions={sessions}
             initialMessages={messages}
             initialRoutine={routine}
+            initialRoutineId={initialRoutineId}
+            onSessionSelect={(id) => setSessionId(id)}
+            onNewChat={() => setSessionId('new')}
             initialAgentId={null}
           />
         )}

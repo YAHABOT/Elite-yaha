@@ -4,6 +4,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { chatEvents } from '@/lib/events/chatEvents'
 import { Plus, Pencil, Check, RotateCcw, FlaskConical, Sunrise, Moon, ChevronRight, Eye, EyeOff } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent,
@@ -373,13 +374,13 @@ export function DashboardClient({
                 {dayStartRoutine.steps.length} step{dayStartRoutine.steps.length !== 1 ? 's' : ''} · ~{Math.max(1, Math.round(dayStartRoutine.steps.length * 0.7))} min to log
               </p>
             </div>
-            <a
-              href={`/chat/new?routine=${dayStartRoutine.id}`}
-              className="flex items-center gap-1 rounded-xl px-3 py-2 font-ui shrink-0 transition-all duration-200 hover:brightness-110"
+            <button
+              onClick={() => chatEvents.openChat({ sessionId: 'new', initialRoutineId: dayStartRoutine.id })}
+              className="flex items-center gap-1 rounded-xl px-3 py-2 font-ui shrink-0 transition-all duration-200 hover:brightness-110 text-left"
               style={{ fontSize: '10px', letterSpacing: '0.10em', background: 'rgba(245,158,11,0.18)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b' }}
             >
               Start <ChevronRight className="h-3 w-3" />
-            </a>
+            </button>
           </div>
           <button
             type="button"
@@ -410,13 +411,13 @@ export function DashboardClient({
                 {dayEndRoutine.steps.length} step{dayEndRoutine.steps.length !== 1 ? 's' : ''} · ~{Math.max(1, Math.round(dayEndRoutine.steps.length * 0.7))} min to log
               </p>
             </div>
-            <a
-              href={`/chat/new?routine=${dayEndRoutine.id}`}
-              className="flex items-center gap-1 rounded-xl px-3 py-2 font-ui shrink-0 transition-all duration-200 hover:brightness-110"
+            <button
+              onClick={() => chatEvents.openChat({ sessionId: 'new', initialRoutineId: dayEndRoutine.id })}
+              className="flex items-center gap-1 rounded-xl px-3 py-2 font-ui shrink-0 transition-all duration-200 hover:brightness-110 text-left"
               style={{ fontSize: '10px', letterSpacing: '0.10em', background: 'rgba(168,85,247,0.14)', border: '1px solid rgba(168,85,247,0.32)', color: '#a855f7' }}
             >
               Start <ChevronRight className="h-3 w-3" />
-            </a>
+            </button>
           </div>
           <button
             type="button"
