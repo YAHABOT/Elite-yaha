@@ -259,8 +259,8 @@ export async function POST(req: Request): Promise<Response> {
             ? date
             : new Date().toISOString().split('T')[0]
 
-          // Food bank mode: only active when user pressed the Food Bank attachment button
-          const isFoodBankMode = (attachments ?? []).some(a => a.mimeType === 'application/x-food-bank-context')
+          // Food bank mode: ALWAYS active so the AI instantly recognizes shortcuts like "cib" without needing an attachment button
+          const isFoodBankMode = true
 
           const activeDayStatePromise = getActiveDayState(supabase)
           const [
@@ -287,10 +287,8 @@ export async function POST(req: Request): Promise<Response> {
               : Promise.resolve(null),
             // Fetch the open day session (started but not ended) — determines default logging date
             activeDayStatePromise,
-            // Food bank entries — only fetched when user activated food bank mode
-            isFoodBankMode
-              ? import('@/lib/db/food-bank').then(m => m.getFoodBankEntries())
-              : Promise.resolve([]),
+            // Food bank entries — ALWAYS fetched so shortcuts are never missed
+            import('@/lib/db/food-bank').then(m => m.getFoodBankEntries()),
           ])
 
           // Sessions stay ACTIVE until the user explicitly ends or skips — NEVER auto-close based on clock.
@@ -452,27 +450,27 @@ export async function POST(req: Request): Promise<Response> {
             }
           }
 
-          // Map history for OpenAI — include stored image attachments so follow-up
+          // Map history for Gemini — include stored image attachments so follow-up
           // messages like "use the photos I just sent" have the images in context.
-          type ContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+          type ContentPart = { text: string } | { inlineData: { mimeType: string; data: string } }
           // Include image attachments from the 10 most recent messages — needed so the AI
           // can reassess a food photo if the user challenges the estimates a few prompts later.
           const recentWithImages = new Set(historyMessages.slice(-10).map(m => m.id))
           const history = historyMessages.map(msg => {
             const parts: ContentPart[] = []
-            if (msg.content) parts.push({ type: 'text', text: msg.content })
+            if (msg.content) parts.push({ text: msg.content })
             if (msg.attachments && recentWithImages.has(msg.id)) {
               const attachArr = msg.attachments as Array<{ mimeType: string; base64: string }>
               for (const att of attachArr) {
                 // Skip food bank context sentinel
                 if (att.mimeType === 'application/x-food-bank-context') continue
-                parts.push({ type: 'image_url', image_url: { url: `data:${att.mimeType};base64,${att.base64}` } })
+                parts.push({ inlineData: { mimeType: att.mimeType, data: att.base64 } })
               }
             }
-            if (parts.length === 0) parts.push({ type: 'text', text: '' })
+            if (parts.length === 0) parts.push({ text: '' })
             return {
-              role: (msg.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
-              content: parts,
+              role: (msg.role === 'assistant' ? 'model' : 'user') as 'model' | 'user',
+              parts: parts,
             }
           })
 

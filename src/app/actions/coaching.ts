@@ -67,13 +67,24 @@ export type MorningBriefingDetail = {
   sleepDuration: string | null    // "7h 23m"
   stepsYesterday: number | null
   activeCals: number | null
+  totalCalsYesterday: number | null
+  distanceActiveYesterday: number | null
   lastKnownWeight: number | null  // kg
 
-  // ── Yesterday's nutrition ─────────────────────────────────────────────────
+
   nutritionCals: number | null
   nutritionProtein: number | null
   nutritionFat: number | null
   nutritionCarbs: number | null
+
+  // ── Carb Compliance ───────────────────────────────────────────────────────
+  targetCarbsPre: number | null
+  actualCarbsPre: number | null
+  preCarbsCompliant: string | boolean | null
+  targetCarbsPost: number | null
+  actualCarbsPost: number | null
+  postCarbsCompliant: string | boolean | null
+
 
   // ── Supplements ───────────────────────────────────────────────────────────
   supplements: string[]
@@ -373,6 +384,8 @@ export async function fetchMorningBriefingDetailAction(id: string): Promise<Morn
   const yesterdayActivityLog = yesterdayLogs.find(l => l.tracker_id === activityTrackerId)
   let stepsYesterday: number | null = null
   let activeCals: number | null = null
+  let totalCalsYesterday: number | null = null
+  let distanceActiveYesterday: number | null = null
 
   if (yesterdayActivityLog) {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -380,9 +393,13 @@ export async function fetchMorningBriefingDetailAction(id: string): Promise<Morn
     if (athleteName === 'Armaan') {
       stepsYesterday = f.fld_1774521241168_6mo1 ? Number(f.fld_1774521241168_6mo1) : null
       activeCals = f.fld_1774521475669_391w ? Number(f.fld_1774521475669_391w) : null
+      totalCalsYesterday = f.fld_1774521276691_em6c ? Number(f.fld_1774521276691_em6c) : null
+      distanceActiveYesterday = f.fld_1774521256192_x766 ? Number(f.fld_1774521256192_x766) : null
     } else {
       stepsYesterday = f.fld_1775834347892_0w5f ? Number(f.fld_1775834347892_0w5f) : null
-      activeCals = f.fld_1775834353749_mztv ? Number(f.fld_1775834353749_mztv) : null
+      totalCalsYesterday = f.fld_1775834353749_mztv ? Number(f.fld_1775834353749_mztv) : null
+      activeCals = null
+      distanceActiveYesterday = null
     }
   }
 
@@ -405,20 +422,46 @@ export async function fetchMorningBriefingDetailAction(id: string): Promise<Morn
         lastKnownWeight = Number(w)
       }
     }
+  } else {
+    // For Violetta, fetch from baseline questionnaires
+    const { data: quest } = await supabase
+      .from('coaching_baseline_questionnaires')
+      .select('weight_kg')
+      .eq('user_id', 'Violet')
+      .maybeSingle()
+    if (quest && quest.weight_kg != null) {
+      lastKnownWeight = Number(quest.weight_kg)
+    }
   }
 
-  // ── 5. Supplements (Today) ──
+  // ── 5. Supplements (Yesterday) ──
   const supplements: string[] = []
   if (athleteName === 'Armaan') {
-    const todaySuppLog = todayLogs.find(l => l.tracker_id === 'f0edd06f-62e4-4da9-8866-29fd9582398b')
-    if (todaySuppLog) {
+    const yestSuppLog = yesterdayLogs.find(l => l.tracker_id === 'f0edd06f-62e4-4da9-8866-29fd9582398b')
+    if (yestSuppLog) {
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-      const f = todaySuppLog.fields as Record<string, any> || {}
+      const f = yestSuppLog.fields as Record<string, any> || {}
       if (f.fld_creatine_g != null && Number(f.fld_creatine_g) > 0) {
         supplements.push(`Creatine: ${f.fld_creatine_g}g`)
       }
       if (f.fld_magnesium_g != null && Number(f.fld_magnesium_g) > 0) {
         supplements.push(`Magnesium: ${f.fld_magnesium_g}g`)
+      }
+    }
+  } else {
+    // For Violetta, scan yesterday's food logs for supplements
+    for (const log of yesterdayFoodLogs) {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const f = log.fields as Record<string, any> || {}
+      const mealType = f.fld_1776321412781_bfi3?.toString() || ''
+      const itemName = f.fld_001?.toString() || ''
+      if (
+        mealType.toLowerCase() === 'supplement' ||
+        itemName.toLowerCase().includes('creatine') ||
+        itemName.toLowerCase().includes('magnesium') ||
+        itemName.toLowerCase().includes('supplement')
+      ) {
+        supplements.push(itemName)
       }
     }
   }
@@ -437,12 +480,22 @@ export async function fetchMorningBriefingDetailAction(id: string): Promise<Morn
     sleepDuration: formatSleep(sleepDurationMin),
     stepsYesterday,
     activeCals,
+    totalCalsYesterday,
+    distanceActiveYesterday,
     lastKnownWeight,
 
     nutritionCals,
     nutritionProtein,
     nutritionFat,
     nutritionCarbs,
+
+    targetCarbsPre: r.target_carbs_pre != null ? Number(r.target_carbs_pre) : null,
+    actualCarbsPre: r.actual_carbs_pre != null ? Number(r.actual_carbs_pre) : null,
+    preCarbsCompliant: r.pre_carbs_compliant ?? null,
+    targetCarbsPost: r.target_carbs_post != null ? Number(r.target_carbs_post) : null,
+    actualCarbsPost: r.actual_carbs_post != null ? Number(r.actual_carbs_post) : null,
+    postCarbsCompliant: r.post_carbs_compliant ?? null,
+
 
     supplements,
 

@@ -11,6 +11,8 @@ type Props = {
   sessions: ChatSession[]
   currentSessionId?: string
   onMobileClose?: () => void
+  onSessionSelect?: (sessionId: string) => void
+  onNewChat?: () => void
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -28,7 +30,7 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props): React.ReactElement {
+export function ChatSidebar({ sessions, currentSessionId, onMobileClose, onSessionSelect, onNewChat }: Props): React.ReactElement {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
@@ -150,7 +152,10 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
               // navigating — prevents the overlay from staying open over the new chat page.
               <button
                 type="button"
-                onClick={handleNewChat}
+                onClick={onNewChat ? () => {
+                  onNewChat()
+                  if (onMobileClose) onMobileClose()
+                } : handleNewChat}
                 className="flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 font-ui text-black transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 style={{ fontSize: '11px', letterSpacing: '0.12em', background: 'linear-gradient(135deg, #00d4ff, #0099cc)', boxShadow: '0 4px 16px rgba(0,212,255,0.28)' }}
               >
@@ -304,34 +309,68 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose }: Props
 
               return (
                 <li key={session.id} className="group relative">
-                  <Link
-                    href={`/chat/${session.id}`}
-                    prefetch={true}
-                    className={`flex flex-col gap-1 rounded-xl px-3.5 py-3 transition-all duration-200 ${
-                      isActive
-                        ? 'border text-foreground'
-                        : 'text-muted-foreground hover:bg-white/[0.03] hover:text-foreground border border-transparent'
-                    } ${isProcessing ? 'opacity-40 pointer-events-none' : ''}`}
-                    style={isActive ? { backgroundColor: 'rgba(0,212,255,0.06)', borderColor: 'rgba(0,212,255,0.22)', boxShadow: '0 0 16px rgba(0,212,255,0.06)' } : {}}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={`font-ui transition-opacity ${
-                        isActive ? 'opacity-100' : 'opacity-25 group-hover:opacity-60'
-                      }`} style={{ fontSize: '9px', letterSpacing: '0.18em', color: isActive ? '#00d4ff' : undefined }}>
-                        {session.active_agent_id ? 'Agent' : 'Neutral'}
-                      </span>
-                      <span className={`font-data-value text-[10px] tabular-nums transition-opacity ${
-                        isActive ? 'text-textMuted opacity-70' : 'opacity-25 group-hover:opacity-50'
+                  {onSessionSelect ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSessionSelect(session.id)
+                        if (onMobileClose) onMobileClose()
+                      }}
+                      className={`w-full text-left flex flex-col gap-1 rounded-xl px-3.5 py-3 transition-all duration-200 ${
+                        isActive
+                          ? 'border text-foreground'
+                          : 'text-muted-foreground hover:bg-white/[0.03] hover:text-foreground border border-transparent'
+                      } ${isProcessing ? 'opacity-40 pointer-events-none' : ''}`}
+                      style={isActive ? { backgroundColor: 'rgba(0,212,255,0.06)', borderColor: 'rgba(0,212,255,0.22)', boxShadow: '0 0 16px rgba(0,212,255,0.06)' } : {}}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-ui transition-opacity ${
+                          isActive ? 'opacity-100' : 'opacity-25 group-hover:opacity-60'
+                        }`} style={{ fontSize: '9px', letterSpacing: '0.18em', color: isActive ? '#00d4ff' : undefined }}>
+                          {session.active_agent_id ? 'Agent' : 'Neutral'}
+                        </span>
+                        <span className={`font-data-value text-[10px] tabular-nums transition-opacity ${
+                          isActive ? 'text-textMuted opacity-70' : 'opacity-25 group-hover:opacity-50'
+                        }`}>
+                          {mounted ? formatRelativeTime(session.updated_at) : ''}
+                        </span>
+                      </div>
+                      <span className={`truncate text-sm font-bold tracking-tight pr-12 ${
+                        isActive ? 'text-textPrimary' : 'text-textPrimary/70'
                       }`}>
-                        {mounted ? formatRelativeTime(session.updated_at) : ''}
+                        {session.title}
                       </span>
-                    </div>
-                    <span className={`truncate text-sm font-bold tracking-tight pr-12 ${
-                      isActive ? 'text-textPrimary' : 'text-textPrimary/70'
-                    }`}>
-                      {session.title}
-                    </span>
-                  </Link>
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/chat/${session.id}`}
+                      prefetch={true}
+                      className={`flex flex-col gap-1 rounded-xl px-3.5 py-3 transition-all duration-200 ${
+                        isActive
+                          ? 'border text-foreground'
+                          : 'text-muted-foreground hover:bg-white/[0.03] hover:text-foreground border border-transparent'
+                      } ${isProcessing ? 'opacity-40 pointer-events-none' : ''}`}
+                      style={isActive ? { backgroundColor: 'rgba(0,212,255,0.06)', borderColor: 'rgba(0,212,255,0.22)', boxShadow: '0 0 16px rgba(0,212,255,0.06)' } : {}}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-ui transition-opacity ${
+                          isActive ? 'opacity-100' : 'opacity-25 group-hover:opacity-60'
+                        }`} style={{ fontSize: '9px', letterSpacing: '0.18em', color: isActive ? '#00d4ff' : undefined }}>
+                          {session.active_agent_id ? 'Agent' : 'Neutral'}
+                        </span>
+                        <span className={`font-data-value text-[10px] tabular-nums transition-opacity ${
+                          isActive ? 'text-textMuted opacity-70' : 'opacity-25 group-hover:opacity-50'
+                        }`}>
+                          {mounted ? formatRelativeTime(session.updated_at) : ''}
+                        </span>
+                      </div>
+                      <span className={`truncate text-sm font-bold tracking-tight pr-12 ${
+                        isActive ? 'text-textPrimary' : 'text-textPrimary/70'
+                      }`}>
+                        {session.title}
+                      </span>
+                    </Link>
+                  )}
 
                   {/* Action buttons — always visible */}
                   <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1">
