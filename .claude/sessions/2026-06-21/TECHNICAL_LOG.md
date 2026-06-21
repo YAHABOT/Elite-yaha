@@ -17,7 +17,11 @@ Clicking "Start" on the morning/evening routine banners triggered client-side or
 **Root Cause:**
 The minimization hook in `FloatingChat.tsx` was bound strictly to `[pathname]`. If a user was on `/dashboard` with the chat open and re-clicked the "Dashboard" nav bar button, Next.js bypassed route changes since the route was already active. `pathname` remained unchanged, so the minimize effect did not execute.
 
-**Resolution:**
+**Resolution & Verification:**
 1. Refactored `NavLink.tsx` (desktop sidebar) and `MobileBottomNav.tsx` (mobile bottom tabs) to hook into click events.
 2. Clicking the **Chat** sidebar item prevents default routing and calls `chatEvents.openChat()` to toggle the overlay on the current page.
 3. Clicking **any other navigation tab** dispatches `chatEvents.openChat({ action: 'minimize' })`. This forces the chat to minimize immediately on click, regardless of whether a page transition actually happens.
+4. Added diagnostic telemetry logs inside `NavLink.tsx`, `MobileBottomNav.tsx`, and `FloatingChat.tsx` to trace event dispatch and consumption.
+5. Deployed the latest build via Vercel CLI (`npx vercel --prod --yes`) to ensure the changes were compiled and active on the production domain.
+6. Verified through the browser console that clicking the active "Dashboard" tab correctly emits `[MobileBottomNav] Clicked tab: /dashboard` and prompts `[FloatingChat] Minimizing chat: setting isOpen to false`, successfully closing the floating chat.
+
