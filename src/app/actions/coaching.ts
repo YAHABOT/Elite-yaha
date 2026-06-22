@@ -30,13 +30,17 @@ export type TimelineItem = {
 /** Derives a human-readable session type label from the pre_workout_fueling text. */
 function deriveSessionType(fueling: string | null | undefined): string {
   if (!fueling) return 'Training Day'
-  const fl = fueling.toLowerCase()
-  if (fl.includes('rest day') || fl.trimStart().startsWith('n/a')) return 'Rest Day'
-  if (fl.includes('long run') || fl.includes('zone 2')) return 'Long Run'
+  const fl = manualLower(fueling)
+  if (fl.includes('rest day') || fl.trim().startsWith('n/a')) return 'Rest Day'
   if (fl.includes('group class') || fl.includes('hyrox')) return 'HYROX Group Class'
-  if (fl.includes('interval') || fl.includes('threshold')) return 'Interval Run'
   if (fl.includes('open gym') || fl.includes('strength')) return 'Open Gym'
+  if (fl.includes('interval') || fl.includes('threshold')) return 'Interval Run'
+  if (fl.includes('long run') || fl.includes('zone 2')) return 'Long Run'
   return 'Training Day'
+}
+
+function manualLower(str: string): string {
+  return str.toLowerCase()
 }
 
 function extractPreview(markdown: string | null | undefined): string {
