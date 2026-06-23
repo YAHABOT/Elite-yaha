@@ -205,8 +205,8 @@ export function EveningBriefingDetail({ brief }: { brief: EveningBriefingDetail 
                 <ChevronDown size={14} />
               </span>
             </summary>
-            <div className="px-3 py-3 border-t border-white/5 text-xs text-white/70 leading-relaxed whitespace-pre-wrap font-mono">
-              {brief.workoutSummary}
+            <div className="px-3 py-3 border-t border-white/5 text-sm text-white/80 leading-relaxed">
+              <MarkdownBlock content={brief.workoutSummary} />
             </div>
           </details>
         )}
