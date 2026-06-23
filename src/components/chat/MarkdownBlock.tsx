@@ -22,6 +22,21 @@ function CollapsibleSection({ summary, children }: { summary: string; children: 
   )
 }
 
+function YouTubeEmbed({ videoId }: { videoId: string }) {
+  return (
+    <div className="relative w-full max-w-xl aspect-video my-3 rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-black">
+      <iframe
+        className="absolute top-0 left-0 w-full h-full"
+        src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
+        title="YouTube video player"
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    </div>
+  )
+}
+
 export function MarkdownBlock({ content }: { content: string }) {
   const lines = content.split('\n')
   const elements: React.ReactNode[] = []
@@ -156,10 +171,19 @@ export function MarkdownBlock({ content }: { content: string }) {
 
     // Bullet Points
     if (t.startsWith('- ') || t.startsWith('* ')) {
+      const contentText = t.substring(2)
+      const ytMatch = contentText.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i)
       elements.push(
-        <div key={i} className="flex gap-3 pl-2 my-1">
-          <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400/60" />
-          <span className="leading-relaxed text-white/80">{renderInline(t.substring(2))}</span>
+        <div key={i} className="space-y-2">
+          <div className="flex gap-3 pl-2 my-1">
+            <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400/60" />
+            <span className="leading-relaxed text-white/80">{renderInline(contentText)}</span>
+          </div>
+          {ytMatch && (
+            <div className="pl-6">
+              <YouTubeEmbed videoId={ytMatch[1]} />
+            </div>
+          )}
         </div>
       )
       i++
@@ -174,7 +198,13 @@ export function MarkdownBlock({ content }: { content: string }) {
     }
 
     // Regular Paragraphs
-    elements.push(<p key={i} className="leading-relaxed text-white/80">{renderInline(line)}</p>)
+    const ytMatch = line.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i)
+    elements.push(
+      <div key={i} className="space-y-2">
+        <p className="leading-relaxed text-white/80">{renderInline(line)}</p>
+        {ytMatch && <YouTubeEmbed videoId={ytMatch[1]} />}
+      </div>
+    )
     i++
   }
 
