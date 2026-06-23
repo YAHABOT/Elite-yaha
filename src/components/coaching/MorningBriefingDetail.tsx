@@ -38,22 +38,45 @@ function parseBulletPoints(markdown: string) {
   if (!markdown) return []
   const lines = markdown.split('\n')
   const bullets: { title: string; content: string }[] = []
+  let inDetails = false
   
   for (const line of lines) {
-    let trimmed = line.trim()
-    if (!trimmed) continue
-    
-    let isBullet = false
-    if (trimmed.startsWith('*') || trimmed.startsWith('-')) {
-      trimmed = trimmed.substring(1).trim()
-      isBullet = true
-    } else if (trimmed.startsWith('**')) {
-      isBullet = true
+    const trimmed = line.trim()
+    if (!trimmed) {
+      if (inDetails && bullets.length > 0) {
+        bullets[bullets.length - 1].content += '\n' + line
+      }
+      continue
     }
     
-    if (isBullet) {
-      // Match **Title:** Content or **Title**: Content or **Title** Content
-      const match = trimmed.match(/^\*\*(.*?)(?::)?\*\*(?::)?(.*)$/)
+    // Track details block state to avoid breaking list items inside <details>
+    if (trimmed.toLowerCase().startsWith('<details')) {
+      inDetails = true
+    } else if (trimmed.toLowerCase().startsWith('</details')) {
+      inDetails = false
+    }
+    
+    // Check if it's a top-level bullet point (starts with * or - and has at most 2 spaces of indentation)
+    const isTopLevelBullet = !inDetails && /^\s{0,2}[\*\-]\s+/.test(line)
+    // Also support lines that start with bold title: **Title:**
+    const isBoldTitleLine = !inDetails && trimmed.startsWith('**') && trimmed.includes('**') && !isTopLevelBullet
+    
+    if (isTopLevelBullet) {
+      const strippedLine = line.replace(/^\s*[\*\-]\s+/, '').trim()
+      const match = strippedLine.match(/^\*\*(.*?)\*\*(?::)?(.*)$/)
+      if (match) {
+        bullets.push({
+          title: match[1].trim(),
+          content: match[2].trim(),
+        })
+      } else {
+        bullets.push({
+          title: '',
+          content: strippedLine,
+        })
+      }
+    } else if (isBoldTitleLine) {
+      const match = trimmed.match(/^\*\*(.*?)\*\*(?::)?(.*)$/)
       if (match) {
         bullets.push({
           title: match[1].trim(),
@@ -67,7 +90,7 @@ function parseBulletPoints(markdown: string) {
       }
     } else {
       if (bullets.length > 0) {
-        bullets[bullets.length - 1].content += '\n' + trimmed
+        bullets[bullets.length - 1].content += '\n' + line
       } else {
         bullets.push({
           title: '',
@@ -244,7 +267,11 @@ export function MorningBriefingDetail({ brief }: { brief: MorningBriefingDetail 
       <div className="space-y-4">
         {bullets.map((b, idx) => {
           const titleLower = b.title.toLowerCase()
-          const isCollapsible = titleLower.includes('verdict compliance') || titleLower.includes('cns fatigue analysis')
+          const isCollapsible = 
+            titleLower.includes('verdict compliance') || 
+            titleLower.includes('verdict') || 
+            titleLower.includes('cns fatigue') || 
+            titleLower.includes('cns (central nervous system) fatigue')
           
           if (isCollapsible) {
             return (
@@ -289,7 +316,13 @@ export function MorningBriefingDetail({ brief }: { brief: MorningBriefingDetail 
       <div className="space-y-4">
         {bullets.map((b, idx) => {
           const titleLower = b.title.toLowerCase()
-          const isCollapsible = titleLower.includes('nocturnal load check')
+          const isCollapsible = 
+            titleLower.includes('daily nutrition') || 
+            titleLower.includes('meal analysis') || 
+            titleLower.includes('nutrition analysis') || 
+            titleLower.includes('food quality') || 
+            titleLower.includes('nocturnal load check') ||
+            titleLower.includes('nocturnal')
           
           if (isCollapsible) {
             return (
@@ -334,12 +367,17 @@ export function MorningBriefingDetail({ brief }: { brief: MorningBriefingDetail 
       <div className="space-y-4">
         {bullets.map((b, idx) => {
           let title = b.title
-          if (title.toLowerCase() === 'cns reasoning') {
+          const titleLower = title.toLowerCase()
+          if (
+            titleLower.includes('cns reasoning') || 
+            titleLower.includes('readiness reasoning') ||
+            (titleLower.includes('cns') && titleLower.includes('reasoning'))
+          ) {
             title = 'Readiness Reasoning'
           }
           
-          const titleLower = title.toLowerCase()
-          const isCollapsible = titleLower.includes('readiness reasoning') || titleLower.includes('cns reasoning')
+          const newTitleLower = title.toLowerCase()
+          const isCollapsible = newTitleLower.includes('readiness reasoning')
           
           if (isCollapsible) {
             return (
