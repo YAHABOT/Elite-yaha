@@ -319,6 +319,7 @@ export async function POST(req: Request): Promise<Response> {
 
           // Food bank mode: ALWAYS active so the AI instantly recognizes shortcuts like "cib" without needing an attachment button
           const isFoodBankMode = true
+          const isFoodBankAttached = attachments?.some(a => a.mimeType === 'application/x-food-bank-context') ?? false
 
           const activeDayStatePromise = getActiveDayState(supabase)
           const [
@@ -802,7 +803,7 @@ export async function POST(req: Request): Promise<Response> {
                 }))
               : undefined
             const referencedFoodBankNamesAgent = isFoodBankMode ? getFoodBankReferencedNames(foodBankEntries, message ?? '') : []
-            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.mimeType.startsWith('image/')) ?? false, foodBankEntries: isFoodBankMode ? foodBankEntries : undefined, referencedFoodBankNames: referencedFoodBankNamesAgent })
+            const yahaSection = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.mimeType.startsWith('image/')) ?? false, foodBankEntries: isFoodBankMode ? foodBankEntries : undefined, referencedFoodBankNames: referencedFoodBankNamesAgent, isFoodBankAttached })
             systemPrompt = `${activeAgent.system_prompt}\n\n---\n## YAHA HEALTH LOGGING CAPABILITIES\n${yahaSection}`
           } else {
             console.log(`[ChatRoute] Using standard health prompt. daySession=${daySessionActive ? loggingDate : 'neutral'}`)
@@ -817,7 +818,7 @@ export async function POST(req: Request): Promise<Response> {
                 }))
               : undefined
             const referencedFoodBankNames = isFoodBankMode ? getFoodBankReferencedNames(foodBankEntries, message ?? '') : []
-            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.mimeType.startsWith('image/')) ?? false, foodBankEntries: isFoodBankMode ? foodBankEntries : undefined, referencedFoodBankNames })
+            systemPrompt = buildHealthSystemPrompt({ trackers, date: loggingDate, actualDate: today, userContext: brainContext, dayLogs, daySessionActive, historicalContext, sessionMessages: sessionMessagesForContext, attachmentsReceived: attachmentsReceivedList, userName, userTargets: userProfile?.targets ?? undefined, currentMessage: message, hasImageAttachment: attachments?.some(a => a.mimeType.startsWith('image/')) ?? false, foodBankEntries: isFoodBankMode ? foodBankEntries : undefined, referencedFoodBankNames, isFoodBankAttached })
           }
 
           // BUG-V32-8 FIX: Append native macro totaling for nutrition tracker (prevents LLM arithmetic errors)
