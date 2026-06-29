@@ -45,6 +45,7 @@ type BuildHealthSystemPromptParams = {
   foodBankEntries?: FoodBankEntry[]
   /** Food bank entry names whose full ingredient detail should be injected (user is adjusting/viewing them) */
   referencedFoodBankNames?: string[]
+  isFoodBankAttached?: boolean
 }
 
 function formatTrackerSchema(tracker: Tracker): string {
@@ -274,6 +275,16 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - After building the action card JSON, mentally verify: "Did I fill every field that had data?" If any readable field is missing from the JSON, add it.
     - NEVER ask the user to provide data that is already visible in the image/screenshot they sent. Only ask for values that are genuinely not shown.
     - For fitness/workout screenshots specifically: ALWAYS check for and extract Steps, Distance, Duration, Calories, all Heart Rate Zone times (Zones 1–5), Pace, Cadence, VO2 Max, Elevation Gain, and any score fields. These fields are commonly missed on first pass — do a deliberate second scan of the image for any numeric value not yet mapped to a field.
+15c. **FITNESS & WORKOUT FIELD MAPPING & CLASSIFICATION (CRITICAL)**:
+    - **Never Dump Structured Metrics Into Notes**: If a dedicated field exists in the target tracker schema for a metric (e.g. "Training Load", "Distance", "Average HR", "Max HR", "Pace", "Cadence", "Time in zone 2", etc.), you MUST log the extracted numeric or duration value into that specific field ID. It is strictly forbidden to write it as text inside the "Notes" or "Workout name" field. Notes should only contain unstructured comments, reps, or rounds that do not have dedicated fields.
+    - **Pace Field Mapping**: Pace is often shown as MM:SS (e.g. \`5:31\` min/km). If the pace field in the tracker schema is a \`number\`, convert the pace to decimal minutes (e.g. \`5:31\` -> \`5 + 31/60 = 5.52\`). If the pace field in the tracker is a \`duration\`, convert it to total seconds (e.g. \`5:31\` -> \`5*60 + 31 = 331\` seconds).
+    - **Zone Times Mapping**: Scan the screenshot for time spent in HR zones (e.g. Zone 2, Zone 4, Zone 5). Map these directly to fields whose labels mention "Zone 2", "Zone 4", "Zone 5", "Fat Burn", "Anaerobic", etc. Convert zone times (e.g. \`23:40\`) to the correct field type (duration = total seconds, number = total minutes).
+    - **Training Load**: Map values labeled "Training Load", "TE", "Training Effect", "Load", or "Activity Score" to the "Training Load" or "Load" field ID in the tracker schema.
+    - **Tracker Classification**:
+      - If the user specifies "run", "running", "jog", or uploads a screenshot clearly showing a run (pace, cadence, splits, outdoor map), you MUST log to the \`Running\` tracker.
+      - If the user specifies a general workout, strength training, hybrid session, rowing, warm-up, or "Hyrox", log to the \`Workout\` (or \`Training\`) tracker.
+      - Do not cross-log or mix them up.
+
 
 ### Extended Anti-Hallucination Rules (16-21)
 16. **NO SELF-ANSWER OR FABRICATED CONFIRMATIONS**: NEVER output a SELECT field with a pre-selected value unless the user explicitly provided it. If the user hasn't answered a SELECT question yet, present an EMPTY or PLACEHOLDER action card with the question visible, and wait for user input. NEVER assume what the user will select or fill in blank SELECT fields with guesses. Example:
@@ -501,8 +512,10 @@ The unit label never changes the output format. Seconds. Always. Integer. Always
 
 const FOOD_LOOKUP_RULE = `
 FOOD NUTRITIONAL DATA:
-- Standard whole foods (chicken breast, eggs, avocado, oats, brown rice, salmon, etc.): use USDA FoodData Central standard values per 100g. Mention "USDA" as source.
-- Generic/restaurant/recipe items (e.g. "chicken egg oat scramble", "vegan snickers brownie"): estimate from known ingredient macros. State values are estimated.
+🔴 CRITICAL PRECEDENCE RULE: ALWAYS look up the food items in the FOOD BANK first. If an item matches a food bank entry by name, alias, or shortcut (case-insensitive, e.g. "honey" matching shortcut "honey", "rice cake" matching "rc"), you MUST use the food bank values. Using USDA or other generic estimates for a food bank matched item is strictly forbidden!
+- Only for items NOT present in the food bank:
+  - Standard whole foods (chicken breast, eggs, avocado, oats, brown rice, salmon, etc.): use USDA FoodData Central standard values per 100g. Mention "USDA" as source.
+  - Generic/restaurant/recipe items (e.g. "chicken egg oat scramble", "vegan snickers brownie"): estimate from known ingredient macros. State values are estimated.
 - Always provide: calories (kcal), protein (g), carbs (g), fat (g) at minimum.
 - Scale macros by quantity when given (e.g. "100g pasta dry" → scale from per-100g values).
 - NEVER refuse to provide a nutritional estimate. Always give your best approximation.
@@ -791,7 +804,11 @@ When the user provides health data to log and has NOT specified a date:
 If the user HAS explicitly named a date (e.g. "log this for yesterday", "log for March 5th"), produce the action card directly with that computed date — no confirmation question needed. The action card IS the confirmation.
 `
 
-  return `${masterBrain}You are YAHA, ${name}'s executive health manager. Help ${name} log their life with zero friction.
+  const explicitFoodBankOverride = params.isFoodBankAttached
+    ? `\n## 🔴 EXPLICIT FOOD BANK OVERRIDE (USER ATTACHED FOOD BANK)\nThe user has explicitly clicked the "Food Bank" button to attach their Food Bank context. You MUST perform a lookup in the FOOD BANK (Your Saved Items) list below for EVERY single food item mentioned in the message or seen in any image.\nIf any item in the request matches a Food Bank entry's name, alias, or shortcut (case-insensitive, e.g. "honey" matching shortcut "honey", "rice cake" matching shortcut "rc"), you MUST use the Food Bank entry's exact stored macros. Do NOT use USDA database values or generic estimates under any circumstances for these matched items! Only fallback to USDA or generic estimates if the item is completely absent from the Food Bank.\n`
+    : ''
+
+  return `${masterBrain}${explicitFoodBankOverride}You are YAHA, ${name}'s executive health manager. Help ${name} log their life with zero friction.
 
 ${visionBlock}
 
