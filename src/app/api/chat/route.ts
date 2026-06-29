@@ -44,14 +44,72 @@ function extractSearchKeyword(message: string): string | null {
 
 const FOOD_BANK_ADJUST_KEYWORDS = ['adjust', 'change', 'make the', 'instead', 'show', 'ingredients', 'breakdown', "what's in", 'spell out', 'modify', 'list', 'whats in']
 
+function getLevenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = []
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i]
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j
+  }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          Math.min(
+            matrix[i][j - 1] + 1, // insertion
+            matrix[i - 1][j] + 1  // deletion
+          )
+        )
+      }
+    }
+  }
+  return matrix[b.length][a.length]
+}
+
+function isFuzzyMatch(name: string, message: string): boolean {
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
+  const nameCleaned = clean(name)
+  const msgCleaned = clean(message)
+  
+  if (msgCleaned.includes(nameCleaned)) return true
+
+  const nameWords = nameCleaned.split(/\s+/).filter(w => w.length > 0)
+  const msgWords = msgCleaned.split(/\s+/).filter(w => w.length > 0)
+
+  if (nameWords.length === 0) return false
+
+  for (let i = 0; i <= msgWords.length - nameWords.length; i++) {
+    let matchCount = 0
+    for (let j = 0; j < nameWords.length; j++) {
+      const wName = nameWords[j]
+      const wMsg = msgWords[i + j]
+      
+      const dist = getLevenshteinDistance(wName, wMsg)
+      const maxAllowedDist = wName.length <= 4 ? 0 : (wName.length <= 6 ? 1 : 2)
+      
+      if (dist <= maxAllowedDist) {
+        matchCount++
+      } else {
+        break
+      }
+    }
+    if (matchCount === nameWords.length) {
+      return true
+    }
+  }
+  return false
+}
+
 function getFoodBankReferencedNames(entries: FoodBankEntry[], message: string): string[] {
   const msg = message.toLowerCase()
-  const hasAdjustKeyword = FOOD_BANK_ADJUST_KEYWORDS.some(k => msg.includes(k))
-  if (!hasAdjustKeyword) return []
   return entries
     .filter(e => {
-      const nameMatch = msg.includes(e.name.toLowerCase())
-      const shortcutMatch = e.shortcut ? msg.includes(e.shortcut.toLowerCase()) : false
+      const nameMatch = isFuzzyMatch(e.name, msg)
+      const shortcutMatch = e.shortcut ? isFuzzyMatch(e.shortcut, msg) : false
       return (nameMatch || shortcutMatch) && e.ingredients && e.ingredients.length > 0
     })
     .map(e => e.name)

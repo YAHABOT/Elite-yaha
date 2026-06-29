@@ -16,6 +16,7 @@ export function FloatingChat() {
   const [sessionId, setSessionId] = useState<string>('new')
   const [newChatCounter, setNewChatCounter] = useState<number>(0)
   const [initialRoutineId, setInitialRoutineId] = useState<string | null>(null)
+  const [initialPrompt, setInitialPrompt] = useState<string | null>(null)
   
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [session, setSession] = useState<ChatSession | null>(null)
@@ -41,6 +42,7 @@ export function FloatingChat() {
         setMessages([])
         setRoutine(null)
         setInitialRoutineId(null)
+        setInitialPrompt(null)
         setNewChatCounter(prev => prev + 1)
       }, 5 * 60 * 1000)
     } else {
@@ -66,6 +68,7 @@ export function FloatingChat() {
             setMessages([])
             setRoutine(null)
             setInitialRoutineId(null)
+            setInitialPrompt(payload.initialPrompt ?? null)
             setNewChatCounter(prev => prev + 1)
           } else {
             setSessionId(payload.sessionId)
@@ -140,7 +143,7 @@ export function FloatingChat() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setPos(clamp(window.innerWidth - CHIP_SIZE - 16, window.innerHeight - CHIP_SIZE - 80))
+      setPos(clamp(window.innerWidth - CHIP_SIZE - 16, window.innerHeight / 2 - CHIP_SIZE / 2))
       const onResize = () => setPos(prev => clamp(prev.x, prev.y))
       window.addEventListener('resize', onResize)
       return () => window.removeEventListener('resize', onResize)
@@ -203,6 +206,7 @@ export function FloatingChat() {
             initialMessages={messages}
             initialRoutine={routine}
             initialRoutineId={initialRoutineId}
+            initialPrompt={initialPrompt ?? undefined}
             onSessionSelect={(id) => setSessionId(id)}
             onNewChat={() => {
               setSessionId('new')
@@ -210,8 +214,10 @@ export function FloatingChat() {
               setMessages([])
               setRoutine(null)
               setInitialRoutineId(null)
+              setInitialPrompt(null)
               setNewChatCounter(prev => prev + 1)
             }}
+            onSessionsChange={setSessions}
             initialAgentId={null}
           />
         )}

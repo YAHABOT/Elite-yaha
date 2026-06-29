@@ -48,6 +48,7 @@ const TYPE_OPTIONS: { value: TrackerType; label: string }[] = [
   { value: 'workout', label: 'Workout' },
   { value: 'mood', label: 'Mood' },
   { value: 'water', label: 'Water' },
+  { value: 'live_workout', label: 'Live Workout Tracking' },
   { value: 'custom', label: 'Custom' },
 ]
 
@@ -57,6 +58,7 @@ const TYPE_COLORS: Record<TrackerType, string> = {
   workout: '#f97316',
   mood: '#a855f7',
   water: '#06b6d4',
+  live_workout: '#f43f5e',
   custom: '#6b7280',
 }
 
@@ -88,6 +90,23 @@ export function CreateTrackerForm(): React.ReactElement {
     setType(newType)
     const newColor = TYPE_COLORS[newType]
     setColor(newColor)
+    
+    // Auto-configure live_workout
+    if (newType === 'live_workout') {
+      setName('Live Workout Tracking')
+      setSchema([
+        {
+          fieldId: 'fld_workout_details',
+          label: 'Workout Details',
+          type: 'text',
+        }
+      ])
+    } else if (type === 'live_workout') {
+      // If switching away from live_workout, reset name and empty the schema
+      setName('')
+      setSchema([])
+    }
+
     // EX14: Check contrast when type changes
     if (!isColorContrastOK(newColor)) {
       setContrastWarning('Color contrast below WCAG AA standard (4.5:1)')
@@ -109,6 +128,7 @@ export function CreateTrackerForm(): React.ReactElement {
   }
 
   function handleAddField(): void {
+    if (type === 'live_workout') return
     if (schema.length >= MAX_SCHEMA_FIELDS) return
     setSchema((prev) => [...prev, createEmptyField()])
   }
@@ -164,7 +184,8 @@ export function CreateTrackerForm(): React.ReactElement {
           required
           maxLength={50}
           placeholder="e.g. Daily Nutrition"
-          className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-textPrimary placeholder-textMuted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          disabled={type === 'live_workout'}
+          className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-textPrimary placeholder-textMuted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
         />
       </div>
 
@@ -219,7 +240,7 @@ export function CreateTrackerForm(): React.ReactElement {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <label className="text-sm text-textMuted">
-            Fields ({schema.length}/{MAX_SCHEMA_FIELDS})
+            {type === 'live_workout' ? 'Preloaded Schema' : `Fields (${schema.length}/${MAX_SCHEMA_FIELDS})`}
           </label>
           {/* Create Tracker is the primary CTA here */}
           <button
@@ -231,7 +252,20 @@ export function CreateTrackerForm(): React.ReactElement {
           </button>
         </div>
 
-        {schema.length === 0 ? (
+        {type === 'live_workout' ? (
+          <div className="rounded-lg border border-border bg-surfaceHighlight/30 p-4 text-sm text-textMuted space-y-2">
+            <div className="font-semibold text-textPrimary flex items-center gap-1.5">
+              <span>🏋️‍♂️</span> Live Workout Ingest Mode
+            </div>
+            <p className="text-xs leading-relaxed">
+              This tracker type is optimized for the **Post-Workout ingestion workflow**. It automatically captures full workout sets and cue histories, storing them in a single, un-truncated details field so the AI coach can consume the complete logs without character limits.
+            </p>
+            <div className="mt-2 rounded bg-background/50 p-2.5 text-xs font-mono border border-border/50 text-textPrimary flex items-center justify-between">
+              <span>Workout Details (fieldId: fld_workout_details)</span>
+              <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-sans uppercase font-bold tracking-wider">text</span>
+            </div>
+          </div>
+        ) : schema.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-textMuted">
             No fields yet. Add fields to define what data this tracker collects.
           </p>
@@ -251,15 +285,17 @@ export function CreateTrackerForm(): React.ReactElement {
 
       {/* Footer: Add Field + Cancel */}
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleAddField}
-          disabled={schema.length >= MAX_SCHEMA_FIELDS}
-          className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-4 py-2.5 text-sm font-medium text-textPrimary transition-colors hover:bg-black/[0.06] disabled:opacity-40"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add Field
-        </button>
+        {type !== 'live_workout' && (
+          <button
+            type="button"
+            onClick={handleAddField}
+            disabled={schema.length >= MAX_SCHEMA_FIELDS}
+            className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-4 py-2.5 text-sm font-medium text-textPrimary transition-colors hover:bg-black/[0.06] disabled:opacity-40"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Field
+          </button>
+        )}
         <button
           type="button"
           onClick={() => router.push('/trackers')}

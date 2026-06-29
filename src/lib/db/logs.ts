@@ -78,6 +78,7 @@ export async function getLogs(
     .from('tracker_logs')
     .select(LOG_COLUMNS)
     .eq('tracker_id', trackerId)
+    .eq('user_id', user.id)
     .order('logged_at', { ascending: false })
 
   if (limit !== undefined) {
@@ -110,6 +111,7 @@ export async function getLogsForDay(date: string, supabaseClient?: SupabaseClien
   const { data, error } = await supabase
     .from('tracker_logs')
     .select(LOG_COLUMNS)
+    .eq('user_id', user.id)
     .gte('logged_at', dayStart)
     .lt('logged_at', dayEnd)
     .order('logged_at', { ascending: false })
@@ -198,6 +200,7 @@ export async function getLog(id: string): Promise<TrackerLog> {
     .from('tracker_logs')
     .select(LOG_COLUMNS)
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (error) throw new Error(`Failed to fetch log: ${error.message}`)

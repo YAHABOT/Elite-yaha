@@ -170,8 +170,8 @@ export function MarkdownBlock({ content }: { content: string }) {
     }
 
     // Bullet Points
-    if (t.startsWith('- ') || t.startsWith('* ')) {
-      const contentText = t.substring(2)
+    if (t.startsWith('- ') || t.startsWith('* ') || t.startsWith('• ')) {
+      const contentText = t.replace(/^[\-\*\•]\s+/, '')
       const ytMatch = contentText.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i)
       elements.push(
         <div key={i} className="space-y-2">
@@ -212,34 +212,68 @@ export function MarkdownBlock({ content }: { content: string }) {
 }
 
 function renderInline(text: string) {
-  // Handle bold **text**
+  // Parse markdown links [Label](URL) or [Label] (URL) with optional whitespace
+  const linkRegex = /\[([^\]]+)\]\s*\(([^)]+)\)/g
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match
+  
+  while ((match = linkRegex.exec(text)) !== null) {
+    const matchIndex = match.index
+    const plainText = text.substring(lastIndex, matchIndex)
+    const label = match[1]
+    const url = match[2]
+    
+    if (plainText) {
+      parts.push(...parseBoldItalics(plainText))
+    }
+    
+    parts.push(
+      <a
+        key={`link-${matchIndex}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-cyan-400 hover:text-cyan-300 underline font-semibold transition-colors break-all"
+      >
+        {label}
+      </a>
+    )
+    
+    lastIndex = linkRegex.lastIndex
+  }
+  
+  const remainingText = text.substring(lastIndex)
+  if (remainingText) {
+    parts.push(...parseBoldItalics(remainingText))
+  }
+  
+  return parts
+}
+
+function parseBoldItalics(text: string): React.ReactNode[] {
   const boldParts = text.split(/(\*\*.*?\*\*)/g)
-  return (
-    <>
-      {boldParts.map((part, i) => {
-        if (!part) return null
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return (
-            <strong key={i} className="font-bold text-white">
-              {part.slice(2, -2)}
-            </strong>
-          )
-        }
-        
-        // Handle italics *text* or _text_ inside the non-bold part
-        const italicParts = part.split(/(\*.*?\*|_.*?_)/g)
-        return (
-          <React.Fragment key={i}>
-            {italicParts.map((sub, j) => {
-              if (!sub) return null
-              if ((sub.startsWith('*') && sub.endsWith('*')) || (sub.startsWith('_') && sub.endsWith('_'))) {
-                return <em key={j} className="italic text-white/90">{sub.slice(1, -1)}</em>
-              }
-              return <span key={j}>{sub}</span>
-            })}
-          </React.Fragment>
-        )
-      })}
-    </>
-  )
+  return boldParts.map((part, i) => {
+    if (!part) return null
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={`bold-${i}`} className="font-bold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      )
+    }
+    
+    const italicParts = part.split(/(\*.*?\*|_.*?_)/g)
+    return (
+      <React.Fragment key={`text-${i}`}>
+        {italicParts.map((sub, j) => {
+          if (!sub) return null
+          if ((sub.startsWith('*') && sub.endsWith('*')) || (sub.startsWith('_') && sub.endsWith('_'))) {
+            return <em key={`italic-${j}`} className="italic text-white/90">{sub.slice(1, -1)}</em>
+          }
+          return <span key={`span-${j}`}>{sub}</span>
+        })}
+      </React.Fragment>
+    )
+  })
 }

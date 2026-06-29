@@ -16,7 +16,7 @@ export type SchemaField = {
   archived?: boolean        // hidden from logs/journal but data preserved in DB
 }
 
-export type TrackerType = 'nutrition' | 'sleep' | 'workout' | 'mood' | 'water' | 'custom'
+export type TrackerType = 'nutrition' | 'sleep' | 'workout' | 'mood' | 'water' | 'custom' | 'live_workout'
 
 export type Tracker = {
   id: string

@@ -15,6 +15,7 @@ import type { Routine } from '@/types/routine'
 import { getAgentsAction } from '@/app/actions/agents'
 import { LIBRARY_AGENTS, LIBRARY_ENABLED_KEY } from '@/components/agents/AgentForgeList'
 import { renameSessionAction } from '@/app/actions/chat'
+import { MarkdownBlock } from '@/components/chat/MarkdownBlock'
 
 // Returns YYYY-MM-DD in the user's LOCAL timezone — avoids UTC midnight boundary issues
 // where UTC+7 users in the early morning would get yesterday's UTC date as "today".
@@ -75,11 +76,12 @@ type Props = {
   initialPrompt?: string
   onSessionSelect?: (sessionId: string) => void
   onNewChat?: () => void
+  onSessionsChange?: (sessions: ChatSession[]) => void
 }
 
-export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, initialRoutineId, sessions = [], initialAgentId, initialPrompt, onSessionSelect, onNewChat }: Props): React.ReactElement {
+export function ChatInterface({ initialMessages, sessionId, session: initialSession, initialRoutine, initialRoutineId, sessions = [], initialAgentId, initialPrompt, onSessionSelect, onNewChat, onSessionsChange }: Props): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
-  const [input, setInput] = useState<string>(initialPrompt ?? '')
+  const [input, setInput] = useState<string>('')
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -300,6 +302,16 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, sessionId, messages.length, currentRoutine, session?.active_routine_id, router, initialRoutineId])
 
+  // Auto-trigger initial prompt if provided.
+  useEffect(() => {
+    if (triggerSent.current) return
+    if (!initialPrompt || sessionId !== 'new' || messages.length > 0) return
+
+    triggerSent.current = true
+    handleSendSilent(initialPrompt)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPrompt, sessionId, messages.length])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -467,6 +479,38 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         }])
       }
 
+      if (finalSessionId && finalSessionId !== currentSessionId) {
+        setCurrentSessionId(finalSessionId)
+      }
+
+      let didRename = false
+      let autoTitle = ''
+      // Auto-save and rename if it is a live workout tracking session starting from 'new'
+      if (finalSessionId && finalSessionId !== 'new' && currentSessionId === 'new') {
+        const isLiveWorkoutTracking = (text && (
+          text.includes("during-workout") || 
+          text.includes("live_workout") || 
+          text.includes("live track/running") ||
+          text.includes("live, during-workout")
+        )) || (initialPrompt && (
+          initialPrompt.includes("during-workout") || 
+          initialPrompt.includes("live_workout") || 
+          initialPrompt.includes("live track/running") ||
+          initialPrompt.includes("live, during-workout")
+        ))
+        if (isLiveWorkoutTracking) {
+          const d = new Date()
+          const day = String(d.getDate()).padStart(2, '0')
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const dateStr = `${day}/${month}`
+          autoTitle = `Live workout tracking ${dateStr}`
+          const renameRes = await renameSessionAction(finalSessionId, autoTitle)
+          if (renameRes.success && isMountedRef.current) {
+            didRename = true
+          }
+        }
+      }
+
       // Refresh session state so the routine step badge reflects the newly advanced step
       // Skip for 'new' sessions (no UUID yet, will be assigned on next message)
       if (finalSessionId && finalSessionId !== 'new') {
@@ -474,7 +518,13 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         if (sessRes.ok) {
           const nextSession = await sessRes.json()
           if (!isMountedRef.current) return
+          if (didRename) {
+            nextSession.title = autoTitle
+          }
           setSession(nextSession)
+          if (didRename) {
+            router.refresh()
+          }
           if (nextSession.active_routine_id) {
             const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
             if (routRes.ok) {
@@ -924,6 +974,33 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
       setAttachedFiles([]) // Clear attachments after success
 
+      let didRename = false
+      let autoTitle = ''
+      if (attachSessionId && attachSessionId !== 'new' && currentSessionId === 'new') {
+        const isLiveWorkoutTracking = (trimmed && (
+          trimmed.includes("during-workout") || 
+          trimmed.includes("live_workout") || 
+          trimmed.includes("live track/running") ||
+          trimmed.includes("live, during-workout")
+        )) || (initialPrompt && (
+          initialPrompt.includes("during-workout") || 
+          initialPrompt.includes("live_workout") || 
+          initialPrompt.includes("live track/running") ||
+          initialPrompt.includes("live, during-workout")
+        ))
+        if (isLiveWorkoutTracking) {
+          const d = new Date()
+          const day = String(d.getDate()).padStart(2, '0')
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const dateStr = `${day}/${month}`
+          autoTitle = `Live workout tracking ${dateStr}`
+          const renameRes = await renameSessionAction(attachSessionId, autoTitle)
+          if (renameRes.success && isMountedRef.current) {
+            didRename = true
+          }
+        }
+      }
+
       // Update session state (routine progress etc.)
       // Skip for 'new' sessions (no UUID yet, will be assigned on next message)
       if (attachSessionId && attachSessionId !== 'new') {
@@ -931,7 +1008,13 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         if (sessRes.ok) {
           const nextSession = await sessRes.json()
           if (!isMountedRef.current) return
+          if (didRename) {
+            nextSession.title = autoTitle
+          }
           setSession(nextSession)
+          if (didRename) {
+            router.refresh()
+          }
 
           if (nextSession.active_routine_id) {
             const routRes = await fetch(`/api/routines/${nextSession.active_routine_id}`)
@@ -971,14 +1054,20 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
   // BUG 4: Save Chat handler
   async function handleSaveChat(): Promise<void> {
-    if (!saveTitle.trim() || currentSessionId === 'new') return
+    if (currentSessionId === 'new') {
+      alert('Please send your first message to start the chat before saving it!')
+      return
+    }
+    if (!currentSessionId) return
     setIsSaving(true)
     try {
       const res = await renameSessionAction(currentSessionId, saveTitle.trim())
       if (res.success) {
-        setSession(prev => prev ? { ...prev, title: saveTitle.trim() } : prev)
         setIsSaveModalOpen(false)
         setSaveTitle('')
+        if (session) {
+          setSession({ ...session, title: saveTitle.trim() })
+        }
         router.refresh()
       }
     } finally {
@@ -1012,6 +1101,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
               onMobileClose={() => setIsMobileSidebarOpen(false)}
               onSessionSelect={onSessionSelect}
               onNewChat={onNewChat}
+              onSessionsChange={onSessionsChange}
             />
           </div>
         </div>
@@ -1088,12 +1178,35 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Save Chat — shown when session is unnamed */}
-          {(!session || session.title === 'New Chat') && currentSessionId !== 'new' && (
+          {/* Save Chat — shown when session is unnamed or auto-named */}
+          {(!session || session.title === 'New Chat' || session.title.toLowerCase() === 'new chat' || session.title.startsWith('Live workout tracking')) && currentSessionId !== 'new' && (
             <button
               type="button"
               onClick={() => {
-                const suggestion = messages.find(m => m.role === 'user')?.content?.slice(0, 30) ?? 'My Chat'
+                if (currentSessionId === 'new') {
+                  alert('Please send a message to start the chat before saving it!')
+                  return
+                }
+                const d = new Date()
+                const day = String(d.getDate()).padStart(2, '0')
+                const month = String(d.getMonth() + 1).padStart(2, '0')
+                const dateStr = `${day}/${month}`
+                const hasLivePrompt = messages.some(m => 
+                  m.role === 'user' && (
+                    m.content.includes("during-workout") ||
+                    m.content.includes("live_workout") ||
+                    m.content.includes("live track/running") ||
+                    m.content.includes("live, during-workout")
+                  )
+                ) || (initialPrompt && (
+                  initialPrompt.includes("during-workout") || 
+                  initialPrompt.includes("live_workout") || 
+                  initialPrompt.includes("live track/running") ||
+                  initialPrompt.includes("live, during-workout")
+                ))
+                const suggestion = hasLivePrompt
+                  ? `Live workout tracking ${dateStr}`
+                  : (messages.find(m => m.role === 'user')?.content?.slice(0, 30) ?? 'My Chat')
                 setSaveTitle(suggestion)
                 setIsSaveModalOpen(true)
               }}
@@ -1179,7 +1292,7 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
                   border: '1px solid rgba(0,212,255,0.15)',
                 }}
               >
-                <MarkdownText content={message.content.replace(/```json\s*[\s\S]*?```/g, '').trim()} />
+                <MarkdownBlock content={message.content.replace(/```json\s*[\s\S]*?```/g, '').trim()} />
               </div>
 
               {/* Attachments Display */}
@@ -1506,51 +1619,4 @@ export function ChatInterface({ initialMessages, sessionId, session: initialSess
 
     </div>
   )
-}
-
-function MarkdownText({ content }: { content: string }) {
-  // Simple markdown-lite renderer for a "premium" feel without a heavy library
-  const lines = content.split('\n')
-
-  return (
-    <div className="space-y-1.5">
-      {lines.map((line, i) => {
-        // Handle Bullet Points
-        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-          const text = line.trim().substring(2)
-          return (
-            <div key={i} className="flex gap-2.5 pl-1">
-              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-nutrition/60" />
-              <span className="leading-relaxed">{renderBold(text)}</span>
-            </div>
-          )
-        }
-
-        // Regular Paragraphs
-        return <p key={i} className="leading-relaxed">{renderBold(line)}</p>
-      })}
-    </div>
-  )
-}
-
-function renderBold(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*)/g)
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (!part) return null
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return (
-            <strong key={i} className="font-black text-white">
-              {part.slice(2, -2)}
-            </strong>
-          )
-        }
-        // Wrap plain text in span to ensure consistent JSX returns
-        return (
-          <span key={i}>{part}</span>
-        )
-      })}
-    </>
-  )
-}
+}

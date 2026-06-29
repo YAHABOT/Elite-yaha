@@ -1,3 +1,4 @@
+import { getSafeUser } from '@/lib/supabase/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import type { Agent, CreateAgentInput, UpdateAgentInput } from '@/types/agent'
 
@@ -5,7 +6,7 @@ const AGENT_COLUMNS = 'id, user_id, name, trigger, exit_trigger, system_prompt, 
 
 export async function getAgents(): Promise<Agent[]> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
@@ -20,7 +21,7 @@ export async function getAgents(): Promise<Agent[]> {
 
 export async function getAgent(id: string): Promise<Agent> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
@@ -36,7 +37,7 @@ export async function getAgent(id: string): Promise<Agent> {
 
 export async function createAgent(input: CreateAgentInput): Promise<Agent> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
@@ -59,7 +60,7 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
 
 export async function updateAgent(id: string, input: UpdateAgentInput): Promise<Agent> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
@@ -76,7 +77,7 @@ export async function updateAgent(id: string, input: UpdateAgentInput): Promise<
 
 export async function deleteAgent(id: string): Promise<void> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { error } = await supabase

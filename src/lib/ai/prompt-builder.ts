@@ -217,6 +217,7 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
 ### Core Rules (1-10)
 1. **The "7777" Guard**: If the user provides a single number (e.g., "77"), log it exactly ONCE. Never double it (e.g., "7777") and never log the same value to two different fields (e.g., don't log "77" as both Weight and Calories).
 2. **Schema Whitelist + Intent Gate (CRITICAL)**: ONLY log data for fields explicitly defined in the trackers below. If the user's message does not clearly map to any field in any available tracker, do NOT generate a LOG_DATA action. ALSO: Only generate LOG_DATA if the user explicitly intends to log — look for keywords like "log", "track", "add", "record", or "save". Casual mentions of data without explicit intent = conversational response only, NO action card. Examples: "I had coffee" (NO card), "log coffee" (YES card), "How much coffee should I drink?" (NO card).
+2b. **Live Workout Tracking / Set Updates (CRITICAL)**: If the user is giving set-by-set or exercise-by-exercise updates during a workout session (e.g., "first set 10 reps at 30kg", "done with set 2", "completed Bench Press"), do NOT output a LOG_DATA card for these intermediate sets or exercises. Keep track of the weights, reps, and sets in conversation memory. Only output a LOG_DATA card for the completed workout at the very end of the session when the user explicitly requests to log the entire session (e.g., "log the workout", "save session", "save this workout").
 3. **Smart Estimates (The Librarian)**: If a user asks for nutritional info on a common item (e.g. "Huda beer", "Blueberries"), provide the data confidently from your training set. You have full access to nutritional databases and general knowledge. Simply provide the best estimate and fill out the log card. NEVER claim you "don't have internet" or "cannot estimate" — you always can.
 4. **Data Integrity**: For text fields (like "Item Name"), ALWAYS use descriptive strings (e.g., "Huda Beer 300ml"). NEVER use single digits or internal IDs as values for human-readable fields.
 5. **Active Day Session / Date Logic** (NON-NEGOTIABLE):
@@ -329,6 +330,13 @@ const GLOBAL_ANTI_HALLUCINATION_RULES = `
     - Exceptions (these are NOT fabrication):
       a) Nutritional estimates for named food items (e.g., "a banana") — use USDA/training data, state the source.
       b) "Use the same as last time" when the value IS explicitly shown in HISTORICAL DATA — use the exact historical value.
+
+### YouTube and Link Accuracy
+24. **YOUTUBE AND WEB LINK ACCURACY — ZERO HALLUCINATION (CRITICAL):**
+    - NEVER guess, approximate, or fabricate YouTube video IDs (e.g. "https://www.youtube.com/watch?v=3-s5L1tP92M"). All YouTube URLs must be real and work.
+    - If the user asks for YouTube links, video guides, or external URLs, you MUST search the web using your googleSearch tool to retrieve the actual, verified, active YouTube URLs.
+    - If you do not perform a search or the search does not return a verified, specific video ID for the requested exercise/movement, do NOT make up or output fake/broken links. Instead, describe the exercise form conversationally and say: "I couldn't find a verified YouTube link for that movement. Please search for it directly on YouTube."
+25. **WORKOUT NOTES FORMATTING (TRAINING TRACKER)**: When logging a completed workout session to the "Training" (or "Workout") tracker, you MUST compile the full history of the exercises, sets, reps, and weights performed during the session into a clean, readable text block and store it in the notes field (e.g., "notes" / "fld_1774854969310_koxs" or "fld_1779267874418_bkzq"). Include all warm-up details and S&C sets without truncation.
 `
 
 const MEAL_NOTES_RULE = `
@@ -505,7 +513,9 @@ RECIPE FILE RULE: When an attached file or document contains ingredient data (a 
 `
 
 const FOOD_BANK_RULE = `
-FOOD BANK: The user has activated food bank mode. Use stored macros exactly for matched items. For pantry items with a different quantity than the stored serving, scale proportionally (e.g. stored 100g, user says 32g → multiply macros by 0.32). If no food bank item matches a mentioned food, estimate normally — never say you checked the food bank.
+FOOD BANK: The user has activated food bank mode. Use stored macros exactly for matched items. For pantry items with a different quantity than the stored serving, scale proportionally (e.g. stored 100g, user says 32g → multiply macros by 0.32). 
+
+STRICT MATCHING RULE: You must aggressively match partial names or abbreviations (e.g., "moz" -> "Mozzarella", "tor" -> "Tortilla") to their corresponding Food Bank items if they logically fit. DO NOT ignore Food Bank items and fallback to generic AI estimates just because the user used a shortcut name. If an abbreviation closely matches a food bank item, use the food bank item! If no food bank item matches even loosely, estimate normally — never say you checked the food bank.
 
 MEAL NOTES / INGREDIENTS FIELD RULES — follow exactly when logging food bank items:
 - Logging a food bank DISH with no additions → notes/ingredients field = "Food Bank Dish" only. No name, no ingredients list.
@@ -704,6 +714,17 @@ function buildTargetsSection(targets?: UserTarget[]): string {
   return `\n## USER DAILY TARGETS\nThe user has set the following personal health targets. Reference these when discussing progress, totals, or remaining goals for the day:\n${lines.join('\n')}\n`
 }
 
+const LIVE_WORKOUT_TRACKING_RULE = `
+## 🏋️‍♂️ LIVE WORKOUT TRACKING RULE (CRITICAL)
+If a tracker of type "live_workout" exists in the Available Trackers list:
+1. **End-of-Workout Compilation**: ONLY generate a LOG_DATA card for this tracker at the very end of the session, when the user explicitly requests to log or save the workout. Do not log intermediate set updates.
+2. **Details Schema Mapping**: Map the entire completed session's detailed history (warm-ups, exercises, S&C sets, reps, weight, RPE, paces, and coach notes) into the single text field "fld_workout_details". This summary must be highly detailed and complete (replicate a high-fidelity markdown log format). Do not truncate details.
+3. **Conversational Hand-off Prompt**: In your response text, you MUST explicitly instruct the user to log their watch metrics in their regular tracker by outputting this exact phrase:
+   "Please go and log your workout metrics in your workout tracker for this once its done."
+4. **No Metric Mix-ups**: Do NOT try to log watch metrics (duration, calories, heart rates, RPE) onto the live_workout tracker itself. Leave those to the normal tracker.
+5. **Tracker Identification**: The user may refer to this tracker as "live tracker", "live tracking", "live tracking tracker", "live workout tracker", or "live workout". Always map these terms to the tracker of type "live_workout" (e.g. "Live Workout Tracking") and use its exact trackerId from the Available Trackers list.
+`
+
 export function buildHealthSystemPrompt(params: BuildHealthSystemPromptParams): string {
   const today = params.date ?? new Date().toISOString().split('T')[0]
   // Physical current date — used for relative date arithmetic ("yesterday", "5 days ago")
@@ -795,6 +816,8 @@ Current time (UTC): ${new Date().toISOString().slice(11, 16)} — use this as "n
 ${neutralDateRule}
 
 ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL_TODAY}}/g, actualToday)}
+
+${LIVE_WORKOUT_TRACKING_RULE}
 
 ${MEAL_NOTES_RULE}
 
@@ -1016,6 +1039,8 @@ Actual current date: ${actualToday}
 Current time (UTC): ${new Date().toISOString().slice(11, 16)} — use this as "now" when user says "now", "right now", or asks for current time. NEVER substitute a past log timestamp for the current time.
 
 ${GLOBAL_ANTI_HALLUCINATION_RULES.replace(/{{TODAY}}/g, today).replace(/{{ACTUAL_TODAY}}/g, actualToday)}
+
+${LIVE_WORKOUT_TRACKING_RULE}
 
 ## ⚠️ ROUTINE STEP IDENTITY RULE
 The word "Step" in this routine ALWAYS refers to an item in the numbered sequence below.

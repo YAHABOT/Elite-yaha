@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getSafeUser } from '@/lib/supabase/auth'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const USER_COLUMNS = 'id, alias, targets, stats, telegram_handle'
+const USER_COLUMNS = 'id, alias, targets, stats, telegram_handle, access_status'
 
 /**
  * A single daily target — linked to a real tracker field.
@@ -81,13 +81,15 @@ export type User = {
   targets: UserTargets
   stats: UserStats
   telegram_handle: string | null
+  access_status: 'green' | 'red'
 }
 
 export type UpsertUserInput = {
-  alias?: string
+  alias?: string | null
   targets?: UserTargets
   stats?: UserStats
-  telegram_handle?: string
+  telegram_handle?: string | null
+  access_status?: 'green' | 'red'
 }
 
 function cachedGetUser(userId: string) {
@@ -109,6 +111,7 @@ function cachedGetUser(userId: string) {
         targets,
         stats: (data.stats as UserStats) ?? {},
         telegram_handle: data.telegram_handle ?? null,
+        access_status: (data.access_status as 'green' | 'red') ?? 'red',
       } as User
     },
     [`user-profile-${userId}`],
@@ -140,6 +143,7 @@ export async function getUser(id?: string, supabaseClient?: SupabaseClient): Pro
       targets,
       stats: (data.stats as UserStats) ?? {},
       telegram_handle: data.telegram_handle ?? null,
+      access_status: (data.access_status as 'green' | 'red') ?? 'red',
     }
   }
 
@@ -155,8 +159,8 @@ export async function getUser(id?: string, supabaseClient?: SupabaseClient): Pro
 }
 
 export async function upsertUserProfile(input: UpsertUserInput): Promise<User> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createServiceClient()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const upsertPayload: Record<string, unknown> = { id: user.id }
@@ -164,6 +168,7 @@ export async function upsertUserProfile(input: UpsertUserInput): Promise<User> {
   if (input.targets !== undefined) upsertPayload.targets = input.targets
   if (input.stats !== undefined) upsertPayload.stats = input.stats
   if (input.telegram_handle !== undefined) upsertPayload.telegram_handle = input.telegram_handle
+  if (input.access_status !== undefined) upsertPayload.access_status = input.access_status
 
   const { data, error } = await supabase
     .from('users')
@@ -182,6 +187,7 @@ export async function upsertUserProfile(input: UpsertUserInput): Promise<User> {
     targets,
     stats: (data.stats as UserStats) ?? {},
     telegram_handle: data.telegram_handle ?? null,
+    access_status: (data.access_status as 'green' | 'red') ?? 'red',
   }
 }
 

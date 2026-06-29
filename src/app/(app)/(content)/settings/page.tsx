@@ -18,6 +18,11 @@ export default async function SettingsPage(): Promise<React.ReactElement> {
   }
 
   const initialShowGuide = profile?.stats?.onboarding?.dismissed !== true
+  const isCoach =
+    userAuth.id === '44ef9aae-79d7-4bc9-8eea-7d8a55964813' ||
+    userAuth.id === '4c74333b-18e6-465a-a62a-523a4ad2999b' ||
+    userAuth.email === 'armaan1993@gmail.com' ||
+    userAuth.email === 'violetmikulchik@gmail.com'
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -30,7 +35,7 @@ export default async function SettingsPage(): Promise<React.ReactElement> {
         </div>
       </div>
 
-      <SettingsForm initialShowGuide={initialShowGuide} />
+      <SettingsForm initialShowGuide={initialShowGuide} isCoach={isCoach} />
     </div>
   )
 }

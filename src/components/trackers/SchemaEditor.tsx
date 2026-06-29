@@ -30,6 +30,7 @@ const TRACKER_TYPES: { value: TrackerType; label: string; color: string }[] = [
   { value: 'workout',   label: 'Workout',   color: '#ff6b35' },
   { value: 'mood',      label: 'Mood',      color: '#ffd700' },
   { value: 'water',     label: 'Water',     color: '#00d4ff' },
+  { value: 'live_workout', label: 'Live Workout', color: '#f43f5e' },
   { value: 'custom',    label: 'Custom',    color: '#6B7280' },
 ]
 
@@ -310,15 +311,17 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleAddField}
-              disabled={schema.length >= MAX_SCHEMA_FIELDS}
-              className="flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-textPrimary transition-all hover:bg-white/10 active:scale-95 disabled:opacity-20 shadow-md"
-            >
-              <Plus className="h-3.5 w-3.5 stroke-[3px]" />
-              Add Field
-            </button>
+            {trackerType !== 'live_workout' && (
+              <button
+                type="button"
+                onClick={handleAddField}
+                disabled={schema.length >= MAX_SCHEMA_FIELDS}
+                className="flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-textPrimary transition-all hover:bg-white/10 active:scale-95 disabled:opacity-20 shadow-md"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[3px]" />
+                Add Field
+              </button>
+            )}
           </div>
 
           {/* Type Selector */}
@@ -326,27 +329,34 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
             <h3 className="px-2 text-[10px] font-black uppercase tracking-[0.4em] text-textMuted opacity-30">
               Tracker Type
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {TRACKER_TYPES.map((t) => {
-                const isActive = trackerType === t.value
-                return (
-                  <button
-                    key={t.value}
-                    type="button"
-                    onClick={() => setTrackerType(t.value)}
-                    className="rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all duration-200 active:scale-95"
-                    style={{
-                      backgroundColor: isActive ? `${t.color}20` : `${t.color}08`,
-                      border: `1.5px solid ${isActive ? t.color : `${t.color}55`}`,
-                      color: isActive ? t.color : `${t.color}99`,
-                      boxShadow: isActive ? `0 0 12px -2px ${t.color}60` : 'none',
-                    }}
-                  >
-                    {t.label}
-                  </button>
-                )
-              })}
-            </div>
+            {tracker.type === 'live_workout' ? (
+              <div className="px-2 text-xs font-bold text-[#f43f5e] uppercase tracking-widest">
+                Live Workout Tracking (Locked Preset)
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {TRACKER_TYPES.map((t) => {
+                  const isActive = trackerType === t.value
+                  if (t.value === 'live_workout') return null // Can't change existing tracker to live_workout
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setTrackerType(t.value)}
+                      className="rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all duration-200 active:scale-95"
+                      style={{
+                        backgroundColor: isActive ? `${t.color}20` : `${t.color}08`,
+                        border: `1.5px solid ${isActive ? t.color : `${t.color}55`}`,
+                        color: isActive ? t.color : `${t.color}99`,
+                        boxShadow: isActive ? `0 0 12px -2px ${t.color}60` : 'none',
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Color Picker */}
@@ -382,7 +392,16 @@ export function SchemaEditor({ tracker }: Props): React.ReactElement {
               </h3>
             </div>
 
-            {activeFields.length === 0 ? (
+            {trackerType === 'live_workout' ? (
+              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-6 text-sm text-textMuted space-y-2">
+                <p className="font-semibold text-textPrimary">🏋️‍♂️ Fixed Schema</p>
+                <p className="text-xs">Live Workout Tracking uses a fixed schema. Fields cannot be added, reordered, or deleted.</p>
+                <div className="mt-2 rounded bg-black/40 p-2.5 text-xs font-mono border border-white/5 text-textPrimary flex items-center justify-between">
+                  <span>Workout Details (fieldId: fld_workout_details)</span>
+                  <span className="text-[10px] bg-[#f43f5e]/20 text-[#f43f5e] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">text</span>
+                </div>
+              </div>
+            ) : activeFields.length === 0 ? (
               <div className="rounded-[32px] border border-dashed border-white/10 p-12 text-center text-sm font-bold text-textMuted bg-white/[0.01]">
                 No active fields.
               </div>

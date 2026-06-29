@@ -16,10 +16,12 @@ import {
   LayoutList,
   UserCircle,
   Share2,
+  Calendar,
 } from 'lucide-react'
 
 type Props = {
   initialShowGuide: boolean
+  isCoach?: boolean
 }
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
@@ -73,7 +75,7 @@ function SystemSection() {
   )
 }
 
-export function SettingsForm({ initialShowGuide }: Props): React.ReactElement {
+export function SettingsForm({ initialShowGuide, isCoach }: Props): React.ReactElement {
   const [showGuide, setShowGuide] = useState(initialShowGuide)
   const [guideToggleSaving, setGuideToggleSaving] = useState(false)
 
@@ -92,6 +94,30 @@ export function SettingsForm({ initialShowGuide }: Props): React.ReactElement {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+
+      {/* Coach Dashboard Link */}
+      {isCoach && (
+        <div className="space-y-4">
+          <NavRow
+            href="/coachDB"
+            icon={ShieldCheck}
+            iconBg="rgba(244,63,94,0.08)"
+            iconColor="#f43f5e"
+            title="Coach Command Portal"
+            description="Impersonate client accounts and access backdoor controls"
+            hoverBorder="hover:border-[rgba(244,63,94,0.25)] shadow-[0_0_15px_rgba(244,63,94,0.15)]"
+          />
+          <NavRow
+            href="/social"
+            icon={Calendar}
+            iconBg="rgba(6,182,212,0.08)"
+            iconColor="#06b6d4"
+            title="Social Content Calendar"
+            description="View daily scripts, hooks, and asset requests"
+            hoverBorder="hover:border-[rgba(6,182,212,0.25)] shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+          />
+        </div>
+      )}
 
       {/* Profile */}
       <NavRow

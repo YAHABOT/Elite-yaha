@@ -162,9 +162,11 @@ export function DashboardClient({
   const router = useRouter()
   const [editMode, setEditMode] = useState(false)
   const [showScoreCard, setShowScoreCard] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
 
   // Restore hide/show preferences from localStorage after mount (SSR-safe)
   useEffect(() => {
+    setIsMounted(true)
     const sc = localStorage.getItem('dash:showScoreCard')
     if (sc !== null) setShowScoreCard(sc !== 'false')
   }, [])
@@ -238,12 +240,13 @@ export function DashboardClient({
   const sessionIsNeutral = dayState === null
 
   // Cross-day guard: derive local today for skip actions and date checks.
-  const nowHour = new Date().getHours()
-  const localToday = getLocalDateStr()
-  // EX2: End Day banner only appears after 7 PM, or if the active session is from a past date.
+  // Use isMounted to avoid server/client hydration mismatch for timezone-dependent values
+  const nowHour = isMounted ? new Date().getHours() : 0
+  const localToday = isMounted ? getLocalDateStr() : (dayState?.date ?? '')
+  // EX2: End Day banner only appears after 5 PM, or if the active session is from a past date.
   const sessionDate = dayState?.date ?? localToday
-  const sessionIsForPastDate = sessionDate < localToday
-  const endDayTimeGatePassed = sessionIsForPastDate || nowHour >= 19
+  const sessionIsForPastDate = isMounted ? (sessionDate < localToday) : false
+  const endDayTimeGatePassed = sessionIsForPastDate || nowHour >= 17
 
   function handleDelete(id: string): void {
     startTransition(async () => {
@@ -395,7 +398,7 @@ export function DashboardClient({
       )}
 
       {/* ── Compact End Day banner ── */}
-      {dayEndRoutine && sessionIsActive && endDayTimeGatePassed && (
+      {dayEndRoutine && endDayTimeGatePassed && (
         <div className="flex flex-col gap-1.5">
           <div
             className="flex items-center gap-3 rounded-2xl px-4 py-3"

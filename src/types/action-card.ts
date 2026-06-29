@@ -41,7 +41,7 @@ export type UpdateDataCard = {
 export type CreateTrackerCard = {
   type: 'CREATE_TRACKER'
   name: string
-  trackerType: 'nutrition' | 'sleep' | 'workout' | 'mood' | 'water' | 'custom'
+  trackerType: 'nutrition' | 'sleep' | 'workout' | 'mood' | 'water' | 'custom' | 'live_workout'
   color: string
   schema: SchemaFieldDef[]
   confirmed?: boolean

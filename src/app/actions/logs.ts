@@ -1,4 +1,5 @@
 'use server'
+import { getSafeUser } from '@/lib/supabase/auth'
 
 import { revalidatePath } from 'next/cache'
 import { createLog, updateLog, deleteLog } from '@/lib/db/logs'
@@ -20,7 +21,7 @@ export async function createLogAction(
     // Validate that the tracker belongs to the current user before inserting.
     // This prevents the raw FK constraint error when the AI hallucinates a UUID.
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getSafeUser()
     if (!user) return { error: 'Unauthorized' }
 
     const { data: trackerRow } = await supabase

@@ -1,4 +1,5 @@
 'use server'
+import { getSafeUser } from '@/lib/supabase/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
@@ -11,7 +12,7 @@ const FEEDBACK_INTERVAL_DAYS = 5
 
 export async function checkFeedbackEligibility(): Promise<{ eligible: boolean }> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) return { eligible: false }
   if (EXCLUDED_EMAILS.includes(user.email ?? '')) return { eligible: false }
 
@@ -34,7 +35,7 @@ export async function submitFeedback(
   comment?: string
 ): Promise<{ success?: boolean; error?: string }> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) return { error: 'Not authenticated' }
   if (EXCLUDED_EMAILS.includes(user.email ?? '')) return { error: 'Excluded' }
 

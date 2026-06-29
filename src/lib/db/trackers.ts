@@ -37,6 +37,7 @@ export async function getTrackersBasic(supabaseClient?: SupabaseClient): Promise
     const { data, error } = await supabaseClient
       .from('trackers')
       .select(TRACKER_COLUMNS)
+      .eq('user_id', user.id)
       .is('archived_at', null)
       .order('created_at', { ascending: false })
     if (error) throw new Error(`Failed to fetch basic trackers: ${error.message}`)
@@ -60,6 +61,7 @@ export async function getTrackers(supabaseClient?: SupabaseClient): Promise<Trac
     supabase
       .from('trackers')
       .select(TRACKER_COLUMNS)
+      .eq('user_id', user.id)
       .is('archived_at', null)
       .order('created_at', { ascending: false }),
     supabase
@@ -134,13 +136,14 @@ export async function getTrackers(supabaseClient?: SupabaseClient): Promise<Trac
 
 export async function getTracker(id: string): Promise<Tracker> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
     .from('trackers')
     .select(TRACKER_COLUMNS)
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (error) throw new Error(`Failed to fetch tracker: ${error.message}`)
@@ -149,7 +152,7 @@ export async function getTracker(id: string): Promise<Tracker> {
 
 export async function createTracker(input: CreateTrackerInput): Promise<Tracker> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const trimmedName = input.name.trim()
@@ -176,7 +179,7 @@ export async function updateTracker(
   input: UpdateTrackerInput
 ): Promise<Tracker> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const updates: Record<string, unknown> = {}
@@ -195,6 +198,7 @@ export async function updateTracker(
     .from('trackers')
     .update(updates)
     .eq('id', id)
+    .eq('user_id', user.id)
     .select(TRACKER_COLUMNS)
     .single()
 
@@ -204,7 +208,7 @@ export async function updateTracker(
 
 export async function deleteTracker(id: string): Promise<void> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { error } = await supabase
@@ -218,7 +222,7 @@ export async function deleteTracker(id: string): Promise<void> {
 
 export async function archiveTracker(id: string): Promise<void> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { error } = await supabase
@@ -232,7 +236,7 @@ export async function archiveTracker(id: string): Promise<void> {
 
 export async function unarchiveTracker(id: string): Promise<void> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { error } = await supabase
@@ -246,7 +250,7 @@ export async function unarchiveTracker(id: string): Promise<void> {
 
 export async function getArchivedTrackers(): Promise<Tracker[]> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase

@@ -48,9 +48,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // ignoreDuplicates: true makes this a no-op for returning users.
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        const fullName = user.user_metadata?.full_name || user.user_metadata?.name || null
         await supabase
           .from('users')
-          .upsert({ id: user.id }, { onConflict: 'id', ignoreDuplicates: true })
+          .upsert(
+            { id: user.id, alias: fullName },
+            { onConflict: 'id', ignoreDuplicates: true }
+          )
       }
 
       const response = NextResponse.redirect(`${origin}${next}`)

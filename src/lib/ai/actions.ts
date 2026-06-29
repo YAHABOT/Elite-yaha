@@ -1,7 +1,7 @@
 import type { ActionCard, CreateTrackerCard, UpdateDataCard, SaveToFoodBankCard, AnyActionCard, SchemaFieldDef } from '@/types/action-card'
 
 const VALID_SOURCES = new Set(['chat', 'telegram', 'manual'])
-const VALID_TRACKER_TYPES = new Set(['nutrition', 'sleep', 'workout', 'mood', 'water', 'custom'])
+const VALID_TRACKER_TYPES = new Set(['nutrition', 'sleep', 'workout', 'mood', 'water', 'custom', 'live_workout'])
 const VALID_FIELD_TYPES = new Set(['number', 'text', 'rating', 'duration', 'time', 'select'])
 
 export function parseActionCards(responseText: string): AnyActionCard[] {

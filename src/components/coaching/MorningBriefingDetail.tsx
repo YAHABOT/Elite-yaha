@@ -21,6 +21,7 @@ import {
   Flame,
 } from 'lucide-react'
 import { MarkdownBlock } from '@/components/chat/MarkdownBlock'
+import { chatEvents } from '@/lib/events/chatEvents'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -185,33 +186,52 @@ function TrackingPromptCard({
   const accentColor = isPm ? 'text-primary' : 'text-cyan-400'
   const borderColor = isPm ? 'border-primary/20' : 'border-cyan-400/20'
   const bgColor = isPm ? 'bg-primary/5' : 'bg-cyan-400/5'
+  const buttonBgColor = isPm ? 'bg-primary hover:bg-primary/90 text-primary-foreground font-black' : 'bg-cyan-500 hover:bg-cyan-600 text-black font-black'
+
+  const handleStartTracking = () => {
+    chatEvents.openChat({
+      action: 'open',
+      sessionId: 'new',
+      initialPrompt: text,
+    })
+  }
 
   return (
-    <div className={`rounded-2xl border ${borderColor} ${bgColor} overflow-hidden`}>
-      {/* Always-visible header with copy button */}
-      <div className={`flex items-center gap-2 px-4 py-3`}>
+    <div className={`rounded-2xl border ${borderColor} ${bgColor} p-5 space-y-4`}>
+      <div className="flex items-center gap-2">
+        <Timer size={15} className={accentColor} />
+        <span className={`text-xs font-black tracking-widest uppercase ${accentColor}`}>
+          {label}
+        </span>
+      </div>
+      
+      <p className="text-xs text-white/70 leading-relaxed">
+        Press below to start the guided {isPm ? 'PM' : 'live'} workout tracking with your YAHA assistant. At the end of the workout, it will help you log it to your live workout tracker.
+      </p>
+
+      <div className="flex flex-wrap items-center gap-3 pt-1">
+        <button
+          onClick={handleStartTracking}
+          className={`px-5 py-3 rounded-xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 ${buttonBgColor}`}
+        >
+          <Activity size={14} className={isPm ? 'text-primary-foreground' : 'text-black'} />
+          Start live tracking with YAHA
+        </button>
+
         <button
           onClick={() => setOpen(o => !o)}
-          className="flex items-center gap-2 flex-1 text-left"
+          className="px-4 py-3 rounded-xl border border-white/10 hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white/80 transition-all flex items-center gap-1.5"
         >
-          <Timer size={14} className={accentColor} />
-          <span className={`text-xs font-black tracking-widest uppercase ${accentColor} flex-1`}>
-            {label}
-          </span>
-          {open ? (
-            <ChevronUp size={14} className="text-white/40" />
-          ) : (
-            <ChevronDown size={14} className="text-white/40" />
-          )}
+          {open ? 'Hide Prompt Details' : 'View Prompt Details'}
         </button>
-        {/* Copy always visible, even when collapsed */}
-        <CopyButton text={text} />
       </div>
 
-      {/* Expandable body */}
       {open && (
-        <div className={`px-4 pb-4 border-t ${borderColor}`}>
-          <p className="text-sm text-white/70 leading-relaxed whitespace-pre-wrap pt-3">{text}</p>
+        <div className={`mt-4 pt-4 border-t ${borderColor} text-xs font-mono text-white/50 leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto rounded-xl bg-black/40 p-4 border border-white/5`}>
+          <div className="flex justify-end mb-3">
+            <CopyButton text={text} />
+          </div>
+          {text}
         </div>
       )}
     </div>
@@ -425,7 +445,7 @@ export function MorningBriefingDetail({ brief }: { brief: MorningBriefingDetail 
     } else if (actualCarbs >= targetCarbs) {
       fuelingHeader = `${actualCarbs}g / ${targetCarbs}g carbs consumed (Fully Fueled!)`
     } else {
-      fuelingHeader = `${actualCarbs}g / ${targetCarbs}g carbs consumed (${targetCarbs - actualCarbs}g more to go)`
+      fuelingHeader = `${actualCarbs}g / ${targetCarbs}g carbs consumed (${Number((targetCarbs - actualCarbs).toFixed(1))}g more to go)`
     }
     
     return (
@@ -724,18 +744,18 @@ export function MorningBriefingDetail({ brief }: { brief: MorningBriefingDetail 
       )}
 
       {/* ── Tracking Prompts (collapsed, copy always visible) ────────────────*/}
-      {brief.workoutTrackingPrompt && (
+      {brief.workoutTrackingPrompt1 && (
         <TrackingPromptCard
           label="AM Workout Tracking Prompt"
-          text={brief.workoutTrackingPrompt}
+          text={brief.workoutTrackingPrompt1}
           isPm={false}
         />
       )}
 
-      {brief.workoutTrackingPromptPm && (
+      {brief.workoutTrackingPrompt2 && (
         <TrackingPromptCard
           label="PM Workout Tracking Prompt"
-          text={brief.workoutTrackingPromptPm}
+          text={brief.workoutTrackingPrompt2}
           isPm={true}
         />
       )}

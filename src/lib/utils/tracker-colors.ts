@@ -6,6 +6,7 @@ export const TRACKER_TYPE_COLORS: Record<TrackerType, string> = {
   workout: '#f97316',    // orange
   mood: '#a855f7',       // purple
   water: '#06b6d4',      // cyan
+  live_workout: '#f43f5e', // rose color
   custom: '#1E1E1E',     // default border color
 }
 

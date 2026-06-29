@@ -171,7 +171,7 @@ function FuelProgressBar({
           </span>
         ) : (
           <span className="text-white/40 flex items-center gap-1">
-            <XCircle size={10} /> {tgt - act}g Remaining
+            <XCircle size={10} /> {Number((tgt - act).toFixed(1))}g Remaining
           </span>
         )}
       </div>
@@ -221,8 +221,14 @@ export function EveningBriefingDetail({ brief }: { brief: EveningBriefingDetail 
                   <Dumbbell size={12} className="text-purple-400" /> {wl.session_name || 'Workout'}
                 </strong>
                 <div className="text-sm text-white/80 leading-relaxed pl-4">
-                  Duration: {wl.duration_min} mins | Avg HR: {wl.avg_hr || '—'} bpm | Zone 2: {Math.round(wl.zone2_min)}m | Zone 4: {Math.round(wl.zone4_min)}m
-                  {wl.notes && <p className="text-xs text-white/50 italic mt-1">Notes: {wl.notes}</p>}
+                  {wl.session_name === 'Live Workout Tracking' ? (
+                    wl.notes && <div className="text-xs text-white/70 whitespace-pre-wrap"><MarkdownBlock content={wl.notes} /></div>
+                  ) : (
+                    <>
+                      Duration: {wl.duration_min} mins | Avg HR: {wl.avg_hr || '—'} bpm | Zone 2: {Math.round(wl.zone2_min)}m | Zone 4: {Math.round(wl.zone4_min)}m
+                      {wl.notes && <p className="text-xs text-white/50 italic mt-1">Notes: {wl.notes}</p>}
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -232,7 +238,13 @@ export function EveningBriefingDetail({ brief }: { brief: EveningBriefingDetail 
                   <TrendingUp size={12} className="text-purple-400" /> {rl.session_name || 'Running'}
                 </strong>
                 <div className="text-sm text-white/80 leading-relaxed pl-4">
-                  Distance: {rl.distance_km} km | Duration: {rl.duration_min} mins | Pace: {rl.avg_pace_min_km || '—'} /km | Cadence: {rl.avg_cadence || '—'} rpm
+                  {rl.distance_km ? `Distance: ${rl.distance_km} km | ` : ''}Duration: {rl.duration_min} mins
+                  {rl.avg_pace_min_km ? ` | Pace: ${rl.avg_pace_min_km} /km` : ''}
+                  {rl.avg_cadence ? ` | Cadence: ${rl.avg_cadence} rpm` : ''}
+                  {rl.avg_hr ? ` | Avg HR: ${rl.avg_hr} bpm` : ''}
+                  {rl.max_hr ? ` | Max HR: ${rl.max_hr} bpm` : ''}
+                  {rl.vertical_oscillation ? ` | Oscillation: ${rl.vertical_oscillation} cm` : ''}
+                  {rl.ground_contact_time ? ` | GCT: ${rl.ground_contact_time} ms` : ''}
                   {rl.notes && <p className="text-xs text-white/50 italic mt-1">Notes: {rl.notes}</p>}
                 </div>
               </div>
@@ -435,12 +447,16 @@ export function EveningBriefingDetail({ brief }: { brief: EveningBriefingDetail 
                   <div key={idx} className="pb-3 border-b border-white/5 last:border-b-0">
                     <p className="font-bold text-white">{wl.session_name || 'Workout'}</p>
                     <p className="mt-1 text-white/50">Logged at {wl.logged_at.split('T')[1].substring(0, 5)}</p>
-                    <ul className="mt-2 space-y-1 pl-3 list-disc">
-                      <li>Duration: {wl.duration_min} mins</li>
-                      <li>Avg HR: {wl.avg_hr} bpm</li>
-                      <li>Zone 2: {wl.zone2_min} mins | Zone 4: {wl.zone4_min} mins</li>
-                      {wl.notes && <li className="italic">Notes: {wl.notes}</li>}
-                    </ul>
+                    {wl.session_name === 'Live Workout Tracking' ? (
+                      wl.notes && <div className="mt-2 text-white/70 whitespace-pre-wrap font-sans"><MarkdownBlock content={wl.notes} /></div>
+                    ) : (
+                      <ul className="mt-2 space-y-1 pl-3 list-disc">
+                        <li>Duration: {wl.duration_min} mins</li>
+                        <li>Avg HR: {wl.avg_hr} bpm</li>
+                        <li>Zone 2: {wl.zone2_min} mins | Zone 4: {wl.zone4_min} mins</li>
+                        {wl.notes && <li className="italic">Notes: {wl.notes}</li>}
+                      </ul>
+                    )}
                   </div>
                 ))}
                 {brief.runningLogs.map((rl, idx) => (
@@ -448,9 +464,19 @@ export function EveningBriefingDetail({ brief }: { brief: EveningBriefingDetail 
                     <p className="font-bold text-white">{rl.session_name || 'Run'}</p>
                     <p className="mt-1 text-white/50">Logged at {rl.logged_at.split('T')[1].substring(0, 5)}</p>
                     <ul className="mt-2 space-y-1 pl-3 list-disc">
-                      <li>Distance: {rl.distance_km} km</li>
+                      {rl.distance_km ? <li>Distance: {rl.distance_km} km</li> : null}
                       <li>Duration: {rl.duration_min} mins</li>
-                      <li>Pace: {rl.avg_pace_min_km} /km | Cadence: {rl.avg_cadence} rpm</li>
+                      {(rl.avg_pace_min_km || rl.avg_cadence) && (
+                        <li>
+                          {rl.avg_pace_min_km ? `Pace: ${rl.avg_pace_min_km} /km` : ''}
+                          {rl.avg_pace_min_km && rl.avg_cadence ? ' | ' : ''}
+                          {rl.avg_cadence ? `Cadence: ${rl.avg_cadence} rpm` : ''}
+                        </li>
+                      )}
+                      {rl.avg_hr && <li>Avg HR: {rl.avg_hr} bpm</li>}
+                      {rl.max_hr && <li>Max HR: {rl.max_hr} bpm</li>}
+                      {rl.vertical_oscillation && <li>Vertical Oscillation: {rl.vertical_oscillation} cm</li>}
+                      {rl.ground_contact_time && <li>Ground Contact Time: {rl.ground_contact_time} ms</li>}
                       {rl.notes && <li className="italic">Notes: {rl.notes}</li>}
                     </ul>
                   </div>

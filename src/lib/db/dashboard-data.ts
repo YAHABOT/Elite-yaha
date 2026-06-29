@@ -17,6 +17,7 @@ const TRACKER_TYPE_TO_COLOR: Record<string, string> = {
   workout: '#f97316',
   mood: '#a855f7',
   water: '#06b6d4',
+  live_workout: '#f43f5e',
   custom: '#6B7280', // fallback for custom trackers
 }
 

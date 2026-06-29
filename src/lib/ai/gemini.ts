@@ -72,7 +72,9 @@ export async function processHealthMessage(
   try {
     const model = getGenAI().getGenerativeModel({ 
       model: GEMINI_MODEL,
-      systemInstruction: systemPrompt
+      systemInstruction: systemPrompt,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ googleSearch: {} } as any]
     })
 
     const currentParts = buildParts(input)
@@ -108,7 +110,9 @@ export async function* streamHealthMessage(
   try {
     const model = getGenAI().getGenerativeModel({
       model: GEMINI_MODEL,
-      systemInstruction: systemPrompt
+      systemInstruction: systemPrompt,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ googleSearch: {} } as any]
     })
 
     const currentParts = buildParts(input)

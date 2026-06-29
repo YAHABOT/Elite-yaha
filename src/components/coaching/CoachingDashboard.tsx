@@ -8,7 +8,7 @@ type ReadinessData = {
   readiness_score: number | null
   readiness_color: string | null
   reasoning: string | null
-  workout_tracking_prompt: string | null
+  workout_tracking_prompt_1: string | null
   post_workout_verdict: string | null
   carb_compliance_score: number | null
 }
@@ -99,14 +99,14 @@ export default function CoachingDashboard({
       )}
 
       {/* Workout Tracking Prompt */}
-      {readinessData.workout_tracking_prompt && (
+      {readinessData.workout_tracking_prompt_1 && (
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 backdrop-blur-md shadow-[0_0_15px_rgba(59,130,246,0.1)]">
           <div className="flex items-center gap-2 mb-3">
             <Target className="w-4 h-4 text-blue-400" />
             <h3 className="text-xs font-black tracking-widest text-blue-400/90 uppercase">Action Required</h3>
           </div>
           <p className="text-sm text-blue-100/90 leading-relaxed font-medium">
-            {readinessData.workout_tracking_prompt}
+            {readinessData.workout_tracking_prompt_1}
           </p>
           <button className="mt-4 w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25">
             Log Workout <ArrowRight className="w-4 h-4" />

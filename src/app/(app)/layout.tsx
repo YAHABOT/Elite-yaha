@@ -6,6 +6,8 @@ import { FeedbackModal } from '@/components/feedback/FeedbackModal'
 import { getOnboardingState } from '@/lib/db/onboarding'
 import { OnboardingRoot } from '@/components/onboarding/OnboardingRoot'
 import { ONBOARDING_STEPS } from '@/components/onboarding/steps'
+import { getUser } from '@/lib/db/users'
+import { stopImpersonatingAction } from '@/app/actions/coaching'
 
 import { FloatingChat } from '@/components/chat/FloatingChat'
 
@@ -21,11 +23,23 @@ export default async function AppLayout({
     redirect('/login')
   }
 
+  // Access control check: redirect redlisted users
+  const userProfile = await getUser(user.id)
+  if (userProfile && userProfile.access_status === 'red') {
+    redirect('/blocked')
+  }
+
   let onboardingState = null
   try {
     onboardingState = await getOnboardingState(user.id)
   } catch {
     // Non-blocking — skip onboarding if DB error
+  }
+
+  async function handleExitBackdoor() {
+    'use server'
+    await stopImpersonatingAction()
+    redirect('/coachDB')
   }
 
   return (
@@ -34,7 +48,7 @@ export default async function AppLayout({
     // chaining. position:fixed + inset:0 pins the shell to exact viewport bounds regardless
     // of body height, making window scroll impossible.
     <div
-      className="fixed inset-0 overflow-hidden"
+      className="fixed inset-0 overflow-hidden flex flex-col"
       style={{
         backgroundColor: '#0b1a28',
         backgroundImage: `
@@ -47,13 +61,32 @@ export default async function AppLayout({
         backgroundAttachment: 'fixed',
       }}
     >
-      <DesktopSidebar user={{ email: user.email ?? null }} />
-      <MobileBottomNav />
-      {/* No padding here — (content)/layout.tsx adds padding for regular pages.
-          Chat pages use flex h-full and manage their own scroll internally. */}
-      <main className="md:pl-64 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0 h-full overflow-hidden">
-        {children}
-      </main>
+      {/* Impersonation Alert Banner */}
+      {(user as unknown as { isImpersonated?: boolean; alias?: string }).isImpersonated && (
+        <div className="bg-gradient-to-r from-red-600 to-amber-600 text-white text-[11px] font-black uppercase tracking-widest px-4 py-2.5 flex items-center justify-between z-50 border-b border-red-500/20 shadow-[0_4px_20px_rgba(239,68,68,0.2)] shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span>Backdoor Active: Impersonating {(user as unknown as { isImpersonated?: boolean; alias?: string }).alias?.toUpperCase() || 'CLIENT'}</span>
+          </div>
+          <form action={handleExitBackdoor}>
+            <button type="submit" className="bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-widest transition-all">
+              Exit Backdoor
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Main app container */}
+      <div className="flex-1 flex overflow-hidden relative min-h-0">
+        <DesktopSidebar user={{ email: user.email ?? null }} />
+        <MobileBottomNav />
+        {/* No padding here — (content)/layout.tsx adds padding for regular pages.
+            Chat pages use flex h-full and manage their own scroll internally. */}
+        <main className="flex-1 md:pl-64 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0 h-full overflow-hidden">
+          {children}
+        </main>
+      </div>
+
       <FloatingChat />
       <FeedbackModal />
       {onboardingState && (

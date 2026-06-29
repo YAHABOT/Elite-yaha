@@ -30,7 +30,7 @@ export async function updateAliasAction(
     if (trimmed.length > MAX_ALIAS_LENGTH) {
       return { error: `Alias must be ${MAX_ALIAS_LENGTH} characters or fewer.` }
     }
-    await upsertUserProfile({ alias: trimmed || undefined })
+    await upsertUserProfile({ alias: trimmed || null })
     const user = await getSafeUser()
     if (user) revalidateTag(`user-profile-${user.id}`)
     revalidatePath('/settings')
@@ -102,8 +102,8 @@ export async function saveSettingsAction(
     }
 
     await upsertUserProfile({
-      alias: alias || undefined,
-      telegram_handle: telegramHandle || undefined,
+      alias: alias || null,
+      telegram_handle: telegramHandle || null,
     })
 
     const user = await getSafeUser()

@@ -2,6 +2,7 @@ type ChatEventPayload = {
   action?: 'open' | 'minimize'
   sessionId?: string | null
   initialRoutineId?: string | null
+  initialPrompt?: string | null
 }
 
 type ChatEventListener = (payload: ChatEventPayload) => void
