@@ -13,6 +13,7 @@ type Props = {
   onMobileClose?: () => void
   onSessionSelect?: (sessionId: string) => void
   onNewChat?: () => void
+  onSessionsChange?: (sessions: ChatSession[]) => void
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -30,7 +31,7 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export function ChatSidebar({ sessions, currentSessionId, onMobileClose, onSessionSelect, onNewChat }: Props): React.ReactElement {
+export function ChatSidebar({ sessions, currentSessionId, onMobileClose, onSessionSelect, onNewChat, onSessionsChange }: Props): React.ReactElement {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
@@ -52,6 +53,9 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose, onSessi
     }
     const res = await renameSessionAction(id, editTitle.trim())
     if (res.success) {
+      if (onSessionsChange) {
+        onSessionsChange(sessions.map(s => s.id === id ? { ...s, title: editTitle.trim() } : s))
+      }
       setEditingId(null)
     }
   }
@@ -62,11 +66,26 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose, onSessi
     if (!confirm('Delete this conversation?')) return
 
     setIsDeleting(id)
-    const res = await deleteSessionAction(id)
-    if (res.success && id === currentSessionId) {
-      router.push('/chat')
+    try {
+      const res = await deleteSessionAction(id)
+      if (res.success) {
+        if (onSessionsChange) {
+          onSessionsChange(sessions.filter(s => s.id !== id))
+        }
+        if (id === currentSessionId && onNewChat) {
+          onNewChat()
+        } else if (id === currentSessionId) {
+          router.push('/chat')
+        }
+      } else {
+        alert(res.error || 'Failed to delete conversation')
+      }
+    } catch (err) {
+      console.error('Failed to delete conversation:', err)
+      alert(err instanceof Error ? err.message : 'Network error or action failed')
+    } finally {
+      setIsDeleting(null)
     }
-    setIsDeleting(null)
   }
 
   const toggleSelection = (id: string) => {
@@ -95,16 +114,29 @@ export function ChatSidebar({ sessions, currentSessionId, onMobileClose, onSessi
 
     setIsBulkDeleting(true)
     const ids = Array.from(selectedIds)
-    const res = await deleteSessionsAction(ids)
-    if (res.success) {
-      setIsSelectionMode(false)
-      setSelectedIds(new Set())
-      // If the current session was deleted, navigate away
-      if (currentSessionId && ids.includes(currentSessionId)) {
-        router.push('/chat')
+    try {
+      const res = await deleteSessionsAction(ids)
+      if (res.success) {
+        if (onSessionsChange) {
+          onSessionsChange(sessions.filter(s => !selectedIds.has(s.id)))
+        }
+        setIsSelectionMode(false)
+        setSelectedIds(new Set())
+        // If the current session was deleted, navigate away
+        if (currentSessionId && ids.includes(currentSessionId) && onNewChat) {
+          onNewChat()
+        } else if (currentSessionId && ids.includes(currentSessionId)) {
+          router.push('/chat')
+        }
+      } else {
+        alert(res.error || 'Failed to delete conversations')
       }
+    } catch (err) {
+      console.error('Failed to delete conversations:', err)
+      alert(err instanceof Error ? err.message : 'Network error or action failed')
+    } finally {
+      setIsBulkDeleting(false)
     }
-    setIsBulkDeleting(false)
   }
 
   const exitSelectionMode = () => {

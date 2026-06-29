@@ -1,3 +1,4 @@
+import { getSafeUser } from '@/lib/supabase/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import type { ChatSession, ChatMessage, CreateSessionInput, CreateMessageInput } from '@/types/chat'
 
@@ -14,24 +15,13 @@ const MESSAGE_COLUMNS = 'id, session_id, role, content, actions, attachments, cr
 
 export async function getSessions(): Promise<ChatSession[]> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Run cleanup synchronously BEFORE fetch so sidebar filters out deleted sessions.
-  // Use timeout to prevent blocking if cleanup is slow.
-  const { cleanupStaleTemporarySessions } = await import('@/lib/db/chat-cleanup')
-  const cleanupPromise = cleanupStaleTemporarySessions()
-  const cleanupWithTimeout = Promise.race([
-    cleanupPromise,
-    new Promise<Set<string>>(resolve => {
-      const timeout = setTimeout(() => resolve(new Set()), 2000)
-      cleanupPromise.then(ids => {
-        clearTimeout(timeout)
-        resolve(ids)
-      }).catch(() => resolve(new Set()))
-    })
-  ])
-  const deletedSessionIds = await cleanupWithTimeout
+  // Run cleanup asynchronously in the background so it doesn't block sidebar loading.
+  import('@/lib/db/chat-cleanup').then(({ cleanupStaleTemporarySessions }) => {
+    cleanupStaleTemporarySessions().catch(() => {})
+  }).catch(() => {})
 
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
 
@@ -44,15 +34,14 @@ export async function getSessions(): Promise<ChatSession[]> {
     .limit(SESSIONS_SIDEBAR_LIMIT)
 
   if (error) throw new Error(`Failed to fetch sessions: ${error.message}`)
-  // Filter out any sessions that were deleted in cleanup
-  const filtered = (data as ChatSession[]).filter(s => !deletedSessionIds.has(s.id))
-  return filtered
+  
+  return data as ChatSession[]
 }
 
 export async function getSession(id: string): Promise<ChatSession> {
   const start = Date.now()
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
@@ -69,7 +58,7 @@ export async function getSession(id: string): Promise<ChatSession> {
 
 export async function createSession(input?: CreateSessionInput): Promise<ChatSession> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   // Idempotency guard: for default "New Chat" sessions, reuse any session
@@ -108,7 +97,7 @@ export async function updateSession(
   updates: { title?: string; active_agent_id?: string | null; active_routine_id?: string | null; current_step_index?: number }
 ): Promise<ChatSession> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
@@ -126,46 +115,88 @@ export async function updateSession(
 export async function deleteSessions(ids: string[]): Promise<void> {
   if (ids.length === 0) return
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
+  const { data: { user: authUser } } = await supabase.auth.getUser()
+  console.log('[deleteSessions DB] user.id:', user.id, 'auth.uid():', authUser?.id, 'deleting ids:', ids)
+
+  // 1. Delete messages first to prevent cascaded delete RLS check failure on chat_messages
+  const { error: msgError } = await supabase
+    .from('chat_messages')
+    .delete()
+    .in('session_id', ids)
+
+  if (msgError) {
+    console.error('[deleteSessions DB] message delete error:', msgError)
+    throw new Error(`Failed to delete messages: ${msgError.message}`)
+  }
+
+  // 2. Delete the sessions
   const { error } = await supabase
     .from('chat_sessions')
     .delete()
     .in('id', ids)
     .eq('user_id', user.id)
 
-  if (error) throw new Error(`Failed to delete sessions: ${error.message}`)
+  if (error) {
+    console.error('[deleteSessions DB] session delete error:', error)
+    throw new Error(`Failed to delete sessions: ${error.message}`)
+  }
+  console.log('[deleteSessions DB] successfully deleted sessions:', ids)
 }
 
 export async function deleteSession(id: string): Promise<void> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Verify ownership before deletion (cascade handles messages via FK)
-  const { error: fetchError } = await supabase
+  const { data: { user: authUser } } = await supabase.auth.getUser()
+  console.log('[deleteSession DB] user.id:', user.id, 'auth.uid():', authUser?.id, 'deleting session:', id)
+
+  // Verify ownership before deletion
+  const { data: checkData, error: fetchError } = await supabase
     .from('chat_sessions')
-    .select('id')
+    .select('id, user_id')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
 
-  if (fetchError) throw new Error(`Failed to delete session: ${fetchError.message}`)
+  if (fetchError) {
+    console.error('[deleteSession DB] ownership check failed for:', id, 'error:', fetchError)
+    throw new Error(`Failed to delete session (ownership verify failed): ${fetchError.message}`)
+  }
+  console.log('[deleteSession DB] ownership verified. Row found:', checkData)
 
+  // 1. Delete messages first to prevent cascaded delete RLS check failure on chat_messages
+  const { error: msgError } = await supabase
+    .from('chat_messages')
+    .delete()
+    .eq('session_id', id)
+
+  if (msgError) {
+    console.error('[deleteSession DB] message delete error:', msgError)
+    throw new Error(`Failed to delete messages: ${msgError.message}`)
+  }
+
+  // 2. Delete the session
   const { error } = await supabase
     .from('chat_sessions')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)
 
-  if (error) throw new Error(`Failed to delete session: ${error.message}`)
+  if (error) {
+    console.error('[deleteSession DB] session delete error:', error)
+    throw new Error(`Failed to delete session: ${error.message}`)
+  }
+  console.log('[deleteSession DB] successfully deleted session:', id)
 }
 
 export async function getMessages(sessionId: string, paginationCursor?: string): Promise<{ messages: ChatMessage[]; nextCursor?: string }> {
   const start = Date.now()
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   // Verify session belongs to user before fetching messages
@@ -214,7 +245,7 @@ export async function getMessages(sessionId: string, paginationCursor?: string):
 
 export async function addMessage(input: CreateMessageInput): Promise<ChatMessage> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   // Verify session belongs to user before inserting message
@@ -263,7 +294,7 @@ export async function getChatHistoryPage(
   limit: number = 20  // Page size
 ): Promise<{ messages: ChatMessage[]; nextCursor?: string }> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   // Verify session belongs to user
@@ -312,7 +343,7 @@ export async function getChatHistoryPage(
  */
 export async function updateRoutineStep(sessionId: string, step: number | null): Promise<void> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   const { error } = await supabase
@@ -330,7 +361,7 @@ export async function getRecentMessagesForAI(
   filterDate?: string  // Optional: filter to only messages from this date (YYYY-MM-DD)
 ): Promise<ChatMessage[]> {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) throw new Error('Unauthorized')
 
   // Verify session belongs to user before fetching messages

@@ -1,4 +1,5 @@
 'use server'
+import { getSafeUser } from '@/lib/supabase/auth'
 
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
@@ -20,7 +21,7 @@ export async function confirmLogAction(
     }
 
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getSafeUser()
     if (!user) return { error: 'Unauthorized' }
 
     // Validate date format before constructing Date object to avoid Invalid Date throws
@@ -186,7 +187,7 @@ export async function updateLogAction(
     }
 
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getSafeUser()
     if (!user) return { error: 'Unauthorized' }
 
     // Verify the log belongs to the user by checking tracker ownership
@@ -292,7 +293,7 @@ export async function confirmCreateTrackerAction(
     if (!Array.isArray(card.schema)) return { error: 'Tracker schema is required' }
 
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getSafeUser()
     if (!user) return { error: 'Unauthorized' }
 
     // Duplicate guard — only blocks re-confirming the SAME card
@@ -365,23 +366,31 @@ export async function confirmCreateTrackerAction(
 
 export async function deleteSessionAction(id: string): Promise<{ success?: boolean; error?: string }> {
   try {
+    const user = await getSafeUser()
+    console.log('[deleteSessionAction] deleting session:', id, 'by user:', user?.id, 'email:', user?.email)
     const { deleteSession } = await import('@/lib/db/chat')
     await deleteSession(id)
+    console.log('[deleteSessionAction] deletion success for:', id)
     revalidatePath('/chat')
     return { success: true }
   } catch (e: unknown) {
+    console.error('[deleteSessionAction] error during deletion:', e)
     return { error: e instanceof Error ? e.message : String(e) }
   }
 }
 
 export async function deleteSessionsAction(ids: string[]): Promise<{ success?: boolean; error?: string }> {
   try {
+    const user = await getSafeUser()
+    console.log('[deleteSessionsAction] deleting sessions:', ids, 'by user:', user?.id, 'email:', user?.email)
     if (ids.length === 0) return { success: true }
     const { deleteSessions } = await import('@/lib/db/chat')
     await deleteSessions(ids)
+    console.log('[deleteSessionsAction] bulk deletion success')
     revalidatePath('/chat')
     return { success: true }
   } catch (e: unknown) {
+    console.error('[deleteSessionsAction] error during bulk deletion:', e)
     return { error: e instanceof Error ? e.message : String(e) }
   }
 }

@@ -1,3 +1,4 @@
+import { getSafeUser } from '@/lib/supabase/auth'
 import { createServerClient } from '@/lib/supabase/server'
 
 const DEFAULT_SESSION_TITLE = 'New Chat'
@@ -24,7 +25,7 @@ const CLEANUP_ROUTINE_HOURS = 24
 export async function cleanupStaleTemporarySessions(): Promise<Set<string>> {
   const deletedIds = new Set<string>()
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeUser()
   if (!user) return deletedIds
 
   const now = new Date()
@@ -84,6 +85,13 @@ export async function cleanupStaleTemporarySessions(): Promise<Set<string>> {
   console.log(`[cleanup] empty=${emptyStaleIds.length} withMessages=${withMessagesStaleIds.length} total=${staleIds.length}`)
 
   if (staleIds.length > 0) {
+    // 1. Delete messages first to prevent cascaded delete RLS check failure on chat_messages
+    await supabase
+      .from('chat_messages')
+      .delete()
+      .in('session_id', staleIds)
+
+    // 2. Delete the sessions
     const { error: deleteErr } = await supabase
       .from('chat_sessions')
       .delete()
@@ -106,6 +114,13 @@ export async function cleanupStaleTemporarySessions(): Promise<Set<string>> {
   const staleRoutineIds = (routineCandidates ?? []).map((r: { id: string }) => r.id)
 
   if (staleRoutineIds.length > 0) {
+    // 1. Delete messages first to prevent cascaded delete RLS check failure on chat_messages
+    await supabase
+      .from('chat_messages')
+      .delete()
+      .in('session_id', staleRoutineIds)
+
+    // 2. Delete the sessions
     await supabase.from('chat_sessions').delete().in('id', staleRoutineIds).eq('user_id', user.id)
     console.log(`[cleanup] routine deleted=${staleRoutineIds.length}`)
     staleRoutineIds.forEach((id: string) => deletedIds.add(id))
