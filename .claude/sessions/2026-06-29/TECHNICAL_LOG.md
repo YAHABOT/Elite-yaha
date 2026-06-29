@@ -35,3 +35,20 @@ When a client attempted to delete a parent session, the cascade delete on `chat_
 **How it will be prevented going forward:**
 1. **Be mindful of RLS joins on cascade deletions:** When defining foreign key relationships with `ON DELETE CASCADE` on tables protected by RLS policies that join back to the parent table, always perform deletions sequentially from children to parent in application logic.
 2. **Expose Server Action rejection paths in UI:** Ensure all server action calls in React components wrap execution in try-catch structures and handle rejected promises explicitly via user-facing alerts.
+
+---
+
+## Issue 3: Telegram Bot Token Exposure & Security Hardening
+**Root Cause:**
+The Telegram bot token was hardcoded directly in the Next.js server actions source code in `coaching.ts`. When pushed to GitHub, it triggered an automated secret leak alert because anyone with repository access could see it in git history.
+
+**Resolution:**
+1. Removed the hardcoded bot token string from [coaching.ts](file:///c:/Users/the--/Documents/Projects/health-fitness-os/yaha/src/app/actions/coaching.ts).
+2. Configured the server actions to read the bot token dynamically from the encrypted `TELEGRAM_BOT_TOKEN` environment variable (`process.env.TELEGRAM_BOT_TOKEN`).
+3. Added the new rotated token value to the Vercel production environment configuration via Vercel CLI.
+4. Swept the parent directory's helper scripts (`telegram_alerter.py`, `save_coaching_data.py`, `save_post_workout_data.py`, `save_weekly_audit.py`, and `notify_violetta_proposal.py`) and updated all hardcoded token references to use the new rotated token.
+5. Deployed the secure version to Vercel production and pushed commits to GitHub.
+
+**How it will be prevented going forward:**
+1. **Never hardcode secrets**: Always load API keys, bot tokens, and database passwords from environment variables (`process.env` in Next.js or `os.environ` in Python).
+2. **Setup pre-commit hooks**: Use toolings like `gitleaks` or similar pre-commit secret scanners to block any commit that contains pattern matches for standard secret tokens.
