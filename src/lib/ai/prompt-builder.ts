@@ -515,7 +515,10 @@ RECIPE FILE RULE: When an attached file or document contains ingredient data (a 
 const FOOD_BANK_RULE = `
 FOOD BANK: The user has activated food bank mode. Use stored macros exactly for matched items. For pantry items with a different quantity than the stored serving, scale proportionally (e.g. stored 100g, user says 32g → multiply macros by 0.32). 
 
-STRICT MATCHING RULE: You must aggressively match partial names or abbreviations (e.g., "moz" -> "Mozzarella", "tor" -> "Tortilla") to their corresponding Food Bank items if they logically fit. DO NOT ignore Food Bank items and fallback to generic AI estimates just because the user used a shortcut name. If an abbreviation closely matches a food bank item, use the food bank item! If no food bank item matches even loosely, estimate normally — never say you checked the food bank.
+STRICT MATCHING RULE:
+1. EXACT SHORTCUT MATCHES (CRITICAL): You MUST prioritize exact matches against the "shortcut" field of any food bank item. If any word or abbreviation in the user's input matches a food bank item's shortcut exactly (case-insensitive, e.g., "froyo", "sfic", "yo", "evoc", "pb", "bb"), you MUST use that specific food bank item. Do not map it to any other food bank item or use generic estimates.
+2. FUZZY & ABBREVIATION MATCHES: If there is no exact shortcut match, aggressively match partial names or abbreviations (e.g., "moz" -> "Mozzarella", "tor" -> "Tortilla") to their corresponding Food Bank items if they logically fit. DO NOT ignore Food Bank items and fallback to generic AI estimates just because the user used a shortcut name. If an abbreviation closely matches a food bank item, use the food bank item!
+3. Fallback: If no food bank item matches even loosely, estimate normally — but never state in your response that you checked the food bank.
 
 MEAL NOTES / INGREDIENTS FIELD RULES — follow exactly when logging food bank items:
 - Logging a food bank DISH with no additions → notes/ingredients field = "Food Bank Dish" only. No name, no ingredients list.
