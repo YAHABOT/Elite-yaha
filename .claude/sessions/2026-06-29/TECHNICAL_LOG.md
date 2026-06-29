@@ -67,7 +67,7 @@ The Telegram bot token was hardcoded directly in the Next.js server actions sour
    - Added `isFoodBankAttached` parameter to the prompt builder and modified [route.ts](file:///c:/Users/the--/Documents/Projects/health-fitness-os/yaha/src/app/api/chat/route.ts) to check if the food bank button was explicitly clicked and inject a high-priority system override prompt.
 2. **Added Fitness Field Mapping & Classification Instructions**:
    - Appended a dedicated `FITNESS & WORKOUT FIELD MAPPING & CLASSIFICATION` block in `prompt-builder.ts` specifying that structured metrics must NEVER be written to the Notes field if a dedicated field ID exists in the tracker schema.
-   - Defined rules for converting pace (MM:SS) to decimal minutes or duration seconds, mapping HR zone times, and mapping workout types to their respective trackers (`Running` vs. `Workout` / `Training`).
+   - Enforced natural formatting preservation: represent pace (e.g., `5:31` min/km) directly as a decimal (e.g., `5.31`) for number fields rather than converting to mathematical decimal minutes (like `5.52`) or total seconds. Represent duration zones (e.g., `23:40`) directly as strings (e.g., `"23:40"`) for duration fields so the UI displays them cleanly while the backend `actions.ts` converts them for storage. Also mapped workout types to their respective trackers (`Running` vs. `Workout` / `Training`).
 3. Deployed the updated Next.js application to Vercel production.
 
 **How it will be prevented going forward:**
