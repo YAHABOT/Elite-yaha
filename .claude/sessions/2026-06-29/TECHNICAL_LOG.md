@@ -52,3 +52,24 @@ The Telegram bot token was hardcoded directly in the Next.js server actions sour
 **How it will be prevented going forward:**
 1. **Never hardcode secrets**: Always load API keys, bot tokens, and database passwords from environment variables (`process.env` in Next.js or `os.environ` in Python).
 2. **Setup pre-commit hooks**: Use toolings like `gitleaks` or similar pre-commit secret scanners to block any commit that contains pattern matches for standard secret tokens.
+
+---
+
+## Issue 4: Food Bank Priority Mapping & Fitness Screenshot Miscategorization
+**Root Cause:**
+1. **Food Bank Mapping**: The AI was falling back to USDA database estimates for matched items like `Honey` and misaligning exact shortcuts (e.g. mapping `froyo` to `sfic` sugar-free ice cream) because food lookup rules in `prompt-builder.ts` didn't clearly declare absolute food bank precedence, and fuzzy semantic category matches were allowed to override exact shortcut matches.
+2. **Fitness Screenshot Mapping**: Detailed metrics (like `Training Load`, `Pace`, `Max HR`, and zones) from Garmin/fitbit/Apple health screenshots were being dumped as unparsed text strings in the Notes field instead of being logged directly to their dedicated schema fields, and runs were occasionally mapped to generic workout trackers instead of the specific `Running` tracker.
+
+**Resolution:**
+1. **Refactored Food Bank Matching**:
+   - Modified `STRICT MATCHING RULE` in [prompt-builder.ts](file:///c:/Users/the--/Documents/Projects/health-fitness-os/yaha/src/lib/ai/prompt-builder.ts) to enforce case-insensitive exact shortcut matching as the highest-priority step.
+   - Updated `FOOD_LOOKUP_RULE` to declare absolute food bank precedence over the USDA FoodData Central database.
+   - Added `isFoodBankAttached` parameter to the prompt builder and modified [route.ts](file:///c:/Users/the--/Documents/Projects/health-fitness-os/yaha/src/app/api/chat/route.ts) to check if the food bank button was explicitly clicked and inject a high-priority system override prompt.
+2. **Added Fitness Field Mapping & Classification Instructions**:
+   - Appended a dedicated `FITNESS & WORKOUT FIELD MAPPING & CLASSIFICATION` block in `prompt-builder.ts` specifying that structured metrics must NEVER be written to the Notes field if a dedicated field ID exists in the tracker schema.
+   - Defined rules for converting pace (MM:SS) to decimal minutes or duration seconds, mapping HR zone times, and mapping workout types to their respective trackers (`Running` vs. `Workout` / `Training`).
+3. Deployed the updated Next.js application to Vercel production.
+
+**How it will be prevented going forward:**
+1. **Enforce strict schema mapping rules in system prompts**: Ensure the prompt contains explicit instructions forbidding dumping structured data into text notes if dedicated tracker fields exist in the schema.
+2. **Precedence Hierarchy**: Always define clear priority chains in LLM prompts (e.g. Exact Shortcut > Food Bank Name Match > USDA Database > AI General Knowledge) to prevent the model from getting confused between overlapping instructions.
