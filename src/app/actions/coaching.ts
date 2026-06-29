@@ -1226,22 +1226,26 @@ export async function submitIntakeFormAction(data: IntakeFormData) {
   if (error) throw new Error(`Failed to submit: ${error.message}`)
 
   // Trigger Telegram Alert
-  const botToken = "8997931237:AAHseciqIoOTMiV8JamCcR6pUh5MeaNcouw"
+  const botToken = process.env.TELEGRAM_BOT_TOKEN
   const chatId = "2052083060"
   const messageText = `${athleteName} finished their intake form.\n\n<a href="https://elite-yaha.vercel.app/coachDB?impersonate=${user.id}">Click here to enter backdoor &rarr;</a>`
 
-  try {
-    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: messageText,
-        parse_mode: 'HTML'
+  if (botToken) {
+    try {
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: messageText,
+          parse_mode: 'HTML'
+        })
       })
-    })
-  } catch (e) {
-    console.error('Failed to send Telegram message:', e)
+    } catch (e) {
+      console.error('Failed to send Telegram message:', e)
+    }
+  } else {
+    console.error('TELEGRAM_BOT_TOKEN is not defined in environment variables')
   }
 
   return { success: true }
@@ -1451,37 +1455,41 @@ export async function submitWorkoutOverhaulApprovalAction(status: string, feedba
   }
 
   // Trigger Telegram Alerts to Coach (Armaan)
-  const botToken = "8997931237:AAHseciqIoOTMiV8JamCcR6pUh5MeaNcouw"
+  const botToken = process.env.TELEGRAM_BOT_TOKEN
   const armaanChatId = "2052083060"
 
-  if (status === 'Approved') {
-    try {
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: armaanChatId,
-          text: `✅ <b>Workout Overhaul Approved!</b>\n\nVioletta approved the proposed 3-week workout overhaul. The new periodized functional S&C & sled sessions are now live in the training calendar.`,
-          parse_mode: 'HTML'
+  if (botToken) {
+    if (status === 'Approved') {
+      try {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: armaanChatId,
+            text: `✅ <b>Workout Overhaul Approved!</b>\n\nVioletta approved the proposed 3-week workout overhaul. The new periodized functional S&C & sled sessions are now live in the training calendar.`,
+            parse_mode: 'HTML'
+          })
         })
-      })
-    } catch (e) {
-      console.error('Failed to notify Armaan:', e)
-    }
-  } else if (status === 'Approved-But') {
-    try {
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: armaanChatId,
-          text: `🔔 <b>Proposal Feedback Submitted!</b>\n\nVioletta approved the workout overhaul proposal <b>WITH suggested changes</b>:\n\n<pre>${feedback}</pre>\n\n<a href="https://elite-yaha.vercel.app/coaching/approvals">View feedback details &rarr;</a>`,
-          parse_mode: 'HTML'
+      } catch (e) {
+        console.error('Failed to notify Armaan:', e)
+      }
+    } else if (status === 'Approved-But') {
+      try {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: armaanChatId,
+            text: `🔔 <b>Proposal Feedback Submitted!</b>\n\nVioletta approved the workout overhaul proposal <b>WITH suggested changes</b>:\n\n<pre>${feedback}</pre>\n\n<a href="https://elite-yaha.vercel.app/coaching/approvals">View feedback details &rarr;</a>`,
+            parse_mode: 'HTML'
+          })
         })
-      })
-    } catch (e) {
-      console.error('Failed to notify Armaan:', e)
+      } catch (e) {
+        console.error('Failed to notify Armaan:', e)
+      }
     }
+  } else {
+    console.error('TELEGRAM_BOT_TOKEN is not defined in environment variables')
   }
 
   // If approved, update the 6 workouts in coaching_prescribed_workouts table
